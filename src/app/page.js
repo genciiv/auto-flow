@@ -292,6 +292,177 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <section id="pricing" className="bg-white py-24">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-sm font-bold uppercase tracking-widest text-blue-600">
+              Çmimet
+            </p>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">
+              Plane të thjeshta për çdo servis.
+            </h2>
+            <p className="mt-5 text-lg text-slate-600">
+              Fillo thjeshtë dhe rrite platformën bashkë me biznesin.
+            </p>
+          </div>
+
+          <div className="mt-16 grid gap-6 lg:grid-cols-3">
+            {[
+              [
+                "Starter",
+                "20€",
+                "Për servise të vogla",
+                [
+                  "Klientë & automjete",
+                  "Shërbime",
+                  "Fatura bazë",
+                  "Magazinë e thjeshtë",
+                ],
+              ],
+              [
+                "Professional",
+                "50€",
+                "Për servise në rritje",
+                [
+                  "Çdo gjë te Starter",
+                  "Punonjës",
+                  "Raporte",
+                  "Njoftime",
+                  "Marketplace",
+                ],
+              ],
+              [
+                "Enterprise",
+                "Custom",
+                "Për rrjete servisesh",
+                [
+                  "Role të avancuara",
+                  "Multi-branch",
+                  "Integrime",
+                  "Support prioritar",
+                ],
+              ],
+            ].map((plan, index) => (
+              <div
+                key={plan[0]}
+                className={`rounded-[2rem] border p-8 ${
+                  index === 1
+                    ? "border-blue-600 bg-blue-600 text-white shadow-2xl shadow-blue-600/20"
+                    : "border-slate-200 bg-white text-slate-950 shadow-sm"
+                }`}
+              >
+                <h3 className="text-2xl font-bold">{plan[0]}</h3>
+                <p
+                  className={`mt-3 ${index === 1 ? "text-blue-100" : "text-slate-500"}`}
+                >
+                  {plan[2]}
+                </p>
+
+                <div className="mt-8 flex items-end gap-2">
+                  <span className="text-5xl font-bold">{plan[1]}</span>
+                  {plan[1] !== "Custom" && (
+                    <span
+                      className={
+                        index === 1 ? "text-blue-100" : "text-slate-500"
+                      }
+                    >
+                      /muaj
+                    </span>
+                  )}
+                </div>
+
+                <ul className="mt-8 space-y-4">
+                  {plan[3].map((item) => (
+                    <li key={item} className="flex gap-3">
+                      <span>✓</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  className={`mt-8 w-full rounded-full px-6 py-4 text-sm font-bold ${
+                    index === 1
+                      ? "bg-white text-blue-600 hover:bg-blue-50"
+                      : "bg-slate-950 text-white hover:bg-slate-800"
+                  }`}
+                >
+                  Zgjidh planin
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-50 py-24">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="text-center">
+            <p className="text-sm font-bold uppercase tracking-widest text-blue-600">
+              FAQ
+            </p>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight text-slate-950">
+              Pyetje të shpeshta
+            </h2>
+          </div>
+
+          <div className="mt-12 space-y-4">
+            {[
+              [
+                "A është AutoFlow vetëm për servise?",
+                "Jo. Platforma është për servise, gomisteri, lavazhe, autoelektrikë, dyqane pjesësh dhe biznese automotive.",
+              ],
+              [
+                "A mund të shtoj shërbimet e mia?",
+                "Po. Çdo biznes mund të krijojë shërbimet, çmimet dhe paketat e veta.",
+              ],
+              [
+                "A ka magazinë për pjesët?",
+                "Po. Çdo servis ka magazinën e vet dhe stoku përditësohet automatikisht kur përdoret një pjesë.",
+              ],
+              [
+                "A do ketë marketplace?",
+                "Po. Marketplace do të ketë pjesë këmbimi, makina, motorë, vegla dhe pajisje.",
+              ],
+            ].map(([question, answer]) => (
+              <div
+                key={question}
+                className="rounded-3xl border border-slate-200 bg-white p-6"
+              >
+                <h3 className="font-bold text-slate-950">{question}</h3>
+                <p className="mt-3 leading-7 text-slate-600">{answer}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <footer id="contact" className="border-t border-slate-200 bg-white py-12">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-slate-950">AutoFlow</h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Platforma moderne për industrinë automotive në Shqipëri.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-5 text-sm font-medium text-slate-600">
+            <a href="#features" className="hover:text-slate-950">
+              Features
+            </a>
+            <a href="#marketplace" className="hover:text-slate-950">
+              Marketplace
+            </a>
+            <a href="#pricing" className="hover:text-slate-950">
+              Pricing
+            </a>
+            <a href="mailto:info@autoflow.al" className="hover:text-slate-950">
+              info@autoflow.al
+            </a>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
