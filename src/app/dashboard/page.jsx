@@ -7,7 +7,7 @@ import AiAssistantWidget from "@/components/dashboard/AiAssistantWidget";
 import RecentServices from "@/components/dashboard/RecentServices";
 import CalendarWidget from "@/components/dashboard/CalendarWidget";
 
-import ActivityFeed from "@/components/dashboard/ActivityFeed";
+import ActivityTimeline from "@/components/dashboard/ActivityTimeline";
 import InventoryAlerts from "@/components/dashboard/InventoryAlerts";
 
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -46,7 +46,7 @@ export default function DashboardPage() {
 
         {/* Activity + Inventory */}
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <ActivityFeed />
+          <ActivityTimeline />
           <InventoryAlerts />
         </div>
 
