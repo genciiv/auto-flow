@@ -1,3 +1,6 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Calendar,
@@ -19,7 +22,7 @@ const sidebarGroups = [
   {
     title: "Main",
     items: [
-      { name: "Dashboard", icon: Home, href: "/dashboard", active: true },
+      { name: "Dashboard", icon: Home, href: "/dashboard" },
       { name: "Klientët", icon: Users, href: "/dashboard/customers" },
       { name: "Automjetet", icon: Car, href: "/dashboard/vehicles" },
     ],
@@ -57,6 +60,8 @@ const sidebarGroups = [
 ];
 
 export default function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-72 overflow-y-auto border-r border-slate-200 bg-white p-5 lg:block">
       <div className="mb-6 flex items-center gap-3 px-2">
@@ -65,7 +70,9 @@ export default function Sidebar() {
         </div>
 
         <div>
-          <p className="text-lg font-bold tracking-tight">AutoFlow</p>
+          <p className="text-lg font-bold tracking-tight text-slate-950">
+            AutoFlow
+          </p>
           <p className="text-xs font-medium text-slate-500">Service OS</p>
         </div>
       </div>
@@ -78,6 +85,7 @@ export default function Sidebar() {
             key={group.title}
             title={group.title}
             items={group.items}
+            pathname={pathname}
           />
         ))}
       </nav>
