@@ -2,8 +2,41 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ServiceStats from "@/components/services/ServiceStats";
 import ServiceFilters from "@/components/services/ServiceFilters";
 import ServicesTable from "@/components/services/ServicesTable";
+import { db } from "@/lib/db";
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const services = await db.serviceRecord.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      vehicle: true,
+      business: true,
+    },
+  });
+
+  const activeServices = services.filter(
+    (service) => service.status === "IN_PROGRESS",
+  ).length;
+
+  const pendingServices = services.filter(
+    (service) => service.status === "PENDING",
+  ).length;
+
+  const completedServices = services.filter(
+    (service) => service.status === "COMPLETED",
+  ).length;
+
+  const totalRevenue = services.reduce(
+    (sum, service) => sum + Number(service.total || 0),
+    0,
+  );
+
+  const stats = {
+    activeServices,
+    pendingServices,
+    completedServices,
+    totalRevenue,
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -23,9 +56,9 @@ export default function ServicesPage() {
           </button>
         </div>
 
-        <ServiceStats />
+        <ServiceStats stats={stats} />
         <ServiceFilters />
-        <ServicesTable />
+        <ServicesTable services={services} />
       </div>
     </DashboardLayout>
   );
