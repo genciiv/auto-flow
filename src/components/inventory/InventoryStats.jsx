@@ -1,16 +1,32 @@
-import { AlertTriangle, Boxes, PackageCheck, TrendingUp } from "lucide-react";
+import { AlertTriangle, Boxes, Package, Wallet } from "lucide-react";
 
-const stats = [
-  { title: "Total pjesë", value: "1,284", icon: Boxes },
-  { title: "Në stok", value: "1,126", icon: PackageCheck },
-  { title: "Stok i ulët", value: "23", icon: AlertTriangle },
-  { title: "Vlera magazine", value: "€42,800", icon: TrendingUp },
-];
+export default function InventoryStats({ stats }) {
+  const items = [
+    {
+      title: "Pjesë totale",
+      value: stats.totalParts,
+      icon: Package,
+    },
+    {
+      title: "Stok total",
+      value: stats.totalStock,
+      icon: Boxes,
+    },
+    {
+      title: "Stok i ulët",
+      value: stats.lowStock,
+      icon: AlertTriangle,
+    },
+    {
+      title: "Vlera e inventarit",
+      value: `${stats.inventoryValue.toFixed(0)} Lek`,
+      icon: Wallet,
+    },
+  ];
 
-export default function InventoryStats() {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-      {stats.map((stat) => {
+      {items.map((stat) => {
         const Icon = stat.icon;
 
         return (

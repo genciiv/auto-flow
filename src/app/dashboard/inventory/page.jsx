@@ -2,8 +2,32 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InventoryStats from "@/components/inventory/InventoryStats";
 import InventoryFilters from "@/components/inventory/InventoryFilters";
 import InventoryTable from "@/components/inventory/InventoryTable";
+import { db } from "@/lib/db";
 
-export default function InventoryPage() {
+export default async function InventoryPage() {
+  const parts = await db.part.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+
+  const totalParts = parts.length;
+  const lowStock = parts.filter((part) => part.stock <= part.minStock).length;
+  const totalStock = parts.reduce(
+    (sum, part) => sum + Number(part.stock || 0),
+    0,
+  );
+
+  const inventoryValue = parts.reduce(
+    (sum, part) => sum + Number(part.stock || 0) * Number(part.buyPrice || 0),
+    0,
+  );
+
+  const stats = {
+    totalParts,
+    lowStock,
+    totalStock,
+    inventoryValue,
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -14,7 +38,7 @@ export default function InventoryPage() {
               Magazina
             </h1>
             <p className="mt-2 text-slate-500">
-              Menaxho pjesët, stokun, çmimet, furnitorët dhe sinjalizimet.
+              Menaxho pjesët, stokun, furnitorët dhe vlerën e inventarit.
             </p>
           </div>
 
@@ -23,9 +47,9 @@ export default function InventoryPage() {
           </button>
         </div>
 
-        <InventoryStats />
+        <InventoryStats stats={stats} />
         <InventoryFilters />
-        <InventoryTable />
+        <InventoryTable parts={parts} />
       </div>
     </DashboardLayout>
   );
