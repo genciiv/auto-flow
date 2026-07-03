@@ -1,16 +1,32 @@
-import { Calendar, CheckCircle2, Clock3, Users } from "lucide-react";
+import { Calendar, CheckCircle2, Clock3, Wrench } from "lucide-react";
 
-const stats = [
-  { title: "Termine sot", value: "18", icon: Calendar },
-  { title: "Në pritje", value: "6", icon: Clock3 },
-  { title: "Konfirmuara", value: "42", icon: CheckCircle2 },
-  { title: "Klientë këtë javë", value: "86", icon: Users },
-];
+export default function AppointmentStats({ stats }) {
+  const items = [
+    {
+      title: "Total termine",
+      value: stats.totalAppointments,
+      icon: Calendar,
+    },
+    {
+      title: "Në pritje",
+      value: stats.pendingAppointments,
+      icon: Clock3,
+    },
+    {
+      title: "Në proces",
+      value: stats.inProgressAppointments,
+      icon: Wrench,
+    },
+    {
+      title: "Përfunduara",
+      value: stats.completedAppointments,
+      icon: CheckCircle2,
+    },
+  ];
 
-export default function AppointmentStats() {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-      {stats.map((stat) => {
+      {items.map((stat) => {
         const Icon = stat.icon;
 
         return (

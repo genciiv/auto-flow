@@ -2,8 +2,37 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import AppointmentStats from "@/components/appointments/AppointmentStats";
 import AppointmentFilters from "@/components/appointments/AppointmentFilters";
 import AppointmentsTable from "@/components/appointments/AppointmentsTable";
+import { db } from "@/lib/db";
 
-export default function AppointmentsPage() {
+export default async function AppointmentsPage() {
+  const appointments = await db.appointment.findMany({
+    orderBy: { date: "asc" },
+    include: {
+      vehicle: true,
+      business: true,
+    },
+  });
+
+  const totalAppointments = appointments.length;
+  const pendingAppointments = appointments.filter(
+    (appointment) => appointment.status === "PENDING",
+  ).length;
+
+  const inProgressAppointments = appointments.filter(
+    (appointment) => appointment.status === "IN_PROGRESS",
+  ).length;
+
+  const completedAppointments = appointments.filter(
+    (appointment) => appointment.status === "COMPLETED",
+  ).length;
+
+  const stats = {
+    totalAppointments,
+    pendingAppointments,
+    inProgressAppointments,
+    completedAppointments,
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -14,7 +43,7 @@ export default function AppointmentsPage() {
               Terminet
             </h1>
             <p className="mt-2 text-slate-500">
-              Menaxho rezervimet, oraret dhe statuset e termineve të servisit.
+              Menaxho rezervimet, servisët e planifikuar dhe statuset e tyre.
             </p>
           </div>
 
@@ -23,9 +52,9 @@ export default function AppointmentsPage() {
           </button>
         </div>
 
-        <AppointmentStats />
+        <AppointmentStats stats={stats} />
         <AppointmentFilters />
-        <AppointmentsTable />
+        <AppointmentsTable appointments={appointments} />
       </div>
     </DashboardLayout>
   );
