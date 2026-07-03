@@ -2,17 +2,32 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
 import InvoiceFilters from "@/components/invoices/InvoiceFilters";
 import InvoicesTable from "@/components/invoices/InvoicesTable";
+import CreateInvoiceModal from "@/components/invoices/CreateInvoiceModal";
 import { db } from "@/lib/db";
 
 export default async function InvoicesPage() {
-  const invoices = await db.invoice.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      customer: true,
-      vehicle: true,
-      service: true,
-    },
-  });
+  const [invoices, customers, vehicles, services] = await Promise.all([
+    db.invoice.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        customer: true,
+        vehicle: true,
+        service: true,
+      },
+    }),
+    db.customer.findMany({
+      orderBy: { name: "asc" },
+    }),
+    db.vehicle.findMany({
+      orderBy: { plate: "asc" },
+    }),
+    db.serviceRecord.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        vehicle: true,
+      },
+    }),
+  ]);
 
   const totalInvoices = invoices.length;
   const paidInvoices = invoices.filter(
@@ -47,9 +62,11 @@ export default async function InvoicesPage() {
             </p>
           </div>
 
-          <button className="rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
-            Krijo faturë
-          </button>
+          <CreateInvoiceModal
+            customers={customers}
+            vehicles={vehicles}
+            services={services}
+          />
         </div>
 
         <InvoiceStats stats={stats} />
