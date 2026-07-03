@@ -2,8 +2,37 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
 import InvoiceFilters from "@/components/invoices/InvoiceFilters";
 import InvoicesTable from "@/components/invoices/InvoicesTable";
+import { db } from "@/lib/db";
 
-export default function InvoicesPage() {
+export default async function InvoicesPage() {
+  const invoices = await db.invoice.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      customer: true,
+      vehicle: true,
+      service: true,
+    },
+  });
+
+  const totalInvoices = invoices.length;
+  const paidInvoices = invoices.filter(
+    (invoice) => invoice.status === "PAID",
+  ).length;
+  const pendingInvoices = invoices.filter(
+    (invoice) => invoice.status === "UNPAID" || invoice.status === "DRAFT",
+  ).length;
+
+  const totalRevenue = invoices
+    .filter((invoice) => invoice.status === "PAID")
+    .reduce((sum, invoice) => sum + Number(invoice.total || 0), 0);
+
+  const stats = {
+    totalInvoices,
+    paidInvoices,
+    pendingInvoices,
+    totalRevenue,
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -23,9 +52,9 @@ export default function InvoicesPage() {
           </button>
         </div>
 
-        <InvoiceStats />
+        <InvoiceStats stats={stats} />
         <InvoiceFilters />
-        <InvoicesTable />
+        <InvoicesTable invoices={invoices} />
       </div>
     </DashboardLayout>
   );

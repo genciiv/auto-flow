@@ -1,16 +1,20 @@
 import { BadgeEuro, CheckCircle2, Clock3, FileText } from "lucide-react";
 
-const stats = [
-  { title: "Total fatura", value: "428", icon: FileText },
-  { title: "Të paguara", value: "364", icon: CheckCircle2 },
-  { title: "Në pritje", value: "42", icon: Clock3 },
-  { title: "Të ardhura", value: "€32,480", icon: BadgeEuro },
-];
+export default function InvoiceStats({ stats }) {
+  const items = [
+    { title: "Total fatura", value: stats.totalInvoices, icon: FileText },
+    { title: "Të paguara", value: stats.paidInvoices, icon: CheckCircle2 },
+    { title: "Në pritje", value: stats.pendingInvoices, icon: Clock3 },
+    {
+      title: "Të ardhura",
+      value: `€${stats.totalRevenue.toFixed(0)}`,
+      icon: BadgeEuro,
+    },
+  ];
 
-export default function InvoiceStats() {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-      {stats.map((stat) => {
+      {items.map((stat) => {
         const Icon = stat.icon;
 
         return (
