@@ -2,6 +2,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InventoryStats from "@/components/inventory/InventoryStats";
 import InventoryFilters from "@/components/inventory/InventoryFilters";
 import InventoryTable from "@/components/inventory/InventoryTable";
+import CreatePartModal from "@/components/inventory/CreatePartModal";
 import { db } from "@/lib/db";
 
 export default async function InventoryPage() {
@@ -42,9 +43,7 @@ export default async function InventoryPage() {
             </p>
           </div>
 
-          <button className="rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
-            Shto pjesë
-          </button>
+          <CreatePartModal />
         </div>
 
         <InventoryStats stats={stats} />
