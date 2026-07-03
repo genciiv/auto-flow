@@ -2,6 +2,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CustomerStats from "@/components/customers/CustomerStats";
 import CustomerFilters from "@/components/customers/CustomerFilters";
 import CustomersTable from "@/components/customers/CustomersTable";
+import CreateCustomerModal from "@/components/customers/CreateCustomerModal";
 import { db } from "@/lib/db";
 
 export default async function CustomersPage() {
@@ -53,9 +54,7 @@ export default async function CustomersPage() {
             </p>
           </div>
 
-          <button className="rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
-            Shto klient
-          </button>
+          <CreateCustomerModal />
         </div>
 
         <CustomerStats stats={stats} />
