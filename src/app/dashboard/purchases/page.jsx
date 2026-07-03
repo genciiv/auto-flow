@@ -2,8 +2,43 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import PurchaseStats from "@/components/purchases/PurchaseStats";
 import PurchaseFilters from "@/components/purchases/PurchaseFilters";
 import PurchasesTable from "@/components/purchases/PurchasesTable";
+import { db } from "@/lib/db";
 
-export default function PurchasesPage() {
+export default async function PurchasesPage() {
+  const purchases = await db.purchaseOrder.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      items: true,
+      business: true,
+    },
+  });
+
+  const totalOrders = purchases.length;
+  const pendingOrders = purchases.filter(
+    (purchase) => purchase.status === "PENDING",
+  ).length;
+
+  const orderedOrders = purchases.filter(
+    (purchase) => purchase.status === "ORDERED",
+  ).length;
+
+  const receivedOrders = purchases.filter(
+    (purchase) => purchase.status === "RECEIVED",
+  ).length;
+
+  const totalValue = purchases.reduce(
+    (sum, purchase) => sum + Number(purchase.total || 0),
+    0,
+  );
+
+  const stats = {
+    totalOrders,
+    pendingOrders,
+    orderedOrders,
+    receivedOrders,
+    totalValue,
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -23,9 +58,9 @@ export default function PurchasesPage() {
           </button>
         </div>
 
-        <PurchaseStats />
+        <PurchaseStats stats={stats} />
         <PurchaseFilters />
-        <PurchasesTable />
+        <PurchasesTable purchases={purchases} />
       </div>
     </DashboardLayout>
   );

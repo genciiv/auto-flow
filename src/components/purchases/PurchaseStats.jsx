@@ -1,16 +1,16 @@
 import { CheckCircle2, Clock3, Package, Truck } from "lucide-react";
 
-const stats = [
-  { title: "Porosi totale", value: "186", icon: Package },
-  { title: "Në pritje", value: "24", icon: Clock3 },
-  { title: "Në transport", value: "12", icon: Truck },
-  { title: "Të përfunduara", value: "150", icon: CheckCircle2 },
-];
+export default function PurchaseStats({ stats }) {
+  const items = [
+    { title: "Porosi totale", value: stats.totalOrders, icon: Package },
+    { title: "Në pritje", value: stats.pendingOrders, icon: Clock3 },
+    { title: "Të porositura", value: stats.orderedOrders, icon: Truck },
+    { title: "Të marra", value: stats.receivedOrders, icon: CheckCircle2 },
+  ];
 
-export default function PurchaseStats() {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-      {stats.map((stat) => {
+      {items.map((stat) => {
         const Icon = stat.icon;
 
         return (
