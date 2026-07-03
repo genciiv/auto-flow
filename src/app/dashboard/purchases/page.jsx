@@ -2,6 +2,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import PurchaseStats from "@/components/purchases/PurchaseStats";
 import PurchaseFilters from "@/components/purchases/PurchaseFilters";
 import PurchasesTable from "@/components/purchases/PurchasesTable";
+import CreatePurchaseModal from "@/components/purchases/CreatePurchaseModal";
 import { db } from "@/lib/db";
 
 export default async function PurchasesPage() {
@@ -53,9 +54,7 @@ export default async function PurchasesPage() {
             </p>
           </div>
 
-          <button className="rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
-            Krijo porosi
-          </button>
+          <CreatePurchaseModal />
         </div>
 
         <PurchaseStats stats={stats} />
