@@ -2,17 +2,23 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VehicleStats from "@/components/vehicles/VehicleStats";
 import VehicleFilters from "@/components/vehicles/VehicleFilters";
 import VehiclesTable from "@/components/vehicles/VehiclesTable";
+import CreateVehicleModal from "@/components/vehicles/CreateVehicleModal";
 import { db } from "@/lib/db";
 
 export default async function VehiclesPage() {
-  const vehicles = await db.vehicle.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      customer: true,
-      services: true,
-      invoices: true,
-    },
-  });
+  const [vehicles, customers] = await Promise.all([
+    db.vehicle.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        customer: true,
+        services: true,
+        invoices: true,
+      },
+    }),
+    db.customer.findMany({
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   const totalVehicles = vehicles.length;
   const inService = vehicles.filter((vehicle) =>
@@ -48,9 +54,7 @@ export default async function VehiclesPage() {
             </p>
           </div>
 
-          <button className="rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
-            Shto automjet
-          </button>
+          <CreateVehicleModal customers={customers} />
         </div>
 
         <VehicleStats stats={stats} />
