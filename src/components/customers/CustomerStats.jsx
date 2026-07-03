@@ -1,16 +1,32 @@
 import { Car, TrendingUp, UserCheck, Users } from "lucide-react";
 
-const stats = [
-  { title: "Total klientë", value: "1,248", icon: Users },
-  { title: "Klientë aktivë", value: "846", icon: UserCheck },
-  { title: "Automjete", value: "2,410", icon: Car },
-  { title: "Rritje mujore", value: "+12%", icon: TrendingUp },
-];
+export default function CustomerStats({ stats }) {
+  const items = [
+    {
+      title: "Total klientë",
+      value: stats.totalCustomers,
+      icon: Users,
+    },
+    {
+      title: "Klientë aktivë",
+      value: stats.activeCustomers,
+      icon: UserCheck,
+    },
+    {
+      title: "Automjete",
+      value: stats.totalVehicles,
+      icon: Car,
+    },
+    {
+      title: "Shpenzuar total",
+      value: `€${stats.totalSpent.toFixed(0)}`,
+      icon: TrendingUp,
+    },
+  ];
 
-export default function CustomerStats() {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-      {stats.map((stat) => {
+      {items.map((stat) => {
         const Icon = stat.icon;
 
         return (

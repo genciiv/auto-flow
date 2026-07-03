@@ -2,8 +2,43 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CustomerStats from "@/components/customers/CustomerStats";
 import CustomerFilters from "@/components/customers/CustomerFilters";
 import CustomersTable from "@/components/customers/CustomersTable";
+import { db } from "@/lib/db";
 
-export default function CustomersPage() {
+export default async function CustomersPage() {
+  const customers = await db.customer.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      vehicles: true,
+      invoices: true,
+    },
+  });
+
+  const totalCustomers = customers.length;
+  const activeCustomers = customers.filter(
+    (customer) => customer.vehicles.length > 0 || customer.invoices.length > 0,
+  ).length;
+
+  const totalVehicles = customers.reduce(
+    (sum, customer) => sum + customer.vehicles.length,
+    0,
+  );
+
+  const totalSpent = customers.reduce((sum, customer) => {
+    const customerSpent = customer.invoices.reduce(
+      (invoiceSum, invoice) => invoiceSum + Number(invoice.total || 0),
+      0,
+    );
+
+    return sum + customerSpent;
+  }, 0);
+
+  const stats = {
+    totalCustomers,
+    activeCustomers,
+    totalVehicles,
+    totalSpent,
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -23,9 +58,9 @@ export default function CustomersPage() {
           </button>
         </div>
 
-        <CustomerStats />
+        <CustomerStats stats={stats} />
         <CustomerFilters />
-        <CustomersTable />
+        <CustomersTable customers={customers} />
       </div>
     </DashboardLayout>
   );
