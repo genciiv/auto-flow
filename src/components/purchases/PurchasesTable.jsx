@@ -1,4 +1,7 @@
 import PurchaseRowActions from "@/components/purchases/PurchaseRowActions";
+import AddPurchaseItemModal from "@/components/purchases/AddPurchaseItemModal";
+import ReceivePurchaseButton from "@/components/purchases/ReceivePurchaseButton";
+import PurchaseItemsList from "@/components/purchases/PurchaseItemsList";
 
 export default function PurchasesTable({ purchases }) {
   return (
@@ -61,7 +64,7 @@ export default function PurchasesTable({ purchases }) {
                     </td>
 
                     <td className="px-6 py-5 text-sm text-slate-600">
-                      {itemsLabel}
+                      <PurchaseItemsList items={purchase.items} />
                     </td>
 
                     <td className="px-6 py-5 text-sm font-medium text-slate-600">
@@ -98,7 +101,14 @@ export default function PurchasesTable({ purchases }) {
 
                     <td className="px-6 py-5">
                       <div className="flex justify-end">
-                        <PurchaseRowActions />
+                        <div className="flex justify-end gap-2">
+                          <AddPurchaseItemModal purchaseOrderId={purchase.id} />
+                          <ReceivePurchaseButton
+                            purchaseOrderId={purchase.id}
+                            disabled={purchase.status === "RECEIVED"}
+                          />
+                          <PurchaseRowActions />
+                        </div>
                       </div>
                     </td>
                   </tr>
