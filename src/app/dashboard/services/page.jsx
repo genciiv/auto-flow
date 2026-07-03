@@ -6,16 +6,26 @@ import CreateServiceModal from "@/components/services/CreateServiceModal";
 import { db } from "@/lib/db";
 
 export default async function ServicesPage() {
-  const [services, vehicles] = await Promise.all([
+  const [services, vehicles, parts] = await Promise.all([
     db.serviceRecord.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         vehicle: true,
         business: true,
+        partsUsed: {
+          include: {
+            part: true,
+          },
+        },
       },
     }),
+
     db.vehicle.findMany({
       orderBy: { plate: "asc" },
+    }),
+
+    db.part.findMany({
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -62,7 +72,7 @@ export default async function ServicesPage() {
 
         <ServiceStats stats={stats} />
         <ServiceFilters />
-        <ServicesTable services={services} />
+        <ServicesTable services={services} parts={parts} />
       </div>
     </DashboardLayout>
   );

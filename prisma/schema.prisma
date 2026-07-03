@@ -132,7 +132,8 @@ model ServiceRecord {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   vehicle  Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
-  invoice Invoice?
+  invoice   Invoice?
+  partsUsed ServicePartUsage[]
 }
 
 model Appointment {
@@ -163,7 +164,8 @@ model Part {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business      Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  serviceUsages ServicePartUsage[]
 }
 
 model PurchaseOrder {
@@ -189,6 +191,21 @@ model PurchaseOrderItem {
   total           Float  @default(0)
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+}
+
+model ServicePartUsage {
+  id        String   @id @default(cuid())
+  serviceId String
+  partId    String
+  quantity  Int      @default(1)
+  unitPrice Float    @default(0)
+  total     Float    @default(0)
+  createdAt DateTime @default(now())
+
+  service ServiceRecord @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  part    Part          @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, partId])
 }
 
 model Invoice {

@@ -1,6 +1,8 @@
 import ServiceRowActions from "@/components/services/ServiceRowActions";
+import AddServicePartModal from "@/components/services/AddServicePartModal";
+import ServicePartsList from "@/components/services/ServicePartsList";
 
-export default function ServicesTable({ services }) {
+export default function ServicesTable({ services, parts = [] }) {
   return (
     <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-6">
@@ -11,7 +13,7 @@ export default function ServicesTable({ services }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1050px]">
+        <table className="w-full min-w-[1100px]">
           <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-6 py-4">ID</th>
@@ -64,9 +66,12 @@ export default function ServicesTable({ services }) {
                       <p className="font-bold text-slate-950">
                         {service.title}
                       </p>
+
                       <p className="mt-1 text-sm text-slate-500">
                         {service.description || "-"}
                       </p>
+
+                      <ServicePartsList parts={service.partsUsed || []} />
                     </td>
 
                     <td className="px-6 py-5 text-sm font-medium text-slate-600">
@@ -74,7 +79,7 @@ export default function ServicesTable({ services }) {
                     </td>
 
                     <td className="px-6 py-5 text-sm font-bold text-slate-950">
-                      €{Number(service.total || 0).toFixed(0)}
+                      {Number(service.total || 0).toFixed(0)} Lek
                     </td>
 
                     <td className="px-6 py-5">
@@ -94,7 +99,11 @@ export default function ServicesTable({ services }) {
                     </td>
 
                     <td className="px-6 py-5">
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
+                        <AddServicePartModal
+                          serviceId={service.id}
+                          parts={parts}
+                        />
                         <ServiceRowActions />
                       </div>
                     </td>
