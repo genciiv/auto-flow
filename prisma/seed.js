@@ -9,6 +9,17 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  await prisma.purchaseOrderItem.deleteMany();
+  await prisma.purchaseOrder.deleteMany();
+  await prisma.invoice.deleteMany();
+  await prisma.part.deleteMany();
+  await prisma.appointment.deleteMany();
+  await prisma.serviceRecord.deleteMany();
+  await prisma.vehicle.deleteMany();
+  await prisma.customer.deleteMany();
+  await prisma.businessUser.deleteMany();
+  await prisma.business.deleteMany();
+
   const user = await prisma.user.upsert({
     where: { email: "owner@autoflow.al" },
     update: {},
@@ -116,6 +127,78 @@ async function main() {
       number: "INV-1024",
       status: "PAID",
       total: 240,
+    },
+  });
+
+  await prisma.purchaseOrder.create({
+    data: {
+      businessId: business.id,
+      supplier: "Auto Parts Albania",
+      status: "PENDING",
+      total: 42000,
+      notes: "Porosi për filtra dhe pjesë konsumi.",
+      items: {
+        create: [
+          {
+            name: "Filtra vaji MANN",
+            quantity: 20,
+            unitPrice: 700,
+            total: 14000,
+          },
+          {
+            name: "Filtra ajri",
+            quantity: 20,
+            unitPrice: 1400,
+            total: 28000,
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.purchaseOrder.create({
+    data: {
+      businessId: business.id,
+      supplier: "Lubricants Tirana",
+      status: "ORDERED",
+      total: 68000,
+      notes: "Vaj motori për magazinë.",
+      items: {
+        create: [
+          {
+            name: "Vaj Castrol 5W-30",
+            quantity: 40,
+            unitPrice: 1700,
+            total: 68000,
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.purchaseOrder.create({
+    data: {
+      businessId: business.id,
+      supplier: "Balkan Auto Parts",
+      status: "RECEIVED",
+      total: 95000,
+      notes: "Pjesë frenimi për Golf 7 dhe Audi A4.",
+      items: {
+        create: [
+          {
+            name: "Disqe frenash Brembo",
+            quantity: 10,
+            unitPrice: 4500,
+            total: 45000,
+          },
+          {
+            name: "Ferodo Golf 7",
+            quantity: 10,
+            unitPrice: 5000,
+            total: 50000,
+          },
+        ],
+      },
     },
   });
 

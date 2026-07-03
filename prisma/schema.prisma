@@ -32,6 +32,13 @@ enum InvoiceStatus {
   OVERDUE
 }
 
+enum PurchaseStatus {
+  PENDING
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
@@ -53,13 +60,14 @@ model Business {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users        BusinessUser[]
-  customers    Customer[]
-  vehicles     Vehicle[]
-  services     ServiceRecord[]
-  appointments Appointment[]
-  parts        Part[]
-  invoices     Invoice[]
+  users          BusinessUser[]
+  customers      Customer[]
+  vehicles       Vehicle[]
+  services       ServiceRecord[]
+  appointments   Appointment[]
+  parts          Part[]
+  invoices       Invoice[]
+  purchaseOrders PurchaseOrder[]
 }
 
 model BusinessUser {
@@ -156,6 +164,31 @@ model Part {
   updatedAt  DateTime @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model PurchaseOrder {
+  id         String         @id @default(cuid())
+  businessId String
+  supplier   String
+  status     PurchaseStatus @default(PENDING)
+  total      Float          @default(0)
+  notes      String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  business Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  items    PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id              String @id @default(cuid())
+  purchaseOrderId String
+  name            String
+  quantity        Int    @default(1)
+  unitPrice       Float  @default(0)
+  total           Float  @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 }
 
 model Invoice {
