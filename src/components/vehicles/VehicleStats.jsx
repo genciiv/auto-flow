@@ -1,16 +1,20 @@
 import { Car, ShieldCheck, Wrench, Clock3 } from "lucide-react";
 
-const stats = [
-  { title: "Total automjete", value: "2,410", icon: Car },
-  { title: "Në servis", value: "28", icon: Wrench },
-  { title: "Përfunduara këtë muaj", value: "312", icon: ShieldCheck },
-  { title: "Në pritje", value: "14", icon: Clock3 },
-];
+export default function VehicleStats({ stats }) {
+  const items = [
+    { title: "Total automjete", value: stats.totalVehicles, icon: Car },
+    { title: "Në servis", value: stats.inService, icon: Wrench },
+    {
+      title: "Përfunduara",
+      value: stats.completedThisMonth,
+      icon: ShieldCheck,
+    },
+    { title: "Në pritje", value: stats.pendingVehicles, icon: Clock3 },
+  ];
 
-export default function VehicleStats() {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-      {stats.map((stat) => {
+      {items.map((stat) => {
         const Icon = stat.icon;
 
         return (

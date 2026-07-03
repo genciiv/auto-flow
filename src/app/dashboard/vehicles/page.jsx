@@ -2,8 +2,38 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VehicleStats from "@/components/vehicles/VehicleStats";
 import VehicleFilters from "@/components/vehicles/VehicleFilters";
 import VehiclesTable from "@/components/vehicles/VehiclesTable";
+import { db } from "@/lib/db";
 
-export default function VehiclesPage() {
+export default async function VehiclesPage() {
+  const vehicles = await db.vehicle.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      customer: true,
+      services: true,
+      invoices: true,
+    },
+  });
+
+  const totalVehicles = vehicles.length;
+  const inService = vehicles.filter((vehicle) =>
+    vehicle.services.some((service) => service.status === "IN_PROGRESS"),
+  ).length;
+
+  const completedThisMonth = vehicles.filter((vehicle) =>
+    vehicle.services.some((service) => service.status === "COMPLETED"),
+  ).length;
+
+  const pendingVehicles = vehicles.filter((vehicle) =>
+    vehicle.services.some((service) => service.status === "PENDING"),
+  ).length;
+
+  const stats = {
+    totalVehicles,
+    inService,
+    completedThisMonth,
+    pendingVehicles,
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -23,9 +53,9 @@ export default function VehiclesPage() {
           </button>
         </div>
 
-        <VehicleStats />
+        <VehicleStats stats={stats} />
         <VehicleFilters />
-        <VehiclesTable />
+        <VehiclesTable vehicles={vehicles} />
       </div>
     </DashboardLayout>
   );
