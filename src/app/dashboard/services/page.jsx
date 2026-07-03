@@ -2,16 +2,22 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ServiceStats from "@/components/services/ServiceStats";
 import ServiceFilters from "@/components/services/ServiceFilters";
 import ServicesTable from "@/components/services/ServicesTable";
+import CreateServiceModal from "@/components/services/CreateServiceModal";
 import { db } from "@/lib/db";
 
 export default async function ServicesPage() {
-  const services = await db.serviceRecord.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      vehicle: true,
-      business: true,
-    },
-  });
+  const [services, vehicles] = await Promise.all([
+    db.serviceRecord.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        vehicle: true,
+        business: true,
+      },
+    }),
+    db.vehicle.findMany({
+      orderBy: { plate: "asc" },
+    }),
+  ]);
 
   const activeServices = services.filter(
     (service) => service.status === "IN_PROGRESS",
@@ -51,9 +57,7 @@ export default async function ServicesPage() {
             </p>
           </div>
 
-          <button className="rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
-            Krijo shërbim
-          </button>
+          <CreateServiceModal vehicles={vehicles} />
         </div>
 
         <ServiceStats stats={stats} />
