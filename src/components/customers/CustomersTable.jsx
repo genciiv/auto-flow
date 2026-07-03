@@ -94,7 +94,7 @@ export default function CustomersTable({ customers }) {
 
                     <td className="px-6 py-5">
                       <div className="flex justify-end">
-                        <CustomerRowActions />
+                        <CustomerRowActions customer={customer} />
                       </div>
                     </td>
                   </tr>
