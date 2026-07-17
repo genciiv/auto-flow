@@ -56,3 +56,60 @@ export async function updateCustomer(formData) {
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard");
 }
+
+export async function deleteCustomer(customerId) {
+  try {
+    if (!customerId) {
+      return {
+        success: false,
+        message: "ID e klientit mungon.",
+      };
+    }
+
+    const customer = await db.customer.findUnique({
+      where: {
+        id: customerId,
+      },
+      include: {
+        vehicles: true,
+      },
+    });
+
+    if (!customer) {
+      return {
+        success: false,
+        message: "Klienti nuk u gjet.",
+      };
+    }
+
+    if (customer.vehicles.length > 0) {
+      return {
+        success: false,
+        message:
+          "Ky klient nuk mund të fshihet sepse ka automjete të regjistruara.",
+      };
+    }
+
+    await db.customer.delete({
+      where: {
+        id: customerId,
+      },
+    });
+
+    revalidatePath("/dashboard/customers");
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      message: "Klienti u fshi me sukses.",
+    };
+  } catch (error) {
+    console.error("Gabim gjatë fshirjes së klientit:", error);
+
+    return {
+      success: false,
+      message:
+        "Klienti nuk mund të fshihet sepse është i lidhur me të dhëna të tjera.",
+    };
+  }
+}
