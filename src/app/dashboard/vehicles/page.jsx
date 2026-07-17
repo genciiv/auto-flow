@@ -8,35 +8,50 @@ import { db } from "@/lib/db";
 export default async function VehiclesPage() {
   const [vehicles, customers] = await Promise.all([
     db.vehicle.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: {
+        createdAt: "desc",
+      },
       include: {
         customer: true,
-        services: true,
-        invoices: true,
+        services: {
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
       },
     }),
+
     db.customer.findMany({
-      orderBy: { name: "asc" },
+      orderBy: {
+        name: "asc",
+      },
     }),
   ]);
 
   const totalVehicles = vehicles.length;
-  const inService = vehicles.filter((vehicle) =>
-    vehicle.services.some((service) => service.status === "IN_PROGRESS"),
-  ).length;
 
-  const completedThisMonth = vehicles.filter((vehicle) =>
-    vehicle.services.some((service) => service.status === "COMPLETED"),
+  const vehiclesInService = vehicles.filter((vehicle) =>
+    vehicle.services.some((service) => service.status === "IN_PROGRESS"),
   ).length;
 
   const pendingVehicles = vehicles.filter((vehicle) =>
     vehicle.services.some((service) => service.status === "PENDING"),
   ).length;
 
+  const activeVehicles = vehicles.filter((vehicle) => {
+    const latestService = vehicle.services[0];
+
+    return (
+      !latestService ||
+      latestService.status === "COMPLETED" ||
+      latestService.status === "CANCELLED"
+    );
+  }).length;
+
   const stats = {
     totalVehicles,
-    inService,
-    completedThisMonth,
+    activeVehicles,
+    vehiclesInService,
     pendingVehicles,
   };
 
@@ -46,11 +61,13 @@ export default async function VehiclesPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-semibold text-blue-600">Vehicles</p>
+
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
               Automjetet
             </h1>
+
             <p className="mt-2 text-slate-500">
-              Menaxho automjetet, historikun e serviseve dhe klientët e lidhur.
+              Menaxho automjetet, pronarët dhe historikun e shërbimeve.
             </p>
           </div>
 
@@ -58,8 +75,10 @@ export default async function VehiclesPage() {
         </div>
 
         <VehicleStats stats={stats} />
+
         <VehicleFilters />
-        <VehiclesTable vehicles={vehicles} />
+
+        <VehiclesTable vehicles={vehicles} customers={customers} />
       </div>
     </DashboardLayout>
   );

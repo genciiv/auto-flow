@@ -1,12 +1,13 @@
 import VehicleRowActions from "@/components/vehicles/VehicleRowActions";
 
-export default function VehiclesTable({ vehicles }) {
+export default function VehiclesTable({ vehicles = [], customers = [] }) {
   return (
     <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-6">
         <h2 className="text-xl font-bold text-slate-950">
           Lista e automjeteve
         </h2>
+
         <p className="mt-1 text-sm text-slate-500">
           Automjetet e regjistruara në databazë.
         </p>
@@ -38,15 +39,15 @@ export default function VehiclesTable({ vehicles }) {
               </tr>
             ) : (
               vehicles.map((vehicle) => {
-                const latestService = vehicle.services[0];
+                const services = vehicle.services || [];
+                const latestService = services[0] || null;
+
                 const status =
-                  latestService?.status === "COMPLETED"
-                    ? "Aktiv"
-                    : latestService?.status === "PENDING"
-                      ? "Në pritje"
-                      : latestService?.status === "IN_PROGRESS"
-                        ? "Në servis"
-                        : "Aktiv";
+                  latestService?.status === "PENDING"
+                    ? "Në pritje"
+                    : latestService?.status === "IN_PROGRESS"
+                      ? "Në servis"
+                      : "Aktiv";
 
                 return (
                   <tr key={vehicle.id} className="hover:bg-slate-50">
@@ -60,13 +61,22 @@ export default function VehiclesTable({ vehicles }) {
                       <p className="font-bold text-slate-950">
                         {vehicle.brand} {vehicle.model || ""}
                       </p>
+
                       <p className="mt-1 text-sm text-slate-500">
                         {vehicle.year || "-"}
                       </p>
                     </td>
 
-                    <td className="px-6 py-5 text-sm font-medium text-slate-600">
-                      {vehicle.customer?.name || "Pa pronar"}
+                    <td className="px-6 py-5">
+                      <p className="text-sm font-medium text-slate-600">
+                        {vehicle.customer?.name || "Pa pronar"}
+                      </p>
+
+                      {vehicle.customer?.phone && (
+                        <p className="mt-1 text-sm text-slate-500">
+                          {vehicle.customer.phone}
+                        </p>
+                      )}
                     </td>
 
                     <td className="px-6 py-5 text-sm text-slate-600">
@@ -74,7 +84,7 @@ export default function VehiclesTable({ vehicles }) {
                     </td>
 
                     <td className="px-6 py-5 text-sm font-bold text-slate-950">
-                      {vehicle.services.length}
+                      {services.length}
                     </td>
 
                     <td className="px-6 py-5">
@@ -93,7 +103,10 @@ export default function VehiclesTable({ vehicles }) {
 
                     <td className="px-6 py-5">
                       <div className="flex justify-end">
-                        <VehicleRowActions />
+                        <VehicleRowActions
+                          vehicle={vehicle}
+                          customers={customers}
+                        />
                       </div>
                     </td>
                   </tr>
