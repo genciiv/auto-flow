@@ -2,11 +2,16 @@ import ServiceRowActions from "@/components/services/ServiceRowActions";
 import AddServicePartModal from "@/components/services/AddServicePartModal";
 import ServicePartsList from "@/components/services/ServicePartsList";
 
-export default function ServicesTable({ services, parts = [] }) {
+export default function ServicesTable({
+  services = [],
+  vehicles = [],
+  parts = [],
+}) {
   return (
     <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-6">
         <h2 className="text-xl font-bold text-slate-950">Lista e shërbimeve</h2>
+
         <p className="mt-1 text-sm text-slate-500">
           Shërbimet e regjistruara në databazë.
         </p>
@@ -57,6 +62,7 @@ export default function ServicesTable({ services, parts = [] }) {
                       <p className="font-bold text-slate-950">
                         {service.vehicle?.brand} {service.vehicle?.model || ""}
                       </p>
+
                       <p className="mt-1 text-sm text-slate-500">
                         {service.vehicle?.plate || "-"}
                       </p>
@@ -104,7 +110,11 @@ export default function ServicesTable({ services, parts = [] }) {
                           serviceId={service.id}
                           parts={parts}
                         />
-                        <ServiceRowActions />
+
+                        <ServiceRowActions
+                          service={service}
+                          vehicles={vehicles}
+                        />
                       </div>
                     </td>
                   </tr>

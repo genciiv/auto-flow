@@ -72,7 +72,7 @@ export default async function ServicesPage() {
 
         <ServiceStats stats={stats} />
         <ServiceFilters />
-        <ServicesTable services={services} parts={parts} />
+        <ServicesTable services={services} vehicles={vehicles} parts={parts} />
       </div>
     </DashboardLayout>
   );
