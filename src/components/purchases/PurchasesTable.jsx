@@ -100,15 +100,21 @@ export default function PurchasesTable({ purchases }) {
                     </td>
 
                     <td className="px-6 py-5">
-                      <div className="flex justify-end">
-                        <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2">
+                        {purchase.status !== "RECEIVED" && (
                           <AddPurchaseItemModal purchaseOrderId={purchase.id} />
-                          <ReceivePurchaseButton
-                            purchaseOrderId={purchase.id}
-                            disabled={purchase.status === "RECEIVED"}
-                          />
-                          <PurchaseRowActions />
-                        </div>
+                        )}
+
+                        <ReceivePurchaseButton
+                          purchaseOrderId={purchase.id}
+                          disabled={
+                            purchase.status === "RECEIVED" ||
+                            purchase.status === "CANCELLED" ||
+                            purchase.items.length === 0
+                          }
+                        />
+
+                        <PurchaseRowActions purchase={purchase} />
                       </div>
                     </td>
                   </tr>
