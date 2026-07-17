@@ -85,7 +85,7 @@ export default function InventoryTable({ parts }) {
 
                     <td className="px-6 py-5">
                       <div className="flex justify-end">
-                        <InventoryRowActions />
+                        <InventoryRowActions part={part} />
                       </div>
                     </td>
                   </tr>
