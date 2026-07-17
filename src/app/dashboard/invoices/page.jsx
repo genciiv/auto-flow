@@ -39,7 +39,6 @@ export default async function InvoicesPage() {
       },
       include: {
         vehicle: true,
-        customer: true,
         invoice: {
           select: {
             id: true,
