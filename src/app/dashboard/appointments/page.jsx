@@ -2,18 +2,49 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import AppointmentStats from "@/components/appointments/AppointmentStats";
 import AppointmentFilters from "@/components/appointments/AppointmentFilters";
 import AppointmentsTable from "@/components/appointments/AppointmentsTable";
+import CreateAppointmentModal from "@/components/appointments/CreateAppointmentModal";
 import { db } from "@/lib/db";
 
 export default async function AppointmentsPage() {
-  const appointments = await db.appointment.findMany({
-    orderBy: { date: "asc" },
-    include: {
-      vehicle: true,
-      business: true,
-    },
-  });
+  const [appointments, customers, vehicles] = await Promise.all([
+    db.appointment.findMany({
+      orderBy: {
+        date: "asc",
+      },
+      include: {
+        vehicle: true,
+        customer: true,
+        business: true,
+      },
+    }),
+
+    db.customer.findMany({
+      orderBy: {
+        name: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+      },
+    }),
+
+    db.vehicle.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        customerId: true,
+        plate: true,
+        brand: true,
+        model: true,
+      },
+    }),
+  ]);
 
   const totalAppointments = appointments.length;
+
   const pendingAppointments = appointments.filter(
     (appointment) => appointment.status === "PENDING",
   ).length;
@@ -39,22 +70,28 @@ export default async function AppointmentsPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-semibold text-blue-600">Appointments</p>
+
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
               Terminet
             </h1>
+
             <p className="mt-2 text-slate-500">
               Menaxho rezervimet, servisët e planifikuar dhe statuset e tyre.
             </p>
           </div>
 
-          <button className="rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
-            Krijo termin
-          </button>
+          <CreateAppointmentModal customers={customers} vehicles={vehicles} />
         </div>
 
         <AppointmentStats stats={stats} />
+
         <AppointmentFilters />
-        <AppointmentsTable appointments={appointments} />
+
+        <AppointmentsTable
+          appointments={appointments}
+          customers={customers}
+          vehicles={vehicles}
+        />
       </div>
     </DashboardLayout>
   );

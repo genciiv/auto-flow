@@ -10,21 +10,27 @@ function formatDate(date) {
   }).format(new Date(date));
 }
 
-export default function AppointmentsTable({ appointments }) {
+export default function AppointmentsTable({
+  appointments,
+  customers,
+  vehicles,
+}) {
   return (
     <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-6">
         <h2 className="text-xl font-bold text-slate-950">Lista e termineve</h2>
+
         <p className="mt-1 text-sm text-slate-500">
           Terminet e regjistruara në databazë.
         </p>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1050px]">
+        <table className="w-full min-w-[1200px]">
           <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-6 py-4">Titulli</th>
+              <th className="px-6 py-4">Klienti</th>
               <th className="px-6 py-4">Automjeti</th>
               <th className="px-6 py-4">Biznesi</th>
               <th className="px-6 py-4">Data</th>
@@ -37,7 +43,7 @@ export default function AppointmentsTable({ appointments }) {
             {appointments.length === 0 ? (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="7"
                   className="px-6 py-10 text-center text-slate-500"
                 >
                   Nuk ka termine në databazë.
@@ -60,14 +66,33 @@ export default function AppointmentsTable({ appointments }) {
                       <p className="font-bold text-slate-950">
                         {appointment.title}
                       </p>
+
+                      {appointment.description && (
+                        <p className="mt-1 max-w-xs truncate text-sm text-slate-500">
+                          {appointment.description}
+                        </p>
+                      )}
+                    </td>
+
+                    <td className="px-6 py-5">
+                      <p className="font-bold text-slate-950">
+                        {appointment.customer?.name || "-"}
+                      </p>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        {appointment.customer?.phone || "Pa numër telefoni"}
+                      </p>
                     </td>
 
                     <td className="px-6 py-5">
                       <p className="font-bold text-slate-950">
                         {appointment.vehicle
-                          ? `${appointment.vehicle.brand} ${appointment.vehicle.model || ""}`
+                          ? `${appointment.vehicle.brand} ${
+                              appointment.vehicle.model || ""
+                            }`
                           : "-"}
                       </p>
+
                       <p className="mt-1 text-sm text-slate-500">
                         {appointment.vehicle?.plate || "-"}
                       </p>
@@ -99,7 +124,11 @@ export default function AppointmentsTable({ appointments }) {
 
                     <td className="px-6 py-5">
                       <div className="flex justify-end">
-                        <AppointmentRowActions />
+                        <AppointmentRowActions
+                          appointment={appointment}
+                          customers={customers}
+                          vehicles={vehicles}
+                        />
                       </div>
                     </td>
                   </tr>
