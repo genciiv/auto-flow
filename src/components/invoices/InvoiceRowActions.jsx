@@ -106,7 +106,7 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
   function handleEdit() {
     setIsOpen(false);
 
-    if (onEdit) {
+    if (typeof onEdit === "function") {
       onEdit(invoice);
     }
   }
@@ -141,21 +141,17 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
           )}
 
           <div className="p-2">
-            {onEdit && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleEdit}
-                  disabled={isPending}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-                >
-                  <FilePenLine className="h-4 w-4 text-slate-500" />
-                  Modifiko faturën
-                </button>
+            <button
+              type="button"
+              onClick={handleEdit}
+              disabled={isPending || typeof onEdit !== "function"}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FilePenLine className="h-4 w-4 text-slate-500" />
+              Modifiko faturën
+            </button>
 
-                <div className="my-2 border-t border-slate-100" />
-              </>
-            )}
+            <div className="my-2 border-t border-slate-100" />
 
             <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
               Ndrysho statusin
@@ -163,6 +159,7 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
 
             {statusOptions.map((option) => {
               const Icon = option.icon;
+
               const isActive = invoice.status === option.value;
 
               return (

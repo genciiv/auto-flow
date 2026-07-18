@@ -7,6 +7,7 @@ const ALLOWED_STATUSES = ["DRAFT", "UNPAID", "PAID", "OVERDUE"];
 
 function normalizeOptionalId(value) {
   const normalizedValue = String(value || "").trim();
+
   return normalizedValue || null;
 }
 
@@ -88,7 +89,7 @@ async function getServiceData(serviceId, businessId) {
       id: true,
       customerId: true,
       vehicleId: true,
-      totalCost: true,
+      total: true,
     },
   });
 
@@ -126,9 +127,13 @@ export async function createInvoice(formData) {
     const selectedCustomerId = normalizeOptionalId(formData.get("customerId"));
 
     const selectedVehicleId = normalizeOptionalId(formData.get("vehicleId"));
+
     const serviceId = normalizeOptionalId(formData.get("serviceId"));
+
     const requestedNumber = String(formData.get("number") || "").trim();
+
     const requestedTotal = String(formData.get("total") || "").trim();
+
     const status = normalizeStatus(formData.get("status"));
 
     let customerId = selectedCustomerId;
@@ -156,8 +161,10 @@ export async function createInvoice(formData) {
       const service = await getServiceData(serviceId, business.id);
 
       customerId = service.customerId || customerId;
+
       vehicleId = service.vehicleId || vehicleId;
-      total = Number(service.totalCost || 0);
+
+      total = Number(service.total || 0);
     }
 
     if (!serviceId && (!requestedTotal || Number.isNaN(total))) {
@@ -255,9 +262,13 @@ export async function updateInvoice(invoiceId, formData) {
     const selectedCustomerId = normalizeOptionalId(formData.get("customerId"));
 
     const selectedVehicleId = normalizeOptionalId(formData.get("vehicleId"));
+
     const serviceId = normalizeOptionalId(formData.get("serviceId"));
+
     const number = String(formData.get("number") || "").trim();
+
     const requestedTotal = String(formData.get("total") || "").trim();
+
     const status = normalizeStatus(formData.get("status"));
 
     if (!number) {
@@ -315,8 +326,10 @@ export async function updateInvoice(invoiceId, formData) {
       const service = await getServiceData(serviceId, business.id);
 
       customerId = service.customerId || customerId;
+
       vehicleId = service.vehicleId || vehicleId;
-      total = Number(service.totalCost || 0);
+
+      total = Number(service.total || 0);
     }
 
     if (!serviceId && (!requestedTotal || Number.isNaN(total))) {

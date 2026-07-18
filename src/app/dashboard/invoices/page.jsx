@@ -112,7 +112,12 @@ export default async function InvoicesPage() {
 
         <InvoiceFilters />
 
-        <InvoicesTable invoices={invoices} />
+        <InvoicesTable
+          invoices={invoices}
+          customers={customers}
+          vehicles={vehicles}
+          services={services}
+        />
       </div>
     </DashboardLayout>
   );
