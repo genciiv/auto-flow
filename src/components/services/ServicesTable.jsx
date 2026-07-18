@@ -1,6 +1,7 @@
-import ServiceRowActions from "@/components/services/ServiceRowActions";
 import AddServicePartModal from "@/components/services/AddServicePartModal";
 import ServicePartsList from "@/components/services/ServicePartsList";
+import ServiceRowActions from "@/components/services/ServiceRowActions";
+import { formatCurrency } from "@/lib/formatters";
 
 export default function ServicesTable({
   services = [],
@@ -53,7 +54,7 @@ export default function ServicesTable({
                         : "Anuluar";
 
                 return (
-                  <tr key={service.id} className="hover:bg-slate-50">
+                  <tr key={service.id} className="transition hover:bg-slate-50">
                     <td className="px-6 py-5 text-sm font-bold text-blue-600">
                       {service.id.slice(0, 8)}
                     </td>
@@ -85,7 +86,7 @@ export default function ServicesTable({
                     </td>
 
                     <td className="px-6 py-5 text-sm font-bold text-slate-950">
-                      {Number(service.total || 0).toFixed(0)} Lek
+                      {formatCurrency(service.total)}
                     </td>
 
                     <td className="px-6 py-5">

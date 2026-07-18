@@ -1,4 +1,6 @@
-import { CheckCircle2, Clock3, Euro, Wrench } from "lucide-react";
+import { Banknote, CheckCircle2, Clock3, Wrench } from "lucide-react";
+
+import { formatCurrency } from "@/lib/formatters";
 
 export default function ServiceStats({ stats }) {
   const items = [
@@ -19,8 +21,8 @@ export default function ServiceStats({ stats }) {
     },
     {
       title: "Të ardhura",
-      value: `€${stats.totalRevenue.toFixed(0)}`,
-      icon: Euro,
+      value: formatCurrency(stats.totalRevenue),
+      icon: Banknote,
     },
   ];
 
