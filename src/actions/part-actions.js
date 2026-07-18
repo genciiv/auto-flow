@@ -233,6 +233,13 @@ export async function deletePart(partId) {
       select: {
         id: true,
         name: true,
+        code: true,
+        stock: true,
+        _count: {
+          select: {
+            serviceUsages: true,
+          },
+        },
       },
     });
 
@@ -243,48 +250,11 @@ export async function deletePart(partId) {
       };
     }
 
-    const [serviceUsageCount, purchaseUsageCount, movementCount] =
-      await Promise.all([
-        db.serviceRecordPart.count({
-          where: {
-            partId,
-          },
-        }),
-
-        db.purchaseOrderItem.count({
-          where: {
-            partId,
-          },
-        }),
-
-        db.stockMovement.count({
-          where: {
-            partId,
-          },
-        }),
-      ]);
-
-    if (serviceUsageCount > 0) {
+    if (part._count.serviceUsages > 0) {
       return {
         success: false,
         message:
-          "Pjesa nuk mund të fshihet sepse është përdorur në një shërbim.",
-      };
-    }
-
-    if (purchaseUsageCount > 0) {
-      return {
-        success: false,
-        message:
-          "Pjesa nuk mund të fshihet sepse është përdorur në një porosi blerjeje.",
-      };
-    }
-
-    if (movementCount > 0) {
-      return {
-        success: false,
-        message:
-          "Pjesa nuk mund të fshihet sepse ka historik lëvizjesh në magazinë.",
+          "Pjesa nuk mund të fshihet sepse është përdorur në një ose më shumë shërbime.",
       };
     }
 
@@ -305,8 +275,7 @@ export async function deletePart(partId) {
 
     return {
       success: false,
-      message:
-        "Pjesa nuk mund të fshihet sepse është e lidhur me të dhëna të tjera.",
+      message: error?.message || "Pjesa nuk mund të fshihej.",
     };
   }
 }

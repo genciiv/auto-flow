@@ -1,5 +1,7 @@
 import { AlertTriangle, Boxes, Package, Wallet } from "lucide-react";
 
+import { formatCurrency } from "@/lib/formatters";
+
 export default function InventoryStats({ stats }) {
   const items = [
     {
@@ -19,7 +21,7 @@ export default function InventoryStats({ stats }) {
     },
     {
       title: "Vlera e inventarit",
-      value: `${stats.inventoryValue.toFixed(0)} Lek`,
+      value: formatCurrency(stats.inventoryValue),
       icon: Wallet,
     },
   ];

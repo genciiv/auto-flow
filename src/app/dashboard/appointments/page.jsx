@@ -1,8 +1,7 @@
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import AppointmentStats from "@/components/appointments/AppointmentStats";
-import AppointmentFilters from "@/components/appointments/AppointmentFilters";
 import AppointmentsTable from "@/components/appointments/AppointmentsTable";
 import CreateAppointmentModal from "@/components/appointments/CreateAppointmentModal";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { db } from "@/lib/db";
 
 export default async function AppointmentsPage() {
@@ -84,8 +83,6 @@ export default async function AppointmentsPage() {
         </div>
 
         <AppointmentStats stats={stats} />
-
-        <AppointmentFilters />
 
         <AppointmentsTable
           appointments={appointments}
