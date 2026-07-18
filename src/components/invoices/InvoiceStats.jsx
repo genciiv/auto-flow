@@ -1,13 +1,27 @@
 import { BadgeEuro, CheckCircle2, Clock3, FileText } from "lucide-react";
 
+import { formatCurrency } from "@/lib/formatters";
+
 export default function InvoiceStats({ stats }) {
   const items = [
-    { title: "Total fatura", value: stats.totalInvoices, icon: FileText },
-    { title: "Të paguara", value: stats.paidInvoices, icon: CheckCircle2 },
-    { title: "Në pritje", value: stats.pendingInvoices, icon: Clock3 },
+    {
+      title: "Total fatura",
+      value: stats.totalInvoices,
+      icon: FileText,
+    },
+    {
+      title: "Të paguara",
+      value: stats.paidInvoices,
+      icon: CheckCircle2,
+    },
+    {
+      title: "Në pritje",
+      value: stats.pendingInvoices,
+      icon: Clock3,
+    },
     {
       title: "Të ardhura",
-      value: `€${stats.totalRevenue.toFixed(0)}`,
+      value: formatCurrency(stats.totalRevenue),
       icon: BadgeEuro,
     },
   ];
