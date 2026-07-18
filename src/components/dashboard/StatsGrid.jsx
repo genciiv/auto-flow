@@ -1,31 +1,52 @@
+import { Banknote, Calendar, Car, Package, Users, Wrench } from "lucide-react";
+
+import { formatCurrency } from "@/lib/formatters";
 import StatCard from "./StatCard";
-import { Calendar, Car, Euro, Package, Users, Wrench } from "lucide-react";
 
 export default function StatsGrid({ stats }) {
+  const safeStats = {
+    customers: Number(stats?.customers || 0),
+    vehicles: Number(stats?.vehicles || 0),
+    activeServices: Number(stats?.activeServices || 0),
+    revenue: Number(stats?.revenue || 0),
+    lowStock: Number(stats?.lowStock || 0),
+    appointments: Number(stats?.appointments || 0),
+  };
+
   const items = [
-    { title: "Klientë", value: stats.customers, change: "+", icon: Users },
-    { title: "Automjete", value: stats.vehicles, change: "+", icon: Car },
+    {
+      title: "Klientë",
+      value: safeStats.customers,
+      change: "+",
+      icon: Users,
+    },
+    {
+      title: "Automjete",
+      value: safeStats.vehicles,
+      change: "+",
+      icon: Car,
+    },
     {
       title: "Shërbime aktive",
-      value: stats.activeServices,
+      value: safeStats.activeServices,
       change: "live",
       icon: Wrench,
     },
     {
       title: "Të ardhura",
-      value: `€${stats.revenue.toFixed(0)}`,
+      value: formatCurrency(safeStats.revenue),
       change: "paid",
-      icon: Euro,
+      icon: Banknote,
     },
     {
       title: "Stok i ulët",
-      value: stats.lowStock,
+      value: safeStats.lowStock,
       change: "alert",
       icon: Package,
     },
     {
       title: "Termine",
-      value: stats.appointments,
+      value: safeStats.appointments,
       change: "today",
       icon: Calendar,
     },
