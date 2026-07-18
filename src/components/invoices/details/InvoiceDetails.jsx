@@ -14,6 +14,7 @@ import {
   Wrench,
 } from "lucide-react";
 
+import InvoicePrintView from "./InvoicePrintView";
 import InvoiceDetailsActions from "./InvoiceDetailsActions";
 import { formatCurrency } from "@/lib/formatters";
 
@@ -252,8 +253,11 @@ export default function InvoiceDetails({
           description="Të dhënat e servisit që ka lëshuar faturën."
         >
           <DetailRow label="Emri" value={invoice.business?.name} />
+
           <DetailRow label="Adresa" value={businessAddress} />
+
           <DetailRow label="Telefoni" value={invoice.business?.phone} />
+
           <DetailRow label="Email" value={invoice.business?.email} />
         </InfoCard>
 
@@ -263,8 +267,11 @@ export default function InvoiceDetails({
           description="Klienti i lidhur me këtë faturë."
         >
           <DetailRow label="Emri" value={invoice.customer?.name} />
+
           <DetailRow label="Telefoni" value={invoice.customer?.phone} />
+
           <DetailRow label="Email" value={invoice.customer?.email} />
+
           <DetailRow label="Qyteti" value={invoice.customer?.city} />
         </InfoCard>
 
@@ -274,6 +281,7 @@ export default function InvoiceDetails({
           description="Automjeti i faturuar."
         >
           <DetailRow label="Targa" value={invoice.vehicle?.plate} />
+
           <DetailRow label="Automjeti" value={vehicleName} />
 
           <DetailRow
@@ -593,6 +601,8 @@ export default function InvoiceDetails({
           </div>
         </div>
       </div>
+
+      <InvoicePrintView invoice={invoice} />
     </div>
   );
 }

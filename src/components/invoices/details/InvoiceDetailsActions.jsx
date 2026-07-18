@@ -11,10 +11,12 @@ import {
   FilePenLine,
   FileText,
   Loader2,
+  Printer,
   XCircle,
 } from "lucide-react";
 
 import EditInvoiceModal from "@/components/invoices/EditInvoiceModal";
+import InvoicePdfButton from "@/components/invoices/pdf/InvoicePdfButton";
 import { updateInvoiceStatus } from "@/actions/invoice-actions";
 
 const statusOptions = [
@@ -72,6 +74,7 @@ export default function InvoiceDetailsActions({
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
@@ -100,6 +103,24 @@ export default function InvoiceDetailsActions({
     });
   }
 
+  function handlePrint() {
+    setIsStatusOpen(false);
+
+    document.body.classList.add("invoice-print-mode");
+
+    const cleanPrintMode = () => {
+      document.body.classList.remove("invoice-print-mode");
+    };
+
+    window.addEventListener("afterprint", cleanPrintMode, {
+      once: true,
+    });
+
+    window.print();
+
+    window.setTimeout(cleanPrintMode, 2000);
+  }
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
@@ -108,8 +129,19 @@ export default function InvoiceDetailsActions({
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
         >
           <ArrowLeft className="h-4 w-4" />
-          Kthehu te faturat
+          Kthehu
         </Link>
+
+        <button
+          type="button"
+          onClick={handlePrint}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+        >
+          <Printer className="h-4 w-4" />
+          Printo
+        </button>
+
+        <InvoicePdfButton invoice={invoice} />
 
         <div ref={menuRef} className="relative">
           <button
@@ -125,14 +157,14 @@ export default function InvoiceDetailsActions({
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <>
-                Ndrysho statusin
+                Statusi
                 <ChevronDown className="h-4 w-4" />
               </>
             )}
           </button>
 
           {isStatusOpen && (
-            <div className="absolute right-0 top-13 z-50 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+            <div className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
               {error && (
                 <div className="mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
                   {error}
@@ -185,7 +217,7 @@ export default function InvoiceDetailsActions({
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
         >
           <FilePenLine className="h-4 w-4" />
-          Modifiko faturën
+          Modifiko
         </button>
       </div>
 

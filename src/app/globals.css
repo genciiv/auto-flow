@@ -17,3 +17,56 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body.invoice-print-mode {
+    background: #ffffff !important;
+  }
+
+  body.invoice-print-mode * {
+    visibility: hidden !important;
+  }
+
+  body.invoice-print-mode .invoice-print-root,
+  body.invoice-print-mode .invoice-print-root * {
+    visibility: visible !important;
+  }
+
+  body.invoice-print-mode .invoice-print-root {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  body.invoice-print-mode .invoice-print-root table {
+    page-break-inside: auto;
+  }
+
+  body.invoice-print-mode .invoice-print-root tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  body.invoice-print-mode .invoice-print-root thead {
+    display: table-header-group;
+  }
+
+  body.invoice-print-mode .invoice-print-root footer {
+    page-break-inside: avoid;
+  }
+
+  body.invoice-print-mode .invoice-print-root * {
+    box-shadow: none !important;
+  }
+}
