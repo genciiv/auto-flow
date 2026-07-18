@@ -1,4 +1,6 @@
-import { Car, TrendingUp, UserCheck, Users } from "lucide-react";
+import { Banknote, Car, UserCheck, Users } from "lucide-react";
+
+import { formatCurrency } from "@/lib/formatters";
 
 export default function CustomerStats({ stats }) {
   const items = [
@@ -19,8 +21,8 @@ export default function CustomerStats({ stats }) {
     },
     {
       title: "Shpenzuar total",
-      value: `€${stats.totalSpent.toFixed(0)}`,
-      icon: TrendingUp,
+      value: formatCurrency(stats.totalSpent),
+      icon: Banknote,
     },
   ];
 
