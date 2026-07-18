@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  Eye,
   FilePenLine,
   FileText,
   Loader2,
@@ -59,6 +60,11 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  function handleViewDetails() {
+    setIsOpen(false);
+    router.push(`/dashboard/invoices/${invoice.id}`);
+  }
 
   function handleStatusChange(status) {
     if (status === invoice.status) {
@@ -143,6 +149,16 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
           <div className="p-2">
             <button
               type="button"
+              onClick={handleViewDetails}
+              disabled={isPending}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Eye className="h-4 w-4 text-blue-600" />
+              Shiko detajet
+            </button>
+
+            <button
+              type="button"
               onClick={handleEdit}
               disabled={isPending || typeof onEdit !== "function"}
               className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -159,7 +175,6 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
 
             {statusOptions.map((option) => {
               const Icon = option.icon;
-
               const isActive = invoice.status === option.value;
 
               return (

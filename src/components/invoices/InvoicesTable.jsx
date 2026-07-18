@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 import { FileSearch, FileText, ReceiptText, RotateCcw } from "lucide-react";
 
@@ -333,9 +334,12 @@ export default function InvoicesTable({
                             </div>
 
                             <div>
-                              <p className="text-sm font-semibold text-slate-900">
+                              <Link
+                                href={`/dashboard/invoices/${invoice.id}`}
+                                className="text-sm font-semibold text-slate-900 transition hover:text-blue-600 hover:underline"
+                              >
                                 {invoice.number}
-                              </p>
+                              </Link>
 
                               <p className="mt-0.5 text-xs text-slate-500">
                                 ID:{" "}
