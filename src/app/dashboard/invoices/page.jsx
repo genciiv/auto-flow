@@ -1,6 +1,5 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
-import InvoiceFilters from "@/components/invoices/InvoiceFilters";
 import InvoicesTable from "@/components/invoices/InvoicesTable";
 import CreateInvoiceModal from "@/components/invoices/CreateInvoiceModal";
 import { db } from "@/lib/db";
@@ -109,8 +108,6 @@ export default async function InvoicesPage() {
         </div>
 
         <InvoiceStats stats={stats} />
-
-        <InvoiceFilters />
 
         <InvoicesTable
           invoices={invoices}
