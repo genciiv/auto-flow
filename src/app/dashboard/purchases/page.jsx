@@ -1,13 +1,14 @@
+import CreatePurchaseModal from "@/components/purchases/CreatePurchaseModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import PurchaseStats from "@/components/purchases/PurchaseStats";
-import PurchaseFilters from "@/components/purchases/PurchaseFilters";
 import PurchasesTable from "@/components/purchases/PurchasesTable";
-import CreatePurchaseModal from "@/components/purchases/CreatePurchaseModal";
 import { db } from "@/lib/db";
 
 export default async function PurchasesPage() {
   const purchases = await db.purchaseOrder.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: {
+      createdAt: "desc",
+    },
     include: {
       items: true,
       business: true,
@@ -15,22 +16,22 @@ export default async function PurchasesPage() {
   });
 
   const totalOrders = purchases.length;
-  const pendingOrders = purchases.filter(
-    (purchase) => purchase.status === "PENDING",
-  ).length;
 
-  const orderedOrders = purchases.filter(
-    (purchase) => purchase.status === "ORDERED",
-  ).length;
+  const pendingOrders = purchases.filter((purchase) => {
+    return purchase.status === "PENDING";
+  }).length;
 
-  const receivedOrders = purchases.filter(
-    (purchase) => purchase.status === "RECEIVED",
-  ).length;
+  const orderedOrders = purchases.filter((purchase) => {
+    return purchase.status === "ORDERED";
+  }).length;
 
-  const totalValue = purchases.reduce(
-    (sum, purchase) => sum + Number(purchase.total || 0),
-    0,
-  );
+  const receivedOrders = purchases.filter((purchase) => {
+    return purchase.status === "RECEIVED";
+  }).length;
+
+  const totalValue = purchases.reduce((sum, purchase) => {
+    return sum + Number(purchase.total || 0);
+  }, 0);
 
   const stats = {
     totalOrders,
@@ -46,9 +47,11 @@ export default async function PurchasesPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-semibold text-blue-600">Purchases</p>
+
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
               Porositë
             </h1>
+
             <p className="mt-2 text-slate-500">
               Menaxho blerjet, furnitorët, porositë e pjesëve dhe statuset.
             </p>
@@ -58,7 +61,7 @@ export default async function PurchasesPage() {
         </div>
 
         <PurchaseStats stats={stats} />
-        <PurchaseFilters />
+
         <PurchasesTable purchases={purchases} />
       </div>
     </DashboardLayout>
