@@ -7,6 +7,7 @@ import { FileSearch, FileText, ReceiptText, RotateCcw } from "lucide-react";
 import EditInvoiceModal from "./EditInvoiceModal";
 import InvoiceFilters from "./InvoiceFilters";
 import InvoiceRowActions from "./InvoiceRowActions";
+import { formatCurrency } from "@/lib/formatters";
 
 const statusConfig = {
   DRAFT: {
@@ -29,15 +30,6 @@ const statusConfig = {
     className: "border-red-200 bg-red-50 text-red-700",
   },
 };
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat("sq-AL", {
-    style: "currency",
-    currency: "ALL",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
-}
 
 function formatDate(value) {
   if (!value) {
