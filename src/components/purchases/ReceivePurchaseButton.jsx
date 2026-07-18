@@ -1,22 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, PackageCheck, XCircle } from "lucide-react";
+
 import { receivePurchaseOrder } from "@/actions/purchase-item-actions";
 
 export default function ReceivePurchaseButton({
   purchaseOrderId,
-  disabled = false,
+  status = "PENDING",
+  itemCount = 0,
 }) {
   const [isReceiving, setIsReceiving] = useState(false);
   const [error, setError] = useState("");
 
+  const isReceived = status === "RECEIVED";
+  const isCancelled = status === "CANCELLED";
+  const hasNoItems = Number(itemCount || 0) === 0;
+
+  const isDisabled = isReceiving || isReceived || isCancelled || hasNoItems;
+
   async function handleReceive() {
+    if (isDisabled) {
+      return;
+    }
+
     const confirmed = window.confirm(
       "Je i sigurt që dëshiron ta marrësh këtë porosi në magazinë? Stoku i pjesëve do të rritet.",
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       setIsReceiving(true);
@@ -24,15 +38,59 @@ export default function ReceivePurchaseButton({
 
       const result = await receivePurchaseOrder(purchaseOrderId);
 
-      if (result && result.success === false) {
-        setError(result.message || "Porosia nuk mund të merrej në magazinë.");
+      if (!result?.success) {
+        setError(result?.message || "Porosia nuk mund të merrej në magazinë.");
       }
-    } catch (error) {
-      console.error(error);
+    } catch (receiveError) {
+      console.error(receiveError);
+
       setError("Ndodhi një gabim gjatë marrjes së porosisë.");
     } finally {
       setIsReceiving(false);
     }
+  }
+
+  function getButtonContent() {
+    if (isReceiving) {
+      return (
+        <>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Duke marrë...
+        </>
+      );
+    }
+
+    if (isReceived) {
+      return (
+        <>
+          <CheckCircle2 className="h-3.5 w-3.5" />E marrë
+        </>
+      );
+    }
+
+    if (isCancelled) {
+      return (
+        <>
+          <XCircle className="h-3.5 w-3.5" />E anuluar
+        </>
+      );
+    }
+
+    if (hasNoItems) {
+      return (
+        <>
+          <PackageCheck className="h-3.5 w-3.5" />
+          Pa artikuj
+        </>
+      );
+    }
+
+    return (
+      <>
+        <PackageCheck className="h-3.5 w-3.5" />
+        Merr në magazinë
+      </>
+    );
   }
 
   return (
@@ -40,12 +98,18 @@ export default function ReceivePurchaseButton({
       <button
         type="button"
         onClick={handleReceive}
-        disabled={disabled || isReceiving}
-        className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        disabled={isDisabled}
+        className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition ${
+          isReceived
+            ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+            : isCancelled
+              ? "border border-red-200 bg-red-50 text-red-700"
+              : hasNoItems
+                ? "border border-slate-200 bg-slate-100 text-slate-500"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+        } disabled:cursor-not-allowed`}
       >
-        {isReceiving && <Loader2 size={14} className="animate-spin" />}
-
-        {isReceiving ? "Duke marrë..." : "Merr në magazinë"}
+        {getButtonContent()}
       </button>
 
       {error && (
@@ -56,7 +120,8 @@ export default function ReceivePurchaseButton({
             <button
               type="button"
               onClick={() => setError("")}
-              className="font-bold text-red-500 hover:text-red-700"
+              className="font-bold text-red-500 transition hover:text-red-700"
+              aria-label="Mbyll gabimin"
             >
               ×
             </button>

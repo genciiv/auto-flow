@@ -248,8 +248,15 @@ export async function deletePurchaseOrder(purchaseId) {
       where: {
         id: purchaseId,
       },
-      include: {
-        items: true,
+      select: {
+        id: true,
+        supplier: true,
+        status: true,
+        _count: {
+          select: {
+            items: true,
+          },
+        },
       },
     });
 
@@ -268,33 +275,35 @@ export async function deletePurchaseOrder(purchaseId) {
       };
     }
 
-    if (purchase.items.length > 0) {
-      return {
-        success: false,
-        message:
-          "Porosia nuk mund të fshihet sepse përmban artikuj. Hiqi fillimisht artikujt nga porosia.",
-      };
-    }
+    await db.$transaction(async (transaction) => {
+      await transaction.purchaseOrderItem.deleteMany({
+        where: {
+          purchaseOrderId: purchaseId,
+        },
+      });
 
-    await db.purchaseOrder.delete({
-      where: {
-        id: purchaseId,
-      },
+      await transaction.purchaseOrder.delete({
+        where: {
+          id: purchaseId,
+        },
+      });
     });
 
     refreshPurchasePages();
 
     return {
       success: true,
-      message: "Porosia u fshi me sukses.",
+      message:
+        purchase._count.items > 0
+          ? `Porosia dhe ${purchase._count.items} artikujt e saj u fshinë me sukses.`
+          : "Porosia u fshi me sukses.",
     };
   } catch (error) {
     console.error("Gabim gjatë fshirjes së porosisë:", error);
 
     return {
       success: false,
-      message:
-        "Porosia nuk mund të fshihet sepse është e lidhur me të dhëna të tjera.",
+      message: error?.message || "Porosia nuk mund të fshihej.",
     };
   }
 }

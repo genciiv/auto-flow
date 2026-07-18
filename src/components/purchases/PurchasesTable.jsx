@@ -326,11 +326,8 @@ export default function PurchasesTable({ purchases = [] }) {
 
                           <ReceivePurchaseButton
                             purchaseOrderId={purchase.id}
-                            disabled={
-                              purchase.status === "RECEIVED" ||
-                              purchase.status === "CANCELLED" ||
-                              (purchase.items || []).length === 0
-                            }
+                            status={purchase.status}
+                            itemCount={(purchase.items || []).length}
                           />
 
                           <PurchaseRowActions purchase={purchase} />
