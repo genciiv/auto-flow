@@ -2,15 +2,20 @@ import {
   Building2,
   CalendarDays,
   Car,
+  CheckCircle2,
   CircleDollarSign,
+  Clock3,
   FileText,
   Hash,
+  History,
+  Package,
   ReceiptText,
   UserRound,
   Wrench,
 } from "lucide-react";
 
 import InvoiceDetailsActions from "./InvoiceDetailsActions";
+import { formatCurrency } from "@/lib/formatters";
 
 const statusConfig = {
   DRAFT: {
@@ -31,16 +36,7 @@ const statusConfig = {
   },
 };
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat("sq-AL", {
-    style: "currency",
-    currency: "ALL",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
-}
-
-function formatDate(value) {
+function formatDate(value, includeTime = false) {
   if (!value) {
     return "—";
   }
@@ -55,7 +51,39 @@ function formatDate(value) {
     day: "2-digit",
     month: "long",
     year: "numeric",
+    ...(includeTime
+      ? {
+          hour: "2-digit",
+          minute: "2-digit",
+        }
+      : {}),
   }).format(date);
+}
+
+function getServiceStatusLabel(status) {
+  if (status === "COMPLETED") {
+    return "I përfunduar";
+  }
+
+  if (status === "IN_PROGRESS") {
+    return "Në proces";
+  }
+
+  if (status === "CANCELLED") {
+    return "I anuluar";
+  }
+
+  return "Në pritje";
+}
+
+function getPartLineTotal(usage) {
+  const storedTotal = Number(usage?.total || 0);
+
+  if (storedTotal > 0) {
+    return storedTotal;
+  }
+
+  return Number(usage?.quantity || 0) * Number(usage?.unitPrice || 0);
 }
 
 function DetailRow({ label, value }) {
@@ -63,7 +91,7 @@ function DetailRow({ label, value }) {
     <div className="flex items-start justify-between gap-5 border-b border-slate-100 py-3 last:border-b-0">
       <span className="text-sm text-slate-500">{label}</span>
 
-      <span className="text-right text-sm font-medium text-slate-900">
+      <span className="max-w-[65%] text-right text-sm font-medium text-slate-900">
         {value || "—"}
       </span>
     </div>
@@ -115,6 +143,20 @@ export default function InvoiceDetails({
     .filter(Boolean)
     .join(" ");
 
+  const partsUsed = invoice.service?.partsUsed || [];
+
+  const partsTotal = partsUsed.reduce((sum, usage) => {
+    return sum + getPartLineTotal(usage);
+  }, 0);
+
+  const serviceTotal = Number(invoice.service?.total || 0);
+
+  const laborTotal = invoice.service
+    ? Math.max(serviceTotal - partsTotal, 0)
+    : 0;
+
+  const invoiceTotal = Number(invoice.total || 0);
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
@@ -136,8 +178,8 @@ export default function InvoiceDetails({
           </h1>
 
           <p className="mt-2 max-w-2xl text-slate-500">
-            Shiko informacionin e plotë të faturës, klientit, automjetit dhe
-            shërbimit të lidhur.
+            Informacioni i plotë i faturës, klientit, automjetit, shërbimit dhe
+            pjesëve të përdorura.
           </p>
         </div>
 
@@ -165,13 +207,13 @@ export default function InvoiceDetails({
                 {invoice.number}
               </p>
 
-              <p className="mt-2 text-xs text-slate-400">
+              <p className="mt-2 break-all text-xs text-slate-400">
                 ID: {String(invoice.id).toUpperCase()}
               </p>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:min-w-[420px]">
+          <div className="grid gap-4 sm:grid-cols-2 lg:min-w-[440px]">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center gap-2 text-slate-500">
                 <CalendarDays className="h-4 w-4" />
@@ -196,7 +238,7 @@ export default function InvoiceDetails({
               </div>
 
               <p className="mt-3 text-xl font-bold text-blue-700">
-                {formatCurrency(invoice.total)}
+                {formatCurrency(invoiceTotal)}
               </p>
             </div>
           </div>
@@ -207,14 +249,11 @@ export default function InvoiceDetails({
         <InfoCard
           icon={Building2}
           title="Biznesi"
-          description="Të dhënat e servis-it që ka lëshuar faturën."
+          description="Të dhënat e servisit që ka lëshuar faturën."
         >
           <DetailRow label="Emri" value={invoice.business?.name} />
-
           <DetailRow label="Adresa" value={businessAddress} />
-
           <DetailRow label="Telefoni" value={invoice.business?.phone} />
-
           <DetailRow label="Email" value={invoice.business?.email} />
         </InfoCard>
 
@@ -224,11 +263,8 @@ export default function InvoiceDetails({
           description="Klienti i lidhur me këtë faturë."
         >
           <DetailRow label="Emri" value={invoice.customer?.name} />
-
           <DetailRow label="Telefoni" value={invoice.customer?.phone} />
-
           <DetailRow label="Email" value={invoice.customer?.email} />
-
           <DetailRow label="Qyteti" value={invoice.customer?.city} />
         </InfoCard>
 
@@ -238,7 +274,6 @@ export default function InvoiceDetails({
           description="Automjeti i faturuar."
         >
           <DetailRow label="Targa" value={invoice.vehicle?.plate} />
-
           <DetailRow label="Automjeti" value={vehicleName} />
 
           <DetailRow
@@ -262,15 +297,7 @@ export default function InvoiceDetails({
 
               <DetailRow
                 label="Statusi"
-                value={
-                  invoice.service.status === "COMPLETED"
-                    ? "I përfunduar"
-                    : invoice.service.status === "IN_PROGRESS"
-                      ? "Në proces"
-                      : invoice.service.status === "CANCELLED"
-                        ? "I anuluar"
-                        : "Në pritje"
-                }
+                value={getServiceStatusLabel(invoice.service.status)}
               />
 
               <DetailRow
@@ -286,7 +313,7 @@ export default function InvoiceDetails({
 
               <DetailRow
                 label="Totali i shërbimit"
-                value={formatCurrency(invoice.service.total)}
+                value={formatCurrency(serviceTotal)}
               />
 
               <div className="mt-4 rounded-2xl bg-slate-50 p-4">
@@ -333,7 +360,7 @@ export default function InvoiceDetails({
           </div>
 
           <div className="mt-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-slate-500">Numri i faturës</span>
 
               <span className="text-sm font-semibold text-slate-900">
@@ -341,7 +368,7 @@ export default function InvoiceDetails({
               </span>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-slate-500">Statusi</span>
 
               <span
@@ -351,13 +378,35 @@ export default function InvoiceDetails({
               </span>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-slate-500">Lloji</span>
 
               <span className="text-sm font-semibold text-slate-900">
                 {invoice.service ? "Nga shërbimi" : "Manuale"}
               </span>
             </div>
+
+            {invoice.service && (
+              <>
+                <div className="border-t border-slate-100 pt-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-500">Pjesët</span>
+
+                    <span className="text-sm font-semibold text-slate-900">
+                      {formatCurrency(partsTotal)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-slate-500">Puna</span>
+
+                  <span className="text-sm font-semibold text-slate-900">
+                    {formatCurrency(laborTotal)}
+                  </span>
+                </div>
+              </>
+            )}
 
             <div className="border-t border-slate-200 pt-5">
               <div className="flex items-end justify-between gap-4">
@@ -370,7 +419,7 @@ export default function InvoiceDetails({
                 </div>
 
                 <p className="text-2xl font-bold tracking-tight text-slate-950">
-                  {formatCurrency(invoice.total)}
+                  {formatCurrency(invoiceTotal)}
                 </p>
               </div>
             </div>
@@ -378,19 +427,169 @@ export default function InvoiceDetails({
         </div>
       </div>
 
-      <div className="rounded-[2rem] border border-blue-100 bg-blue-50/60 p-5">
-        <div className="flex items-start gap-3">
-          <FileText className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+      <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-start gap-3 border-b border-slate-200 px-6 py-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+            <Package className="h-5 w-5" />
+          </div>
 
           <div>
-            <p className="text-sm font-semibold text-blue-900">
-              Faza e ardhshme e modulit
+            <h2 className="text-base font-bold text-slate-950">
+              Pjesët e përdorura
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Pjesët që janë lidhur me shërbimin e faturuar.
+            </p>
+          </div>
+        </div>
+
+        {partsUsed.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <Package className="mx-auto h-7 w-7 text-slate-300" />
+
+            <p className="mt-3 text-sm font-semibold text-slate-700">
+              Nuk ka pjesë të regjistruara
             </p>
 
-            <p className="mt-1 text-sm leading-6 text-blue-700">
-              Në commit-in tjetër do të shtojmë tabelën e pjesëve, punën,
-              subtotalin, TVSH-në dhe totalet e detajuara.
+            <p className="mt-1 text-sm text-slate-500">
+              Shërbimi nuk ka pjesë të lidhura.
             </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px]">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-6 py-4">Kodi</th>
+                  <th className="px-6 py-4">Pjesa</th>
+                  <th className="px-6 py-4 text-right">Sasia</th>
+                  <th className="px-6 py-4 text-right">Çmimi</th>
+                  <th className="px-6 py-4 text-right">Totali</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100">
+                {partsUsed.map((usage) => (
+                  <tr
+                    key={usage.id}
+                    className="transition hover:bg-slate-50/70"
+                  >
+                    <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-blue-600">
+                      {usage.part?.code || "—"}
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {usage.part?.name || "Pjesë e panjohur"}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        {usage.part?.category || "Pa kategori"}
+                      </p>
+                    </td>
+
+                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium text-slate-700">
+                      {Number(usage.quantity || 0)}
+                    </td>
+
+                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm text-slate-600">
+                      {formatCurrency(usage.unitPrice)}
+                    </td>
+
+                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-semibold text-slate-950">
+                      {formatCurrency(getPartLineTotal(usage))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+
+              <tfoot className="border-t border-slate-200 bg-slate-50">
+                <tr>
+                  <td
+                    colSpan="4"
+                    className="px-6 py-4 text-right text-sm font-semibold text-slate-600"
+                  >
+                    Totali i pjesëve
+                  </td>
+
+                  <td className="whitespace-nowrap px-6 py-4 text-right text-base font-bold text-slate-950">
+                    {formatCurrency(partsTotal)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+            <History className="h-5 w-5" />
+          </div>
+
+          <div>
+            <h2 className="text-base font-bold text-slate-950">
+              Historiku i faturës
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Aktivitetet kryesore të kësaj fature.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-5">
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                <ReceiptText className="h-4 w-4" />
+              </div>
+
+              <div className="mt-2 h-full w-px bg-slate-200" />
+            </div>
+
+            <div className="pb-6">
+              <p className="text-sm font-semibold text-slate-900">
+                Fatura u krijua
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                {formatDate(invoice.createdAt, true)}
+              </p>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                U krijua fatura {invoice.number} me vlerë{" "}
+                {formatCurrency(invoiceTotal)}.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              {invoice.status === "PAID" ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <Clock3 className="h-4 w-4" />
+              )}
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                Statusi aktual: {statusDetails.label}
+              </p>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {invoice.status === "PAID"
+                  ? "Fatura është regjistruar si e paguar."
+                  : invoice.status === "UNPAID"
+                    ? "Fatura është në pritje të pagesës."
+                    : invoice.status === "OVERDUE"
+                      ? "Afati i pagesës së faturës është tejkaluar."
+                      : "Fatura është ruajtur si draft."}
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
 import { db } from "@/lib/db";
 
 const ALLOWED_STATUSES = ["DRAFT", "UNPAID", "PAID", "OVERDUE"];
@@ -23,8 +24,13 @@ function normalizeStatus(value) {
   return status;
 }
 
-function revalidateInvoicePaths() {
+function revalidateInvoicePaths(invoiceId = null) {
   revalidatePath("/dashboard/invoices");
+
+  if (invoiceId) {
+    revalidatePath(`/dashboard/invoices/${invoiceId}`);
+  }
+
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard");
@@ -62,8 +68,8 @@ async function generateInvoiceNumber(businessId) {
   let highestNumber = 0;
 
   for (const invoice of invoices) {
-    const parts = invoice.number.split("-");
-    const sequence = Number(parts[parts.length - 1]);
+    const numberParts = invoice.number.split("-");
+    const sequence = Number(numberParts[numberParts.length - 1]);
 
     if (Number.isInteger(sequence) && sequence > highestNumber) {
       highestNumber = sequence;
@@ -161,13 +167,11 @@ export async function createInvoice(formData) {
       const service = await getServiceData(serviceId, business.id);
 
       customerId = service.customerId || customerId;
-
       vehicleId = service.vehicleId || vehicleId;
-
       total = Number(service.total || 0);
     }
 
-    if (!serviceId && (!requestedTotal || Number.isNaN(total))) {
+    if (!serviceId && (!requestedTotal || !Number.isFinite(total))) {
       return {
         success: false,
         message: "Totali i faturës është i detyrueshëm.",
@@ -217,7 +221,7 @@ export async function createInvoice(formData) {
       },
     });
 
-    revalidateInvoicePaths();
+    revalidateInvoicePaths(invoice.id);
 
     return {
       success: true,
@@ -249,6 +253,9 @@ export async function updateInvoice(invoiceId, formData) {
       where: {
         id: invoiceId,
         businessId: business.id,
+      },
+      select: {
+        id: true,
       },
     });
 
@@ -326,13 +333,11 @@ export async function updateInvoice(invoiceId, formData) {
       const service = await getServiceData(serviceId, business.id);
 
       customerId = service.customerId || customerId;
-
       vehicleId = service.vehicleId || vehicleId;
-
       total = Number(service.total || 0);
     }
 
-    if (!serviceId && (!requestedTotal || Number.isNaN(total))) {
+    if (!serviceId && (!requestedTotal || !Number.isFinite(total))) {
       return {
         success: false,
         message: "Totali i faturës është i detyrueshëm.",
@@ -360,7 +365,7 @@ export async function updateInvoice(invoiceId, formData) {
       },
     });
 
-    revalidateInvoicePaths();
+    revalidateInvoicePaths(invoiceId);
 
     return {
       success: true,
@@ -424,7 +429,7 @@ export async function updateInvoiceStatus(invoiceId, status) {
       },
     });
 
-    revalidateInvoicePaths();
+    revalidateInvoicePaths(invoiceId);
 
     return {
       success: true,
@@ -477,7 +482,7 @@ export async function deleteInvoice(invoiceId) {
       },
     });
 
-    revalidateInvoicePaths();
+    revalidateInvoicePaths(invoiceId);
 
     return {
       success: true,

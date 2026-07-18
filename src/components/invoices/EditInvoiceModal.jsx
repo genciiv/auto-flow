@@ -24,11 +24,11 @@ function createInitialForm(invoice) {
 }
 
 function getServiceTotal(service) {
-  if (!service) return "";
+  if (!service) {
+    return "";
+  }
 
-  const value = service.totalCost ?? service.total ?? service.finalTotal ?? 0;
-
-  return String(Number(value || 0));
+  return String(Number(service.total || 0));
 }
 
 export default function EditInvoiceModal({
@@ -41,7 +41,6 @@ export default function EditInvoiceModal({
   const router = useRouter();
 
   const [form, setForm] = useState(() => createInitialForm(invoice));
-
   const [message, setMessage] = useState(null);
   const [isPending, startTransition] = useTransition();
 
@@ -50,13 +49,14 @@ export default function EditInvoiceModal({
       return vehicles;
     }
 
-    return vehicles.filter((vehicle) => vehicle.customerId === form.customerId);
+    return vehicles.filter((vehicle) => {
+      return vehicle.customerId === form.customerId;
+    });
   }, [vehicles, form.customerId]);
 
   const availableServices = useMemo(() => {
     return services.filter((service) => {
       const isCurrentService = service.id === invoice.serviceId;
-
       const hasNoInvoice = !service.invoice;
 
       return isCurrentService || hasNoInvoice;
@@ -70,10 +70,11 @@ export default function EditInvoiceModal({
 
     if (name === "customerId") {
       setForm((current) => {
-        const selectedVehicleStillValid = vehicles.some(
-          (vehicle) =>
-            vehicle.id === current.vehicleId && vehicle.customerId === value,
-        );
+        const selectedVehicleStillValid = vehicles.some((vehicle) => {
+          return (
+            vehicle.id === current.vehicleId && vehicle.customerId === value
+          );
+        });
 
         return {
           ...current,
@@ -87,7 +88,9 @@ export default function EditInvoiceModal({
     }
 
     if (name === "serviceId") {
-      const selectedService = services.find((service) => service.id === value);
+      const selectedService = services.find((service) => {
+        return service.id === value;
+      });
 
       if (!selectedService) {
         setForm((current) => ({
@@ -122,7 +125,9 @@ export default function EditInvoiceModal({
   }
 
   function handleClose() {
-    if (isPending) return;
+    if (isPending) {
+      return;
+    }
 
     setMessage(null);
     onClose();
@@ -160,7 +165,7 @@ export default function EditInvoiceModal({
 
     const total = Number(form.total);
 
-    if (Number.isNaN(total)) {
+    if (!Number.isFinite(total)) {
       setMessage({
         type: "error",
         text: "Totali i faturës nuk është i vlefshëm.",
@@ -372,7 +377,7 @@ export default function EditInvoiceModal({
                     onChange={handleChange}
                     disabled={isPending || Boolean(form.serviceId)}
                     placeholder="0"
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-14 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50"
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-16 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50"
                   />
 
                   <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500">
