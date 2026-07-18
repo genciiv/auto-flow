@@ -1,8 +1,7 @@
+import CreateVehicleModal from "@/components/vehicles/CreateVehicleModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VehicleStats from "@/components/vehicles/VehicleStats";
-import VehicleFilters from "@/components/vehicles/VehicleFilters";
 import VehiclesTable from "@/components/vehicles/VehiclesTable";
-import CreateVehicleModal from "@/components/vehicles/CreateVehicleModal";
 import { db } from "@/lib/db";
 
 export default async function VehiclesPage() {
@@ -30,13 +29,13 @@ export default async function VehiclesPage() {
 
   const totalVehicles = vehicles.length;
 
-  const vehiclesInService = vehicles.filter((vehicle) =>
-    vehicle.services.some((service) => service.status === "IN_PROGRESS"),
-  ).length;
+  const vehiclesInService = vehicles.filter((vehicle) => {
+    return vehicle.services.some((service) => service.status === "IN_PROGRESS");
+  }).length;
 
-  const pendingVehicles = vehicles.filter((vehicle) =>
-    vehicle.services.some((service) => service.status === "PENDING"),
-  ).length;
+  const pendingVehicles = vehicles.filter((vehicle) => {
+    return vehicle.services.some((service) => service.status === "PENDING");
+  }).length;
 
   const activeVehicles = vehicles.filter((vehicle) => {
     const latestService = vehicle.services[0];
@@ -75,8 +74,6 @@ export default async function VehiclesPage() {
         </div>
 
         <VehicleStats stats={stats} />
-
-        <VehicleFilters />
 
         <VehiclesTable vehicles={vehicles} customers={customers} />
       </div>
