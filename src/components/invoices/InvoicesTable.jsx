@@ -104,10 +104,8 @@ export default function InvoicesTable({ invoices }) {
                       }).format(new Date(invoice.createdAt))}
                     </td>
 
-                    <td className="px-6 py-5">
-                      <div className="flex justify-end">
-                        <InvoiceRowActions />
-                      </div>
+                    <td className="px-6 py-4 text-right">
+                      <InvoiceRowActions invoice={invoice} />
                     </td>
                   </tr>
                 );
