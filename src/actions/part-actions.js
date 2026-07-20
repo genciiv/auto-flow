@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 function refreshInventoryPages() {
@@ -8,6 +10,16 @@ function refreshInventoryPages() {
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard/purchases");
   revalidatePath("/dashboard");
+}
+
+function getFormString(formData, fieldName) {
+  const value = formData.get(fieldName);
+
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
 }
 
 function parseNonNegativeNumber(value, fieldName) {
@@ -22,10 +34,12 @@ function parseNonNegativeNumber(value, fieldName) {
 
 export async function createPart(formData) {
   try {
-    const code = formData.get("code")?.trim();
-    const name = formData.get("name")?.trim();
-    const category = formData.get("category")?.trim();
-    const supplier = formData.get("supplier")?.trim();
+    const { businessId } = await requireBusinessContext();
+
+    const code = getFormString(formData, "code").toUpperCase();
+    const name = getFormString(formData, "name");
+    const category = getFormString(formData, "category");
+    const supplier = getFormString(formData, "supplier");
 
     if (!name) {
       return {
@@ -35,36 +49,26 @@ export async function createPart(formData) {
     }
 
     const stock = parseNonNegativeNumber(formData.get("stock"), "Stoku");
+
     const minStock = parseNonNegativeNumber(
       formData.get("minStock"),
       "Minimumi i stokut",
     );
+
     const buyPrice = parseNonNegativeNumber(
       formData.get("buyPrice"),
       "Çmimi i blerjes",
     );
+
     const sellPrice = parseNonNegativeNumber(
       formData.get("sellPrice"),
       "Çmimi i shitjes",
     );
 
-    const business = await db.business.findFirst({
-      select: {
-        id: true,
-      },
-    });
-
-    if (!business) {
-      return {
-        success: false,
-        message: "Nuk u gjet biznes aktiv.",
-      };
-    }
-
     if (code) {
       const existingPart = await db.part.findFirst({
         where: {
-          businessId: business.id,
+          businessId,
           code,
         },
         select: {
@@ -82,7 +86,7 @@ export async function createPart(formData) {
 
     await db.part.create({
       data: {
-        businessId: business.id,
+        businessId,
         code: code || null,
         name,
         category: category || null,
@@ -105,18 +109,20 @@ export async function createPart(formData) {
 
     return {
       success: false,
-      message: error.message || "Pjesa nuk mund të krijohej.",
+      message: error?.message || "Pjesa nuk mund të krijohej.",
     };
   }
 }
 
 export async function updatePart(formData) {
   try {
-    const id = formData.get("id");
-    const code = formData.get("code")?.trim();
-    const name = formData.get("name")?.trim();
-    const category = formData.get("category")?.trim();
-    const supplier = formData.get("supplier")?.trim();
+    const { businessId } = await requireBusinessContext();
+
+    const id = getFormString(formData, "id");
+    const code = getFormString(formData, "code").toUpperCase();
+    const name = getFormString(formData, "name");
+    const category = getFormString(formData, "category");
+    const supplier = getFormString(formData, "supplier");
 
     if (!id) {
       return {
@@ -133,26 +139,29 @@ export async function updatePart(formData) {
     }
 
     const stock = parseNonNegativeNumber(formData.get("stock"), "Stoku");
+
     const minStock = parseNonNegativeNumber(
       formData.get("minStock"),
       "Minimumi i stokut",
     );
+
     const buyPrice = parseNonNegativeNumber(
       formData.get("buyPrice"),
       "Çmimi i blerjes",
     );
+
     const sellPrice = parseNonNegativeNumber(
       formData.get("sellPrice"),
       "Çmimi i shitjes",
     );
 
-    const part = await db.part.findUnique({
+    const part = await db.part.findFirst({
       where: {
         id,
+        businessId,
       },
       select: {
         id: true,
-        businessId: true,
       },
     });
 
@@ -166,10 +175,10 @@ export async function updatePart(formData) {
     if (code) {
       const duplicatePart = await db.part.findFirst({
         where: {
-          businessId: part.businessId,
+          businessId,
           code,
           NOT: {
-            id,
+            id: part.id,
           },
         },
         select: {
@@ -187,7 +196,7 @@ export async function updatePart(formData) {
 
     await db.part.update({
       where: {
-        id,
+        id: part.id,
       },
       data: {
         code: code || null,
@@ -212,23 +221,26 @@ export async function updatePart(formData) {
 
     return {
       success: false,
-      message: error.message || "Pjesa nuk mund të përditësohej.",
+      message: error?.message || "Pjesa nuk mund të përditësohej.",
     };
   }
 }
 
 export async function deletePart(partId) {
   try {
-    if (!partId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!partId || typeof partId !== "string") {
       return {
         success: false,
         message: "ID e pjesës mungon.",
       };
     }
 
-    const part = await db.part.findUnique({
+    const part = await db.part.findFirst({
       where: {
         id: partId,
+        businessId,
       },
       select: {
         id: true,
@@ -260,7 +272,7 @@ export async function deletePart(partId) {
 
     await db.part.delete({
       where: {
-        id: partId,
+        id: part.id,
       },
     });
 

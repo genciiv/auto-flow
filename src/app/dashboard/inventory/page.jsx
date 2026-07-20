@@ -2,10 +2,17 @@ import CreatePartModal from "@/components/inventory/CreatePartModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InventoryStats from "@/components/inventory/InventoryStats";
 import InventoryTable from "@/components/inventory/InventoryTable";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function InventoryPage() {
+  const { businessId } = await requireBusinessContext();
+
   const parts = await db.part.findMany({
+    where: {
+      businessId,
+    },
     orderBy: {
       createdAt: "desc",
     },
