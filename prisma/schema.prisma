@@ -6,16 +6,44 @@ datasource db {
   provider = "postgresql"
 }
 
+/**
+ * |--------------------------------------------------------------------------
+ * | Global user roles
+ * |--------------------------------------------------------------------------
+ * |
+ * | PLATFORM_ADMIN:
+ * | Pronari ose administratori i platformës AutoFlow.
+ * |
+ * | CUSTOMER:
+ * | Klienti final që përdor portalin e klientit.
+ * |
+ * | OWNER, MANAGER, MECHANIC etj. nuk vendosen këtu.
+ * | Ato vendosen te BusinessUser, sepse një përdorues mund të ketë role
+ * | të ndryshme në biznese të ndryshme.
+ * |
+ */
+
 enum UserRole {
   PLATFORM_ADMIN
+  CUSTOMER
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | Business roles
+ * |--------------------------------------------------------------------------
+ * |
+ * | Këto janë rolet e përdoruesve brenda një servisi specifik.
+ * |
+ */
+
+enum BusinessRole {
   OWNER
   MANAGER
   MECHANIC
   RECEPTIONIST
   WAREHOUSE
   ACCOUNTANT
-  CUSTOMER
-  SUPPLIER
 }
 
 enum ServiceStatus {
@@ -39,16 +67,36 @@ enum PurchaseStatus {
   CANCELLED
 }
 
+/**
+ * |--------------------------------------------------------------------------
+ * | User
+ * |--------------------------------------------------------------------------
+ */
+
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  role      UserRole @default(OWNER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String?
+  globalRole    UserRole?
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   businesses BusinessUser[]
+
+  @@index([email])
+  @@index([globalRole])
+  @@index([isActive])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | Business
+ * |--------------------------------------------------------------------------
+ */
 
 model Business {
   id        String   @id @default(cuid())
@@ -57,6 +105,7 @@ model Business {
   address   String?
   phone     String?
   email     String?
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -68,19 +117,50 @@ model Business {
   parts          Part[]
   invoices       Invoice[]
   purchaseOrders PurchaseOrder[]
+
+  @@index([name])
+  @@index([city])
+  @@index([isActive])
 }
 
+/**
+ * |--------------------------------------------------------------------------
+ * | BusinessUser
+ * |--------------------------------------------------------------------------
+ * |
+ * | Lidh një përdorues me një biznes.
+ * |
+ * | Shembull:
+ * | owner@autoflow.al
+ * | OWNER
+ * | Auto Service Fier
+ * |
+ */
+
 model BusinessUser {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   userId     String
   businessId String
-  role       UserRole @default(OWNER)
+  role       BusinessRole @default(OWNER)
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([userId, businessId])
+  @@index([userId])
+  @@index([businessId])
+  @@index([businessId, role])
+  @@index([businessId, isActive])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | Customer
+ * |--------------------------------------------------------------------------
+ */
 
 model Customer {
   id         String   @id @default(cuid())
@@ -96,7 +176,18 @@ model Customer {
   vehicles     Vehicle[]
   invoices     Invoice[]
   appointments Appointment[]
+
+  @@index([businessId])
+  @@index([businessId, name])
+  @@index([businessId, phone])
+  @@index([businessId, email])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | Vehicle
+ * |--------------------------------------------------------------------------
+ */
 
 model Vehicle {
   id         String   @id @default(cuid())
@@ -116,7 +207,19 @@ model Vehicle {
   services     ServiceRecord[]
   appointments Appointment[]
   invoices     Invoice[]
+
+  @@unique([businessId, plate])
+  @@index([businessId])
+  @@index([customerId])
+  @@index([businessId, brand])
+  @@index([businessId, vin])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | ServiceRecord
+ * |--------------------------------------------------------------------------
+ */
 
 model ServiceRecord {
   id          String        @id @default(cuid())
@@ -135,7 +238,19 @@ model ServiceRecord {
 
   invoice   Invoice?
   partsUsed ServicePartUsage[]
+
+  @@index([businessId])
+  @@index([vehicleId])
+  @@index([customerId])
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | Appointment
+ * |--------------------------------------------------------------------------
+ */
 
 model Appointment {
   id          String        @id @default(cuid())
@@ -152,7 +267,19 @@ model Appointment {
   business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   vehicle  Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([vehicleId])
+  @@index([customerId])
+  @@index([businessId, date])
+  @@index([businessId, status])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | Part
+ * |--------------------------------------------------------------------------
+ */
 
 model Part {
   id         String   @id @default(cuid())
@@ -170,7 +297,19 @@ model Part {
 
   business      Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   serviceUsages ServicePartUsage[]
+
+  @@unique([businessId, code])
+  @@index([businessId])
+  @@index([businessId, name])
+  @@index([businessId, category])
+  @@index([businessId, stock])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | PurchaseOrder
+ * |--------------------------------------------------------------------------
+ */
 
 model PurchaseOrder {
   id         String         @id @default(cuid())
@@ -184,7 +323,18 @@ model PurchaseOrder {
 
   business Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
   items    PurchaseOrderItem[]
+
+  @@index([businessId])
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
+  @@index([businessId, supplier])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | PurchaseOrderItem
+ * |--------------------------------------------------------------------------
+ */
 
 model PurchaseOrderItem {
   id              String @id @default(cuid())
@@ -195,7 +345,15 @@ model PurchaseOrderItem {
   total           Float  @default(0)
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | ServicePartUsage
+ * |--------------------------------------------------------------------------
+ */
 
 model ServicePartUsage {
   id        String   @id @default(cuid())
@@ -210,7 +368,15 @@ model ServicePartUsage {
   part    Part          @relation(fields: [partId], references: [id], onDelete: Cascade)
 
   @@unique([serviceId, partId])
+  @@index([serviceId])
+  @@index([partId])
 }
+
+/**
+ * |--------------------------------------------------------------------------
+ * | Invoice
+ * |--------------------------------------------------------------------------
+ */
 
 model Invoice {
   id         String        @id @default(cuid())
@@ -222,9 +388,17 @@ model Invoice {
   status     InvoiceStatus @default(DRAFT)
   total      Float         @default(0)
   createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
   customer Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
   vehicle  Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   service  ServiceRecord? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, number])
+  @@index([businessId])
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
 }
