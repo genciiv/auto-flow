@@ -67,6 +67,12 @@ enum PurchaseStatus {
   CANCELLED
 }
 
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 /**
  * |--------------------------------------------------------------------------
  * | User
@@ -401,4 +407,27 @@ model Invoice {
   @@index([vehicleId])
   @@index([businessId, status])
   @@index([businessId, createdAt])
+}
+
+model BusinessApplication {
+  id                 String            @id @default(cuid())
+  businessName       String
+  ownerName          String
+  email              String
+  phone              String
+  city               String
+  address            String?
+  notes              String?
+  status             ApplicationStatus @default(PENDING)
+  rejectionReason    String?
+  reviewedAt         DateTime?
+  reviewedById       String?
+  approvedBusinessId String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([status])
+  @@index([email])
+  @@index([city])
+  @@index([createdAt])
 }

@@ -96,10 +96,10 @@ export default async function Header() {
             </Link>
 
             <Link
-              href="/login"
-              className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800"
+              href="/apply"
+              className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
             >
-              Fillo falas
+              Apliko tani
             </Link>
           </div>
         )}
