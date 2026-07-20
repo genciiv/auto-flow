@@ -2,15 +2,21 @@ import AppointmentStats from "@/components/appointments/AppointmentStats";
 import AppointmentsView from "@/components/appointments/AppointmentsView";
 import CreateAppointmentModal from "@/components/appointments/CreateAppointmentModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function AppointmentsPage() {
+  const { businessId } = await requireBusinessContext();
+
   const [appointments, customers, vehicles] = await Promise.all([
     db.appointment.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         date: "asc",
       },
-
       include: {
         vehicle: true,
         customer: true,
@@ -19,10 +25,12 @@ export default async function AppointmentsPage() {
     }),
 
     db.customer.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         name: "asc",
       },
-
       select: {
         id: true,
         name: true,
@@ -31,10 +39,12 @@ export default async function AppointmentsPage() {
     }),
 
     db.vehicle.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         createdAt: "desc",
       },
-
       select: {
         id: true,
         customerId: true,

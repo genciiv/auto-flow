@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 const VALID_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
@@ -23,12 +25,12 @@ function getOptionalString(formData, key) {
   return trimmedValue || null;
 }
 
-async function getBusiness() {
-  return db.business.findFirst({
-    select: {
-      id: true,
-    },
-  });
+function normalizeStatus(value, fallback = "PENDING") {
+  const normalizedStatus = String(value || fallback)
+    .trim()
+    .toUpperCase();
+
+  return normalizedStatus;
 }
 
 async function validateAppointmentRelations({
@@ -92,14 +94,21 @@ async function validateAppointmentRelations({
   };
 }
 
+function getErrorMessage(error, fallbackMessage) {
+  return error?.message || fallbackMessage;
+}
+
 export async function createAppointment(formData) {
   try {
+    const { businessId } = await requireBusinessContext();
+
     const title = getOptionalString(formData, "title");
     const description = getOptionalString(formData, "description");
     const customerId = getOptionalString(formData, "customerId");
     const vehicleId = getOptionalString(formData, "vehicleId");
     const dateValue = getOptionalString(formData, "date");
-    const status = getOptionalString(formData, "status") || "PENDING";
+
+    const status = normalizeStatus(getOptionalString(formData, "status"));
 
     if (!title) {
       return {
@@ -131,17 +140,8 @@ export async function createAppointment(formData) {
       };
     }
 
-    const business = await getBusiness();
-
-    if (!business) {
-      return {
-        success: false,
-        message: "Nuk u gjet biznes aktiv.",
-      };
-    }
-
     const relationsResult = await validateAppointmentRelations({
-      businessId: business.id,
+      businessId,
       customerId,
       vehicleId,
     });
@@ -152,7 +152,7 @@ export async function createAppointment(formData) {
 
     await db.appointment.create({
       data: {
-        businessId: business.id,
+        businessId,
         customerId,
         vehicleId,
         title,
@@ -173,20 +173,24 @@ export async function createAppointment(formData) {
 
     return {
       success: false,
-      message: "Termini nuk mund të krijohej.",
+      message: getErrorMessage(error, "Termini nuk mund të krijohej."),
     };
   }
 }
 
 export async function updateAppointment(formData) {
   try {
+    const { businessId } = await requireBusinessContext();
+
     const appointmentId = getOptionalString(formData, "appointmentId");
+
     const title = getOptionalString(formData, "title");
     const description = getOptionalString(formData, "description");
     const customerId = getOptionalString(formData, "customerId");
     const vehicleId = getOptionalString(formData, "vehicleId");
     const dateValue = getOptionalString(formData, "date");
-    const status = getOptionalString(formData, "status") || "PENDING";
+
+    const status = normalizeStatus(getOptionalString(formData, "status"));
 
     if (!appointmentId) {
       return {
@@ -225,13 +229,13 @@ export async function updateAppointment(formData) {
       };
     }
 
-    const appointment = await db.appointment.findUnique({
+    const appointment = await db.appointment.findFirst({
       where: {
         id: appointmentId,
+        businessId,
       },
       select: {
         id: true,
-        businessId: true,
       },
     });
 
@@ -243,7 +247,7 @@ export async function updateAppointment(formData) {
     }
 
     const relationsResult = await validateAppointmentRelations({
-      businessId: appointment.businessId,
+      businessId,
       customerId,
       vehicleId,
     });
@@ -254,7 +258,7 @@ export async function updateAppointment(formData) {
 
     await db.appointment.update({
       where: {
-        id: appointmentId,
+        id: appointment.id,
       },
       data: {
         customerId,
@@ -277,23 +281,26 @@ export async function updateAppointment(formData) {
 
     return {
       success: false,
-      message: "Termini nuk mund të përditësohej.",
+      message: getErrorMessage(error, "Termini nuk mund të përditësohej."),
     };
   }
 }
 
 export async function deleteAppointment(appointmentId) {
   try {
-    if (!appointmentId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!appointmentId || typeof appointmentId !== "string") {
       return {
         success: false,
         message: "Termini nuk u identifikua.",
       };
     }
 
-    const appointment = await db.appointment.findUnique({
+    const appointment = await db.appointment.findFirst({
       where: {
         id: appointmentId,
+        businessId,
       },
       select: {
         id: true,
@@ -309,7 +316,7 @@ export async function deleteAppointment(appointmentId) {
 
     await db.appointment.delete({
       where: {
-        id: appointmentId,
+        id: appointment.id,
       },
     });
 
@@ -324,30 +331,35 @@ export async function deleteAppointment(appointmentId) {
 
     return {
       success: false,
-      message: "Termini nuk mund të fshihej.",
+      message: getErrorMessage(error, "Termini nuk mund të fshihej."),
     };
   }
 }
 
 export async function updateAppointmentStatus(appointmentId, status) {
   try {
-    if (!appointmentId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!appointmentId || typeof appointmentId !== "string") {
       return {
         success: false,
         message: "Termini nuk u identifikua.",
       };
     }
 
-    if (!VALID_STATUSES.includes(status)) {
+    const normalizedStatus = normalizeStatus(status, "");
+
+    if (!VALID_STATUSES.includes(normalizedStatus)) {
       return {
         success: false,
         message: "Statusi nuk është i vlefshëm.",
       };
     }
 
-    const appointment = await db.appointment.findUnique({
+    const appointment = await db.appointment.findFirst({
       where: {
         id: appointmentId,
+        businessId,
       },
       select: {
         id: true,
@@ -363,10 +375,10 @@ export async function updateAppointmentStatus(appointmentId, status) {
 
     await db.appointment.update({
       where: {
-        id: appointmentId,
+        id: appointment.id,
       },
       data: {
-        status,
+        status: normalizedStatus,
       },
     });
 
@@ -381,74 +393,118 @@ export async function updateAppointmentStatus(appointmentId, status) {
 
     return {
       success: false,
-      message: "Statusi nuk mund të ndryshohej.",
+      message: getErrorMessage(error, "Statusi nuk mund të ndryshohej."),
     };
   }
 }
 
 export async function startServiceFromAppointment(appointmentId) {
   try {
-    if (!appointmentId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!appointmentId || typeof appointmentId !== "string") {
       return {
         success: false,
         message: "Termini nuk u identifikua.",
       };
     }
 
-    const appointment = await db.appointment.findUnique({
-      where: {
-        id: appointmentId,
-      },
-      select: {
-        id: true,
-        businessId: true,
-        vehicleId: true,
-        customerId: true,
-        title: true,
-        description: true,
-        status: true,
-      },
-    });
-
-    if (!appointment) {
-      return {
-        success: false,
-        message: "Termini nuk u gjet.",
-      };
-    }
-
-    if (!appointment.vehicleId) {
-      return {
-        success: false,
-        message: "Termini duhet të ketë një automjet për të filluar servisin.",
-      };
-    }
-
-    if (appointment.status === "COMPLETED") {
-      return {
-        success: false,
-        message: "Ky termin është përfunduar.",
-      };
-    }
-
-    if (appointment.status === "CANCELLED") {
-      return {
-        success: false,
-        message: "Një termin i anuluar nuk mund të fillojë servis.",
-      };
-    }
-
-    if (appointment.status === "IN_PROGRESS") {
-      return {
-        success: false,
-        message: "Servisi për këtë termin është nisur tashmë.",
-      };
-    }
-
     const service = await db.$transaction(async (transaction) => {
-      const createdService = await transaction.serviceRecord.create({
+      const appointment = await transaction.appointment.findFirst({
+        where: {
+          id: appointmentId,
+          businessId,
+        },
+        select: {
+          id: true,
+          vehicleId: true,
+          customerId: true,
+          title: true,
+          description: true,
+          status: true,
+        },
+      });
+
+      if (!appointment) {
+        throw new Error("Termini nuk u gjet.");
+      }
+
+      if (!appointment.vehicleId) {
+        throw new Error(
+          "Termini duhet të ketë një automjet për të filluar servisin.",
+        );
+      }
+
+      if (appointment.status === "COMPLETED") {
+        throw new Error("Ky termin është përfunduar.");
+      }
+
+      if (appointment.status === "CANCELLED") {
+        throw new Error("Një termin i anuluar nuk mund të fillojë servis.");
+      }
+
+      if (appointment.status === "IN_PROGRESS") {
+        throw new Error("Servisi për këtë termin është nisur tashmë.");
+      }
+
+      const vehicle = await transaction.vehicle.findFirst({
+        where: {
+          id: appointment.vehicleId,
+          businessId,
+        },
+        select: {
+          id: true,
+          customerId: true,
+        },
+      });
+
+      if (!vehicle) {
+        throw new Error("Automjeti i terminit nuk u gjet.");
+      }
+
+      if (appointment.customerId) {
+        const customer = await transaction.customer.findFirst({
+          where: {
+            id: appointment.customerId,
+            businessId,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (!customer) {
+          throw new Error("Klienti i terminit nuk u gjet.");
+        }
+
+        if (
+          vehicle.customerId &&
+          vehicle.customerId !== appointment.customerId
+        ) {
+          throw new Error("Automjeti nuk i përket klientit të terminit.");
+        }
+      }
+
+      const updatedAppointment = await transaction.appointment.updateMany({
+        where: {
+          id: appointment.id,
+          businessId,
+          status: "PENDING",
+        },
         data: {
-          businessId: appointment.businessId,
+          status: "IN_PROGRESS",
+        },
+      });
+
+      if (updatedAppointment.count !== 1) {
+        throw new Error(
+          "Termini është ndryshuar ose servisi është nisur më parë.",
+        );
+      }
+
+      return transaction.serviceRecord.create({
+        data: {
+          businessId,
           vehicleId: appointment.vehicleId,
           customerId: appointment.customerId,
           title: appointment.title,
@@ -457,17 +513,6 @@ export async function startServiceFromAppointment(appointmentId) {
           total: 0,
         },
       });
-
-      await transaction.appointment.update({
-        where: {
-          id: appointment.id,
-        },
-        data: {
-          status: "IN_PROGRESS",
-        },
-      });
-
-      return createdService;
     });
 
     revalidateAppointmentPages();
@@ -482,7 +527,7 @@ export async function startServiceFromAppointment(appointmentId) {
 
     return {
       success: false,
-      message: "Servisi nuk mund të fillohej.",
+      message: getErrorMessage(error, "Servisi nuk mund të fillohej."),
     };
   }
 }
