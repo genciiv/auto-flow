@@ -2,16 +2,31 @@ import CreateCustomerModal from "@/components/customers/CreateCustomerModal";
 import CustomerStats from "@/components/customers/CustomerStats";
 import CustomersTable from "@/components/customers/CustomersTable";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function CustomersPage() {
+  const { businessId } = await requireBusinessContext();
+
   const customers = await db.customer.findMany({
+    where: {
+      businessId,
+    },
     orderBy: {
       createdAt: "desc",
     },
     include: {
-      vehicles: true,
-      invoices: true,
+      vehicles: {
+        where: {
+          businessId,
+        },
+      },
+      invoices: {
+        where: {
+          businessId,
+        },
+      },
     },
   });
 
@@ -27,7 +42,7 @@ export default async function CustomersPage() {
 
   const totalSpent = customers.reduce((sum, customer) => {
     const customerSpent = customer.invoices.reduce((invoiceSum, invoice) => {
-      return invoiceSum + Number(invoice.total || 0);
+      return invoiceSum + Number(invoice.total ?? 0);
     }, 0);
 
     return sum + customerSpent;

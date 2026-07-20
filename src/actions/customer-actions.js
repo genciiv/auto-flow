@@ -1,55 +1,41 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
-export async function createCustomer(formData) {
-  const name = formData.get("name");
-  const phone = formData.get("phone");
-  const email = formData.get("email");
-  const city = formData.get("city");
+function getOptionalFormValue(formData, fieldName) {
+  const value = formData.get(fieldName);
 
-  if (!name) {
-    throw new Error("Emri është i detyrueshëm");
+  if (typeof value !== "string") {
+    return null;
   }
 
-  const business = await db.business.findFirst();
+  const trimmedValue = value.trim();
 
-  if (!business) {
-    throw new Error("Nuk u gjet biznes aktiv");
+  return trimmedValue || null;
+}
+
+export async function createCustomer(formData) {
+  const { businessId } = await requireBusinessContext();
+
+  const name = getOptionalFormValue(formData, "name");
+  const phone = getOptionalFormValue(formData, "phone");
+  const email = getOptionalFormValue(formData, "email");
+  const city = getOptionalFormValue(formData, "city");
+
+  if (!name) {
+    throw new Error("Emri është i detyrueshëm.");
   }
 
   await db.customer.create({
     data: {
-      businessId: business.id,
+      businessId,
       name,
-      phone: phone || null,
-      email: email || null,
-      city: city || null,
-    },
-  });
-
-  revalidatePath("/dashboard/customers");
-}
-
-export async function updateCustomer(formData) {
-  const id = formData.get("id");
-  const name = formData.get("name");
-  const phone = formData.get("phone");
-  const email = formData.get("email");
-  const city = formData.get("city");
-
-  if (!id || !name) {
-    throw new Error("ID dhe emri janë të detyrueshëm");
-  }
-
-  await db.customer.update({
-    where: { id },
-    data: {
-      name,
-      phone: phone || null,
-      email: email || null,
-      city: city || null,
+      phone,
+      email,
+      city,
     },
   });
 
@@ -57,21 +43,80 @@ export async function updateCustomer(formData) {
   revalidatePath("/dashboard");
 }
 
+export async function updateCustomer(formData) {
+  const { businessId } = await requireBusinessContext();
+
+  const id = getOptionalFormValue(formData, "id");
+  const name = getOptionalFormValue(formData, "name");
+  const phone = getOptionalFormValue(formData, "phone");
+  const email = getOptionalFormValue(formData, "email");
+  const city = getOptionalFormValue(formData, "city");
+
+  if (!id) {
+    throw new Error("ID e klientit mungon.");
+  }
+
+  if (!name) {
+    throw new Error("Emri është i detyrueshëm.");
+  }
+
+  const customer = await db.customer.findFirst({
+    where: {
+      id,
+      businessId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!customer) {
+    throw new Error("Klienti nuk u gjet.");
+  }
+
+  await db.customer.update({
+    where: {
+      id: customer.id,
+    },
+    data: {
+      name,
+      phone,
+      email,
+      city,
+    },
+  });
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customer.id}`);
+  revalidatePath("/dashboard");
+}
+
 export async function deleteCustomer(customerId) {
   try {
-    if (!customerId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!customerId || typeof customerId !== "string") {
       return {
         success: false,
         message: "ID e klientit mungon.",
       };
     }
 
-    const customer = await db.customer.findUnique({
+    const customer = await db.customer.findFirst({
       where: {
         id: customerId,
+        businessId,
       },
-      include: {
-        vehicles: true,
+      select: {
+        id: true,
+        _count: {
+          select: {
+            vehicles: true,
+            invoices: true,
+            serviceRecords: true,
+            appointments: true,
+          },
+        },
       },
     });
 
@@ -82,7 +127,7 @@ export async function deleteCustomer(customerId) {
       };
     }
 
-    if (customer.vehicles.length > 0) {
+    if (customer._count.vehicles > 0) {
       return {
         success: false,
         message:
@@ -90,9 +135,33 @@ export async function deleteCustomer(customerId) {
       };
     }
 
+    if (customer._count.invoices > 0) {
+      return {
+        success: false,
+        message:
+          "Ky klient nuk mund të fshihet sepse ka fatura të regjistruara.",
+      };
+    }
+
+    if (customer._count.serviceRecords > 0) {
+      return {
+        success: false,
+        message:
+          "Ky klient nuk mund të fshihet sepse ka shërbime të regjistruara.",
+      };
+    }
+
+    if (customer._count.appointments > 0) {
+      return {
+        success: false,
+        message:
+          "Ky klient nuk mund të fshihet sepse ka takime të regjistruara.",
+      };
+    }
+
     await db.customer.delete({
       where: {
-        id: customerId,
+        id: customer.id,
       },
     });
 
