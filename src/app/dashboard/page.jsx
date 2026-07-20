@@ -7,53 +7,119 @@ import CalendarWidget from "@/components/dashboard/CalendarWidget";
 import InventoryAlerts from "@/components/dashboard/InventoryAlerts";
 import ActivityTimeline from "@/components/dashboard/ActivityTimeline";
 import AiAssistantWidget from "@/components/dashboard/AiAssistantWidget";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function DashboardPage() {
+  const { businessId } = await requireBusinessContext();
+
   const [
-    customers,
-    vehicles,
-    services,
+    customerCount,
+    vehicleCount,
+    activeServiceCount,
+    appointmentCount,
+    purchaseCount,
+    recentServices,
     invoices,
     parts,
-    appointments,
-    purchases,
+    upcomingAppointments,
   ] = await Promise.all([
-    db.customer.findMany(),
-    db.vehicle.findMany(),
+    db.customer.count({
+      where: {
+        businessId,
+      },
+    }),
+
+    db.vehicle.count({
+      where: {
+        businessId,
+      },
+    }),
+
+    db.serviceRecord.count({
+      where: {
+        businessId,
+        status: "IN_PROGRESS",
+      },
+    }),
+
+    db.appointment.count({
+      where: {
+        businessId,
+      },
+    }),
+
+    db.purchaseOrder.count({
+      where: {
+        businessId,
+      },
+    }),
+
     db.serviceRecord.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { vehicle: true },
+      where: {
+        businessId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        vehicle: true,
+      },
       take: 5,
     }),
-    db.invoice.findMany(),
-    db.part.findMany(),
+
+    db.invoice.findMany({
+      where: {
+        businessId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+
+    db.part.findMany({
+      where: {
+        businessId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+
     db.appointment.findMany({
-      orderBy: { date: "asc" },
-      include: { vehicle: true },
+      where: {
+        businessId,
+      },
+      orderBy: {
+        date: "asc",
+      },
+      include: {
+        vehicle: true,
+        customer: true,
+      },
       take: 5,
     }),
-    db.purchaseOrder.findMany(),
   ]);
 
   const paidRevenue = invoices
     .filter((invoice) => invoice.status === "PAID")
-    .reduce((sum, invoice) => sum + Number(invoice.total || 0), 0);
+    .reduce((sum, invoice) => {
+      return sum + Number(invoice.total || 0);
+    }, 0);
 
-  const lowStockParts = parts.filter(
-    (part) => Number(part.stock) <= Number(part.minStock),
-  );
+  const lowStockParts = parts.filter((part) => {
+    return Number(part.stock) <= Number(part.minStock);
+  });
 
   const stats = {
-    customers: customers.length,
-    vehicles: vehicles.length,
-    activeServices: services.filter(
-      (service) => service.status === "IN_PROGRESS",
-    ).length,
+    customers: customerCount,
+    vehicles: vehicleCount,
+    activeServices: activeServiceCount,
     revenue: paidRevenue,
     lowStock: lowStockParts.length,
-    appointments: appointments.length,
-    purchases: purchases.length,
+    appointments: appointmentCount,
+    purchases: purchaseCount,
   };
 
   return (
@@ -61,9 +127,11 @@ export default async function DashboardPage() {
       <div className="space-y-8">
         <div>
           <p className="text-sm font-semibold text-blue-600">Dashboard</p>
+
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
             Mirë se erdhe në AutoFlow
           </h1>
+
           <p className="mt-2 text-slate-500">
             Pamje reale nga databaza për servisin, klientët, faturat dhe
             magazinën.
@@ -78,12 +146,13 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <RecentServices services={services} />
-          <CalendarWidget appointments={appointments} />
+          <RecentServices services={recentServices} />
+          <CalendarWidget appointments={upcomingAppointments} />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <ActivityTimeline services={services} invoices={invoices} />
+          <ActivityTimeline services={recentServices} invoices={invoices} />
+
           <InventoryAlerts parts={lowStockParts} />
         </div>
 

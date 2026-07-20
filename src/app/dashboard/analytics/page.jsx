@@ -5,15 +5,21 @@ import ServicePerformance from "@/components/analytics/ServicePerformance";
 import InventoryPerformance from "@/components/analytics/InventoryPerformance";
 import TopCustomersTable from "@/components/analytics/TopCustomersTable";
 
-export default function AnalyticsPage() {
+import { requireBusinessContext } from "@/lib/business-context";
+
+export default async function AnalyticsPage() {
+  await requireBusinessContext();
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
         <div>
           <p className="text-sm font-semibold text-blue-600">Analytics</p>
+
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
             Analitika
           </h1>
+
           <p className="mt-2 text-slate-500">
             Analizo të ardhurat, shërbimet, magazinën dhe klientët më të
             vlefshëm.

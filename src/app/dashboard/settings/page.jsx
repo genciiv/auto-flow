@@ -4,7 +4,11 @@ import SettingsBusiness from "@/components/settings/SettingsBusiness";
 import SettingsNotifications from "@/components/settings/SettingsNotifications";
 import SettingsBilling from "@/components/settings/SettingsBilling";
 
-export default function SettingsPage() {
+import { requireBusinessContext } from "@/lib/business-context";
+
+export default async function SettingsPage() {
+  await requireBusinessContext();
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
