@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 const ALLOWED_STATUSES = ["DRAFT", "UNPAID", "PAID", "OVERDUE"];
@@ -34,20 +35,6 @@ function revalidateInvoicePaths(invoiceId = null) {
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard");
-}
-
-async function getActiveBusiness() {
-  const business = await db.business.findFirst({
-    select: {
-      id: true,
-    },
-  });
-
-  if (!business) {
-    throw new Error("Nuk u gjet biznes aktiv.");
-  }
-
-  return business;
 }
 
 async function generateInvoiceNumber(businessId) {
@@ -106,6 +93,65 @@ async function getServiceData(serviceId, businessId) {
   return service;
 }
 
+async function validateCustomer(customerId, businessId) {
+  if (!customerId) {
+    return null;
+  }
+
+  const customer = await db.customer.findFirst({
+    where: {
+      id: customerId,
+      businessId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!customer) {
+    throw new Error("Klienti i zgjedhur nuk u gjet.");
+  }
+
+  return customer.id;
+}
+
+async function validateVehicle(vehicleId, businessId) {
+  if (!vehicleId) {
+    return null;
+  }
+
+  const vehicle = await db.vehicle.findFirst({
+    where: {
+      id: vehicleId,
+      businessId,
+    },
+    select: {
+      id: true,
+      customerId: true,
+    },
+  });
+
+  if (!vehicle) {
+    throw new Error("Automjeti i zgjedhur nuk u gjet.");
+  }
+
+  return vehicle;
+}
+
+function validateInvoiceTotal(value) {
+  const total = Number(value);
+
+  if (!Number.isFinite(total)) {
+    throw new Error("Totali i faturës nuk është i vlefshëm.");
+  }
+
+  if (total < 0) {
+    throw new Error("Totali i faturës nuk mund të jetë negativ.");
+  }
+
+  return total;
+}
+
 function getErrorMessage(error) {
   if (error?.code === "P2002") {
     const target = Array.isArray(error?.meta?.target)
@@ -123,12 +169,16 @@ function getErrorMessage(error) {
     return "Ekziston tashmë një rekord me këto të dhëna.";
   }
 
+  if (error?.code === "P2003") {
+    return "Të dhënat e zgjedhura nuk janë më të vlefshme.";
+  }
+
   return error?.message || "Ndodhi një gabim i papritur.";
 }
 
 export async function createInvoice(formData) {
   try {
-    const business = await getActiveBusiness();
+    const { businessId } = await requireBusinessContext();
 
     const selectedCustomerId = normalizeOptionalId(formData.get("customerId"));
 
@@ -144,11 +194,12 @@ export async function createInvoice(formData) {
 
     let customerId = selectedCustomerId;
     let vehicleId = selectedVehicleId;
-    let total = Number(requestedTotal);
+    let total;
 
     if (serviceId) {
-      const existingInvoice = await db.invoice.findUnique({
+      const existingInvoice = await db.invoice.findFirst({
         where: {
+          businessId,
           serviceId,
         },
         select: {
@@ -164,33 +215,45 @@ export async function createInvoice(formData) {
         };
       }
 
-      const service = await getServiceData(serviceId, business.id);
+      const service = await getServiceData(serviceId, businessId);
 
       customerId = service.customerId || customerId;
       vehicleId = service.vehicleId || vehicleId;
-      total = Number(service.total || 0);
+      total = validateInvoiceTotal(service.total || 0);
+    } else {
+      if (!requestedTotal) {
+        return {
+          success: false,
+          message: "Totali i faturës është i detyrueshëm.",
+        };
+      }
+
+      total = validateInvoiceTotal(requestedTotal);
     }
 
-    if (!serviceId && (!requestedTotal || !Number.isFinite(total))) {
+    const validatedVehicle = await validateVehicle(vehicleId, businessId);
+
+    const validatedCustomerId = await validateCustomer(customerId, businessId);
+
+    if (
+      validatedVehicle?.customerId &&
+      validatedCustomerId &&
+      validatedVehicle.customerId !== validatedCustomerId
+    ) {
       return {
         success: false,
-        message: "Totali i faturës është i detyrueshëm.",
+        message: "Automjeti i zgjedhur nuk i përket klientit të zgjedhur.",
       };
     }
 
-    if (total < 0) {
-      return {
-        success: false,
-        message: "Totali i faturës nuk mund të jetë negativ.",
-      };
-    }
+    customerId = validatedCustomerId;
+    vehicleId = validatedVehicle?.id || null;
 
-    const number =
-      requestedNumber || (await generateInvoiceNumber(business.id));
+    const number = requestedNumber || (await generateInvoiceNumber(businessId));
 
     const duplicateNumber = await db.invoice.findFirst({
       where: {
-        businessId: business.id,
+        businessId,
         number,
       },
       select: {
@@ -207,7 +270,7 @@ export async function createInvoice(formData) {
 
     const invoice = await db.invoice.create({
       data: {
-        businessId: business.id,
+        businessId,
         customerId,
         vehicleId,
         serviceId,
@@ -240,19 +303,19 @@ export async function createInvoice(formData) {
 
 export async function updateInvoice(invoiceId, formData) {
   try {
-    if (!invoiceId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!invoiceId || typeof invoiceId !== "string") {
       return {
         success: false,
         message: "ID-ja e faturës mungon.",
       };
     }
 
-    const business = await getActiveBusiness();
-
     const existingInvoice = await db.invoice.findFirst({
       where: {
         id: invoiceId,
-        businessId: business.id,
+        businessId,
       },
       select: {
         id: true,
@@ -287,7 +350,7 @@ export async function updateInvoice(invoiceId, formData) {
 
     const duplicateNumber = await db.invoice.findFirst({
       where: {
-        businessId: business.id,
+        businessId,
         number,
         NOT: {
           id: invoiceId,
@@ -307,11 +370,12 @@ export async function updateInvoice(invoiceId, formData) {
 
     let customerId = selectedCustomerId;
     let vehicleId = selectedVehicleId;
-    let total = Number(requestedTotal);
+    let total;
 
     if (serviceId) {
       const serviceInvoice = await db.invoice.findFirst({
         where: {
+          businessId,
           serviceId,
           NOT: {
             id: invoiceId,
@@ -330,30 +394,43 @@ export async function updateInvoice(invoiceId, formData) {
         };
       }
 
-      const service = await getServiceData(serviceId, business.id);
+      const service = await getServiceData(serviceId, businessId);
 
       customerId = service.customerId || customerId;
       vehicleId = service.vehicleId || vehicleId;
-      total = Number(service.total || 0);
+      total = validateInvoiceTotal(service.total || 0);
+    } else {
+      if (!requestedTotal) {
+        return {
+          success: false,
+          message: "Totali i faturës është i detyrueshëm.",
+        };
+      }
+
+      total = validateInvoiceTotal(requestedTotal);
     }
 
-    if (!serviceId && (!requestedTotal || !Number.isFinite(total))) {
+    const validatedVehicle = await validateVehicle(vehicleId, businessId);
+
+    const validatedCustomerId = await validateCustomer(customerId, businessId);
+
+    if (
+      validatedVehicle?.customerId &&
+      validatedCustomerId &&
+      validatedVehicle.customerId !== validatedCustomerId
+    ) {
       return {
         success: false,
-        message: "Totali i faturës është i detyrueshëm.",
+        message: "Automjeti i zgjedhur nuk i përket klientit të zgjedhur.",
       };
     }
 
-    if (total < 0) {
-      return {
-        success: false,
-        message: "Totali i faturës nuk mund të jetë negativ.",
-      };
-    }
+    customerId = validatedCustomerId;
+    vehicleId = validatedVehicle?.id || null;
 
     await db.invoice.update({
       where: {
-        id: invoiceId,
+        id: existingInvoice.id,
       },
       data: {
         customerId,
@@ -365,7 +442,7 @@ export async function updateInvoice(invoiceId, formData) {
       },
     });
 
-    revalidateInvoicePaths(invoiceId);
+    revalidateInvoicePaths(existingInvoice.id);
 
     return {
       success: true,
@@ -383,7 +460,9 @@ export async function updateInvoice(invoiceId, formData) {
 
 export async function updateInvoiceStatus(invoiceId, status) {
   try {
-    if (!invoiceId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!invoiceId || typeof invoiceId !== "string") {
       return {
         success: false,
         message: "ID-ja e faturës mungon.",
@@ -401,12 +480,10 @@ export async function updateInvoiceStatus(invoiceId, status) {
       };
     }
 
-    const business = await getActiveBusiness();
-
     const invoice = await db.invoice.findFirst({
       where: {
         id: invoiceId,
-        businessId: business.id,
+        businessId,
       },
       select: {
         id: true,
@@ -422,14 +499,14 @@ export async function updateInvoiceStatus(invoiceId, status) {
 
     await db.invoice.update({
       where: {
-        id: invoiceId,
+        id: invoice.id,
       },
       data: {
         status: normalizedStatus,
       },
     });
 
-    revalidateInvoicePaths(invoiceId);
+    revalidateInvoicePaths(invoice.id);
 
     return {
       success: true,
@@ -450,19 +527,19 @@ export async function updateInvoiceStatus(invoiceId, status) {
 
 export async function deleteInvoice(invoiceId) {
   try {
-    if (!invoiceId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!invoiceId || typeof invoiceId !== "string") {
       return {
         success: false,
         message: "ID-ja e faturës mungon.",
       };
     }
 
-    const business = await getActiveBusiness();
-
     const invoice = await db.invoice.findFirst({
       where: {
         id: invoiceId,
-        businessId: business.id,
+        businessId,
       },
       select: {
         id: true,
@@ -478,11 +555,11 @@ export async function deleteInvoice(invoiceId) {
 
     await db.invoice.delete({
       where: {
-        id: invoiceId,
+        id: invoice.id,
       },
     });
 
-    revalidateInvoicePaths(invoiceId);
+    revalidateInvoicePaths(invoice.id);
 
     return {
       success: true,

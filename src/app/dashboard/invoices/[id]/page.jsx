@@ -2,18 +2,22 @@ import { notFound } from "next/navigation";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InvoiceDetails from "@/components/invoices/details/InvoiceDetails";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function InvoiceDetailsPage({ params }) {
+  const { businessId } = await requireBusinessContext();
   const { id } = await params;
 
   if (!id) {
     notFound();
   }
 
-  const invoice = await db.invoice.findUnique({
+  const invoice = await db.invoice.findFirst({
     where: {
       id,
+      businessId,
     },
     include: {
       business: true,
@@ -46,7 +50,7 @@ export default async function InvoiceDetailsPage({ params }) {
   const [customers, vehicles, services] = await Promise.all([
     db.customer.findMany({
       where: {
-        businessId: invoice.businessId,
+        businessId,
       },
       orderBy: {
         name: "asc",
@@ -55,7 +59,7 @@ export default async function InvoiceDetailsPage({ params }) {
 
     db.vehicle.findMany({
       where: {
-        businessId: invoice.businessId,
+        businessId,
       },
       orderBy: {
         plate: "asc",
@@ -64,7 +68,8 @@ export default async function InvoiceDetailsPage({ params }) {
 
     db.serviceRecord.findMany({
       where: {
-        businessId: invoice.businessId,
+        businessId,
+        status: "COMPLETED",
       },
       orderBy: {
         createdAt: "desc",

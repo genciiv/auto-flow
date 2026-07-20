@@ -2,11 +2,18 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
 import InvoicesTable from "@/components/invoices/InvoicesTable";
 import CreateInvoiceModal from "@/components/invoices/CreateInvoiceModal";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function InvoicesPage() {
+  const { businessId } = await requireBusinessContext();
+
   const [invoices, customers, vehicles, services] = await Promise.all([
     db.invoice.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -18,12 +25,18 @@ export default async function InvoicesPage() {
     }),
 
     db.customer.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         name: "asc",
       },
     }),
 
     db.vehicle.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         plate: "asc",
       },
@@ -31,6 +44,7 @@ export default async function InvoicesPage() {
 
     db.serviceRecord.findMany({
       where: {
+        businessId,
         status: "COMPLETED",
       },
       orderBy: {
