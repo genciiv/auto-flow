@@ -1,5 +1,5 @@
 import AppointmentStats from "@/components/appointments/AppointmentStats";
-import AppointmentsTable from "@/components/appointments/AppointmentsTable";
+import AppointmentsView from "@/components/appointments/AppointmentsView";
 import CreateAppointmentModal from "@/components/appointments/CreateAppointmentModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { db } from "@/lib/db";
@@ -10,6 +10,7 @@ export default async function AppointmentsPage() {
       orderBy: {
         date: "asc",
       },
+
       include: {
         vehicle: true,
         customer: true,
@@ -21,6 +22,7 @@ export default async function AppointmentsPage() {
       orderBy: {
         name: "asc",
       },
+
       select: {
         id: true,
         name: true,
@@ -32,6 +34,7 @@ export default async function AppointmentsPage() {
       orderBy: {
         createdAt: "desc",
       },
+
       select: {
         id: true,
         customerId: true,
@@ -42,40 +45,38 @@ export default async function AppointmentsPage() {
     }),
   ]);
 
-  const totalAppointments = appointments.length;
-
-  const pendingAppointments = appointments.filter(
-    (appointment) => appointment.status === "PENDING",
-  ).length;
-
-  const inProgressAppointments = appointments.filter(
-    (appointment) => appointment.status === "IN_PROGRESS",
-  ).length;
-
-  const completedAppointments = appointments.filter(
-    (appointment) => appointment.status === "COMPLETED",
-  ).length;
-
   const stats = {
-    totalAppointments,
-    pendingAppointments,
-    inProgressAppointments,
-    completedAppointments,
+    totalAppointments: appointments.length,
+
+    pendingAppointments: appointments.filter(
+      (appointment) => appointment.status === "PENDING",
+    ).length,
+
+    inProgressAppointments: appointments.filter(
+      (appointment) => appointment.status === "IN_PROGRESS",
+    ).length,
+
+    completedAppointments: appointments.filter(
+      (appointment) => appointment.status === "COMPLETED",
+    ).length,
   };
 
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-semibold text-blue-600">Appointments</p>
+            <p className="text-sm font-semibold text-blue-600">
+              Menaxhimi i servisit
+            </p>
 
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
               Terminet
             </h1>
 
             <p className="mt-2 text-slate-500">
-              Menaxho rezervimet, servisët e planifikuar dhe statuset e tyre.
+              Planifiko vizitat, menaxho rezervimet dhe nis shërbimet e
+              automjeteve.
             </p>
           </div>
 
@@ -84,7 +85,7 @@ export default async function AppointmentsPage() {
 
         <AppointmentStats stats={stats} />
 
-        <AppointmentsTable
+        <AppointmentsView
           appointments={appointments}
           customers={customers}
           vehicles={vehicles}
