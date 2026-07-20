@@ -1,16 +1,61 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
+
+function getFormString(formData, fieldName) {
+  const value = formData.get(fieldName);
+
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+}
+
+async function validateCustomerOwnership(customerId, businessId) {
+  if (!customerId) {
+    return {
+      valid: true,
+      customerId: null,
+    };
+  }
+
+  const customer = await db.customer.findFirst({
+    where: {
+      id: customerId,
+      businessId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!customer) {
+    return {
+      valid: false,
+      customerId: null,
+    };
+  }
+
+  return {
+    valid: true,
+    customerId: customer.id,
+  };
+}
 
 export async function createVehicle(formData) {
   try {
-    const customerId = formData.get("customerId");
-    const plate = formData.get("plate")?.trim().toUpperCase();
-    const brand = formData.get("brand")?.trim();
-    const model = formData.get("model")?.trim();
-    const yearValue = formData.get("year");
-    const vin = formData.get("vin")?.trim().toUpperCase();
+    const { businessId } = await requireBusinessContext();
+
+    const customerId = getFormString(formData, "customerId");
+    const plate = getFormString(formData, "plate").toUpperCase();
+    const brand = getFormString(formData, "brand");
+    const model = getFormString(formData, "model");
+    const yearValue = getFormString(formData, "year");
+    const vin = getFormString(formData, "vin").toUpperCase();
 
     if (!plate || !brand) {
       return {
@@ -31,21 +76,21 @@ export async function createVehicle(formData) {
       };
     }
 
-    const business = await db.business.findFirst({
-      select: {
-        id: true,
-      },
-    });
+    const customerValidation = await validateCustomerOwnership(
+      customerId,
+      businessId,
+    );
 
-    if (!business) {
+    if (!customerValidation.valid) {
       return {
         success: false,
-        message: "Nuk u gjet biznes aktiv.",
+        message: "Klienti i zgjedhur nuk u gjet në biznesin aktiv.",
       };
     }
 
     const existingPlate = await db.vehicle.findFirst({
       where: {
+        businessId,
         plate,
       },
       select: {
@@ -63,6 +108,7 @@ export async function createVehicle(formData) {
     if (vin) {
       const existingVin = await db.vehicle.findFirst({
         where: {
+          businessId,
           vin,
         },
         select: {
@@ -80,8 +126,8 @@ export async function createVehicle(formData) {
 
     await db.vehicle.create({
       data: {
-        businessId: business.id,
-        customerId: customerId || null,
+        businessId,
+        customerId: customerValidation.customerId,
         plate,
         brand,
         model: model || null,
@@ -91,6 +137,7 @@ export async function createVehicle(formData) {
     });
 
     revalidatePath("/dashboard/vehicles");
+    revalidatePath("/dashboard/customers");
     revalidatePath("/dashboard");
 
     return {
@@ -109,13 +156,15 @@ export async function createVehicle(formData) {
 
 export async function updateVehicle(formData) {
   try {
-    const id = formData.get("id");
-    const customerId = formData.get("customerId");
-    const plate = formData.get("plate")?.trim().toUpperCase();
-    const brand = formData.get("brand")?.trim();
-    const model = formData.get("model")?.trim();
-    const yearValue = formData.get("year");
-    const vin = formData.get("vin")?.trim().toUpperCase();
+    const { businessId } = await requireBusinessContext();
+
+    const id = getFormString(formData, "id");
+    const customerId = getFormString(formData, "customerId");
+    const plate = getFormString(formData, "plate").toUpperCase();
+    const brand = getFormString(formData, "brand");
+    const model = getFormString(formData, "model");
+    const yearValue = getFormString(formData, "year");
+    const vin = getFormString(formData, "vin").toUpperCase();
 
     if (!id) {
       return {
@@ -143,9 +192,10 @@ export async function updateVehicle(formData) {
       };
     }
 
-    const vehicle = await db.vehicle.findUnique({
+    const vehicle = await db.vehicle.findFirst({
       where: {
         id,
+        businessId,
       },
       select: {
         id: true,
@@ -159,11 +209,24 @@ export async function updateVehicle(formData) {
       };
     }
 
+    const customerValidation = await validateCustomerOwnership(
+      customerId,
+      businessId,
+    );
+
+    if (!customerValidation.valid) {
+      return {
+        success: false,
+        message: "Klienti i zgjedhur nuk u gjet në biznesin aktiv.",
+      };
+    }
+
     const existingPlate = await db.vehicle.findFirst({
       where: {
+        businessId,
         plate,
         NOT: {
-          id,
+          id: vehicle.id,
         },
       },
       select: {
@@ -181,9 +244,10 @@ export async function updateVehicle(formData) {
     if (vin) {
       const existingVin = await db.vehicle.findFirst({
         where: {
+          businessId,
           vin,
           NOT: {
-            id,
+            id: vehicle.id,
           },
         },
         select: {
@@ -201,10 +265,10 @@ export async function updateVehicle(formData) {
 
     await db.vehicle.update({
       where: {
-        id,
+        id: vehicle.id,
       },
       data: {
-        customerId: customerId || null,
+        customerId: customerValidation.customerId,
         plate,
         brand,
         model: model || null,
@@ -214,7 +278,8 @@ export async function updateVehicle(formData) {
     });
 
     revalidatePath("/dashboard/vehicles");
-    revalidatePath(`/dashboard/vehicles/${id}`);
+    revalidatePath(`/dashboard/vehicles/${vehicle.id}`);
+    revalidatePath("/dashboard/customers");
     revalidatePath("/dashboard");
 
     return {
@@ -233,16 +298,19 @@ export async function updateVehicle(formData) {
 
 export async function deleteVehicle(vehicleId) {
   try {
-    if (!vehicleId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!vehicleId || typeof vehicleId !== "string") {
       return {
         success: false,
         message: "ID e automjetit mungon.",
       };
     }
 
-    const vehicle = await db.vehicle.findUnique({
+    const vehicle = await db.vehicle.findFirst({
       where: {
         id: vehicleId,
+        businessId,
       },
       select: {
         id: true,
@@ -259,7 +327,8 @@ export async function deleteVehicle(vehicleId) {
 
     const serviceCount = await db.serviceRecord.count({
       where: {
-        vehicleId,
+        businessId,
+        vehicleId: vehicle.id,
       },
     });
 
@@ -273,11 +342,12 @@ export async function deleteVehicle(vehicleId) {
 
     await db.vehicle.delete({
       where: {
-        id: vehicleId,
+        id: vehicle.id,
       },
     });
 
     revalidatePath("/dashboard/vehicles");
+    revalidatePath("/dashboard/customers");
     revalidatePath("/dashboard");
 
     return {

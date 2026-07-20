@@ -2,17 +2,27 @@ import CreateVehicleModal from "@/components/vehicles/CreateVehicleModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VehicleStats from "@/components/vehicles/VehicleStats";
 import VehiclesTable from "@/components/vehicles/VehiclesTable";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function VehiclesPage() {
+  const { businessId } = await requireBusinessContext();
+
   const [vehicles, customers] = await Promise.all([
     db.vehicle.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         createdAt: "desc",
       },
       include: {
         customer: true,
         services: {
+          where: {
+            businessId,
+          },
           orderBy: {
             createdAt: "desc",
           },
@@ -21,6 +31,9 @@ export default async function VehiclesPage() {
     }),
 
     db.customer.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         name: "asc",
       },
