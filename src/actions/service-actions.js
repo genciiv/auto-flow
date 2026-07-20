@@ -1,9 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 const VALID_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+
+function getFormString(formData, fieldName) {
+  const value = formData.get(fieldName);
+
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+}
 
 function refreshServicePages(serviceId) {
   revalidatePath("/dashboard/services");
@@ -18,11 +30,13 @@ function refreshServicePages(serviceId) {
 
 export async function createService(formData) {
   try {
-    const vehicleId = formData.get("vehicleId");
-    const title = formData.get("title")?.trim();
-    const description = formData.get("description")?.trim();
-    const status = formData.get("status") || "PENDING";
-    const totalValue = formData.get("total");
+    const { businessId } = await requireBusinessContext();
+
+    const vehicleId = getFormString(formData, "vehicleId");
+    const title = getFormString(formData, "title");
+    const description = getFormString(formData, "description");
+    const status = getFormString(formData, "status") || "PENDING";
+    const totalValue = getFormString(formData, "total");
 
     if (!vehicleId || !title) {
       return {
@@ -47,40 +61,29 @@ export async function createService(formData) {
       };
     }
 
-    const business = await db.business.findFirst({
-      select: {
-        id: true,
-      },
-    });
-
-    if (!business) {
-      return {
-        success: false,
-        message: "Nuk u gjet biznes aktiv.",
-      };
-    }
-
-    const vehicle = await db.vehicle.findUnique({
+    const vehicle = await db.vehicle.findFirst({
       where: {
         id: vehicleId,
+        businessId,
       },
-      include: {
-        customer: true,
+      select: {
+        id: true,
+        customerId: true,
       },
     });
 
     if (!vehicle) {
       return {
         success: false,
-        message: "Automjeti nuk u gjet.",
+        message: "Automjeti nuk u gjet në biznesin aktiv.",
       };
     }
 
     const service = await db.serviceRecord.create({
       data: {
-        businessId: business.id,
+        businessId,
         vehicleId: vehicle.id,
-        customerId: vehicle.customer?.id || null,
+        customerId: vehicle.customerId || null,
         title,
         description: description || null,
         status,
@@ -106,12 +109,14 @@ export async function createService(formData) {
 
 export async function updateService(formData) {
   try {
-    const id = formData.get("id");
-    const vehicleId = formData.get("vehicleId");
-    const title = formData.get("title")?.trim();
-    const description = formData.get("description")?.trim();
-    const status = formData.get("status");
-    const totalValue = formData.get("total");
+    const { businessId } = await requireBusinessContext();
+
+    const id = getFormString(formData, "id");
+    const vehicleId = getFormString(formData, "vehicleId");
+    const title = getFormString(formData, "title");
+    const description = getFormString(formData, "description");
+    const status = getFormString(formData, "status");
+    const totalValue = getFormString(formData, "total");
 
     if (!id) {
       return {
@@ -144,21 +149,24 @@ export async function updateService(formData) {
     }
 
     const [existingService, vehicle] = await Promise.all([
-      db.serviceRecord.findUnique({
+      db.serviceRecord.findFirst({
         where: {
           id,
+          businessId,
         },
         select: {
           id: true,
         },
       }),
 
-      db.vehicle.findUnique({
+      db.vehicle.findFirst({
         where: {
           id: vehicleId,
+          businessId,
         },
-        include: {
-          customer: true,
+        select: {
+          id: true,
+          customerId: true,
         },
       }),
     ]);
@@ -173,17 +181,17 @@ export async function updateService(formData) {
     if (!vehicle) {
       return {
         success: false,
-        message: "Automjeti nuk u gjet.",
+        message: "Automjeti nuk u gjet në biznesin aktiv.",
       };
     }
 
     await db.serviceRecord.update({
       where: {
-        id,
+        id: existingService.id,
       },
       data: {
         vehicleId: vehicle.id,
-        customerId: vehicle.customer?.id || null,
+        customerId: vehicle.customerId || null,
         title,
         description: description || null,
         status,
@@ -191,7 +199,7 @@ export async function updateService(formData) {
       },
     });
 
-    refreshServicePages(id);
+    refreshServicePages(existingService.id);
 
     return {
       success: true,
@@ -209,7 +217,9 @@ export async function updateService(formData) {
 
 export async function updateServiceStatus(serviceId, status) {
   try {
-    if (!serviceId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!serviceId || typeof serviceId !== "string") {
       return {
         success: false,
         message: "ID e shërbimit mungon.",
@@ -223,9 +233,10 @@ export async function updateServiceStatus(serviceId, status) {
       };
     }
 
-    const service = await db.serviceRecord.findUnique({
+    const service = await db.serviceRecord.findFirst({
       where: {
         id: serviceId,
+        businessId,
       },
       select: {
         id: true,
@@ -241,14 +252,14 @@ export async function updateServiceStatus(serviceId, status) {
 
     await db.serviceRecord.update({
       where: {
-        id: serviceId,
+        id: service.id,
       },
       data: {
         status,
       },
     });
 
-    refreshServicePages(serviceId);
+    refreshServicePages(service.id);
 
     return {
       success: true,
@@ -266,20 +277,32 @@ export async function updateServiceStatus(serviceId, status) {
 
 export async function deleteService(serviceId) {
   try {
-    if (!serviceId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!serviceId || typeof serviceId !== "string") {
       return {
         success: false,
         message: "ID e shërbimit mungon.",
       };
     }
 
-    const service = await db.serviceRecord.findUnique({
+    const service = await db.serviceRecord.findFirst({
       where: {
         id: serviceId,
+        businessId,
       },
-      include: {
-        partsUsed: true,
-        invoice: true,
+      select: {
+        id: true,
+        _count: {
+          select: {
+            partsUsed: true,
+          },
+        },
+        invoice: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
@@ -290,7 +313,7 @@ export async function deleteService(serviceId) {
       };
     }
 
-    if (service.partsUsed.length > 0) {
+    if (service._count.partsUsed > 0) {
       return {
         success: false,
         message:
@@ -307,7 +330,7 @@ export async function deleteService(serviceId) {
 
     await db.serviceRecord.delete({
       where: {
-        id: serviceId,
+        id: service.id,
       },
     });
 

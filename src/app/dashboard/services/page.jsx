@@ -2,11 +2,18 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CreateServiceModal from "@/components/services/CreateServiceModal";
 import ServiceStats from "@/components/services/ServiceStats";
 import ServicesTable from "@/components/services/ServicesTable";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function ServicesPage() {
+  const { businessId } = await requireBusinessContext();
+
   const [services, vehicles, parts] = await Promise.all([
     db.serviceRecord.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -18,6 +25,11 @@ export default async function ServicesPage() {
         },
         business: true,
         partsUsed: {
+          where: {
+            part: {
+              businessId,
+            },
+          },
           include: {
             part: true,
           },
@@ -26,12 +38,18 @@ export default async function ServicesPage() {
     }),
 
     db.vehicle.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         plate: "asc",
       },
     }),
 
     db.part.findMany({
+      where: {
+        businessId,
+      },
       orderBy: {
         name: "asc",
       },
@@ -51,7 +69,7 @@ export default async function ServicesPage() {
   ).length;
 
   const totalRevenue = services.reduce((sum, service) => {
-    return sum + Number(service.total || 0);
+    return sum + Number(service.total ?? 0);
   }, 0);
 
   const stats = {
@@ -73,7 +91,7 @@ export default async function ServicesPage() {
             </h1>
 
             <p className="mt-2 text-slate-500">
-              Menaxho riparimet, statuset, mekanikët dhe punët aktive.
+              Menaxho riparimet, statuset dhe punët aktive.
             </p>
           </div>
 
