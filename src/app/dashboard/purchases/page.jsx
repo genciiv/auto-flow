@@ -2,10 +2,17 @@ import CreatePurchaseModal from "@/components/purchases/CreatePurchaseModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import PurchaseStats from "@/components/purchases/PurchaseStats";
 import PurchasesTable from "@/components/purchases/PurchasesTable";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function PurchasesPage() {
+  const { businessId } = await requireBusinessContext();
+
   const purchases = await db.purchaseOrder.findMany({
+    where: {
+      businessId,
+    },
     orderBy: {
       createdAt: "desc",
     },
@@ -17,20 +24,20 @@ export default async function PurchasesPage() {
 
   const totalOrders = purchases.length;
 
-  const pendingOrders = purchases.filter((purchase) => {
-    return purchase.status === "PENDING";
-  }).length;
+  const pendingOrders = purchases.filter(
+    (purchase) => purchase.status === "PENDING",
+  ).length;
 
-  const orderedOrders = purchases.filter((purchase) => {
-    return purchase.status === "ORDERED";
-  }).length;
+  const orderedOrders = purchases.filter(
+    (purchase) => purchase.status === "ORDERED",
+  ).length;
 
-  const receivedOrders = purchases.filter((purchase) => {
-    return purchase.status === "RECEIVED";
-  }).length;
+  const receivedOrders = purchases.filter(
+    (purchase) => purchase.status === "RECEIVED",
+  ).length;
 
   const totalValue = purchases.reduce((sum, purchase) => {
-    return sum + Number(purchase.total || 0);
+    return sum + Number(purchase.total ?? 0);
   }, 0);
 
   const stats = {

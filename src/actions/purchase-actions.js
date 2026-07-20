@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 const VALID_STATUSES = ["PENDING", "ORDERED", "CANCELLED"];
@@ -9,6 +11,16 @@ function refreshPurchasePages() {
   revalidatePath("/dashboard/purchases");
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
+}
+
+function getFormString(formData, fieldName) {
+  const value = formData.get(fieldName);
+
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
 }
 
 function parseNonNegativeNumber(value, fieldName) {
@@ -23,9 +35,12 @@ function parseNonNegativeNumber(value, fieldName) {
 
 export async function createPurchaseOrder(formData) {
   try {
-    const supplier = formData.get("supplier")?.trim();
-    const status = formData.get("status") || "PENDING";
-    const notes = formData.get("notes")?.trim();
+    const { businessId } = await requireBusinessContext();
+
+    const supplier = getFormString(formData, "supplier");
+    const status = getFormString(formData, "status") || "PENDING";
+    const notes = getFormString(formData, "notes");
+
     const total = parseNonNegativeNumber(
       formData.get("total"),
       "Totali i porosisë",
@@ -45,22 +60,9 @@ export async function createPurchaseOrder(formData) {
       };
     }
 
-    const business = await db.business.findFirst({
-      select: {
-        id: true,
-      },
-    });
-
-    if (!business) {
-      return {
-        success: false,
-        message: "Nuk u gjet biznes aktiv.",
-      };
-    }
-
     await db.purchaseOrder.create({
       data: {
-        businessId: business.id,
+        businessId,
         supplier,
         status,
         total,
@@ -79,17 +81,20 @@ export async function createPurchaseOrder(formData) {
 
     return {
       success: false,
-      message: error.message || "Porosia nuk mund të krijohej.",
+      message: error?.message || "Porosia nuk mund të krijohej.",
     };
   }
 }
 
 export async function updatePurchaseOrder(formData) {
   try {
-    const id = formData.get("id");
-    const supplier = formData.get("supplier")?.trim();
-    const status = formData.get("status");
-    const notes = formData.get("notes")?.trim();
+    const { businessId } = await requireBusinessContext();
+
+    const id = getFormString(formData, "id");
+    const supplier = getFormString(formData, "supplier");
+    const status = getFormString(formData, "status");
+    const notes = getFormString(formData, "notes");
+
     const total = parseNonNegativeNumber(
       formData.get("total"),
       "Totali i porosisë",
@@ -117,9 +122,10 @@ export async function updatePurchaseOrder(formData) {
       };
     }
 
-    const purchase = await db.purchaseOrder.findUnique({
+    const purchase = await db.purchaseOrder.findFirst({
       where: {
         id,
+        businessId,
       },
       select: {
         id: true,
@@ -143,7 +149,7 @@ export async function updatePurchaseOrder(formData) {
 
     await db.purchaseOrder.update({
       where: {
-        id,
+        id: purchase.id,
       },
       data: {
         supplier,
@@ -164,14 +170,16 @@ export async function updatePurchaseOrder(formData) {
 
     return {
       success: false,
-      message: error.message || "Porosia nuk mund të përditësohej.",
+      message: error?.message || "Porosia nuk mund të përditësohej.",
     };
   }
 }
 
 export async function updatePurchaseStatus(purchaseId, status) {
   try {
-    if (!purchaseId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!purchaseId || typeof purchaseId !== "string") {
       return {
         success: false,
         message: "ID e porosisë mungon.",
@@ -185,9 +193,10 @@ export async function updatePurchaseStatus(purchaseId, status) {
       };
     }
 
-    const purchase = await db.purchaseOrder.findUnique({
+    const purchase = await db.purchaseOrder.findFirst({
       where: {
         id: purchaseId,
+        businessId,
       },
       select: {
         id: true,
@@ -212,7 +221,7 @@ export async function updatePurchaseStatus(purchaseId, status) {
 
     await db.purchaseOrder.update({
       where: {
-        id: purchaseId,
+        id: purchase.id,
       },
       data: {
         status,
@@ -237,16 +246,19 @@ export async function updatePurchaseStatus(purchaseId, status) {
 
 export async function deletePurchaseOrder(purchaseId) {
   try {
-    if (!purchaseId) {
+    const { businessId } = await requireBusinessContext();
+
+    if (!purchaseId || typeof purchaseId !== "string") {
       return {
         success: false,
         message: "ID e porosisë mungon.",
       };
     }
 
-    const purchase = await db.purchaseOrder.findUnique({
+    const purchase = await db.purchaseOrder.findFirst({
       where: {
         id: purchaseId,
+        businessId,
       },
       select: {
         id: true,
@@ -278,13 +290,13 @@ export async function deletePurchaseOrder(purchaseId) {
     await db.$transaction(async (transaction) => {
       await transaction.purchaseOrderItem.deleteMany({
         where: {
-          purchaseOrderId: purchaseId,
+          purchaseOrderId: purchase.id,
         },
       });
 
       await transaction.purchaseOrder.delete({
         where: {
-          id: purchaseId,
+          id: purchase.id,
         },
       });
     });
