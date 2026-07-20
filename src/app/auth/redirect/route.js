@@ -18,14 +18,22 @@ function getDestination(user) {
   return "/login?error=no-access";
 }
 
-export async function GET(request) {
+async function redirectUser(request) {
   const session = await auth();
 
   if (!session?.user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/login", request.url), 303);
   }
 
   const destination = getDestination(session.user);
 
-  return NextResponse.redirect(new URL(destination, request.url));
+  return NextResponse.redirect(new URL(destination, request.url), 303);
+}
+
+export async function GET(request) {
+  return redirectUser(request);
+}
+
+export async function POST(request) {
+  return redirectUser(request);
 }

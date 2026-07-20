@@ -9,10 +9,12 @@ export default function SettingsPage() {
     <DashboardLayout>
       <div className="space-y-8">
         <div>
-          <p className="text-sm font-semibold text-blue-600">Settings</p>
+          <p className="text-sm font-semibold text-blue-600">Cilësimet</p>
+
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-            Settings
+            Cilësimet e llogarisë
           </h1>
+
           <p className="mt-2 text-slate-500">
             Menaxho profilin, biznesin, njoftimet dhe abonimin.
           </p>
