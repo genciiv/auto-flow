@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-
+import MarketplaceImageUpload from "@/components/marketplace/MarketplaceImageUpload";
 import {
   requireBusinessActionPermission,
   requireBusinessPermission,
@@ -368,6 +368,8 @@ export default async function NewMarketplaceListingPage() {
                     name="color"
                     placeholder="P.sh. E zezë"
                   />
+
+                  <MarketplaceImageUpload />
 
                   <div className="md:col-span-2">
                     <Field
