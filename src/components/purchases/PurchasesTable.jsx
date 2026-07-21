@@ -142,7 +142,12 @@ function sortPurchases(purchases, sort) {
   });
 }
 
-export default function PurchasesTable({ purchases = [] }) {
+export default function PurchasesTable({
+  purchases = [],
+  canUpdatePurchase = false,
+  canDeletePurchase = false,
+  canReceivePurchase = false,
+}) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
   const [sort, setSort] = useState("NEWEST");
@@ -251,7 +256,7 @@ export default function PurchasesTable({ purchases = [] }) {
             )}
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" style={{ overflowY: "visible" }}>
             <table className="w-full min-w-[1100px]">
               <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
@@ -317,7 +322,8 @@ export default function PurchasesTable({ purchases = [] }) {
 
                       <td className="whitespace-nowrap px-6 py-5">
                         <div className="flex justify-end gap-2">
-                          {purchase.status !== "RECEIVED" &&
+                          {canUpdatePurchase &&
+                            purchase.status !== "RECEIVED" &&
                             purchase.status !== "CANCELLED" && (
                               <AddPurchaseItemModal
                                 purchaseOrderId={purchase.id}
@@ -328,9 +334,14 @@ export default function PurchasesTable({ purchases = [] }) {
                             purchaseOrderId={purchase.id}
                             status={purchase.status}
                             itemCount={(purchase.items || []).length}
+                            canReceive={canReceivePurchase}
                           />
 
-                          <PurchaseRowActions purchase={purchase} />
+                          <PurchaseRowActions
+                            purchase={purchase}
+                            canUpdate={canUpdatePurchase}
+                            canDelete={canDeletePurchase}
+                          />
                         </div>
                       </td>
                     </tr>

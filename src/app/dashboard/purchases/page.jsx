@@ -3,11 +3,14 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import PurchaseStats from "@/components/purchases/PurchaseStats";
 import PurchasesTable from "@/components/purchases/PurchasesTable";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 export default async function PurchasesPage() {
-  const { businessId } = await requireBusinessContext();
+  const { businessId, businessRole } = await requireBusinessPermission(
+    PERMISSIONS.PURCHASES_VIEW,
+  );
 
   const purchases = await db.purchaseOrder.findMany({
     where: {
@@ -48,6 +51,25 @@ export default async function PurchasesPage() {
     totalValue,
   };
 
+  const canCreatePurchase = hasPermission(
+    businessRole,
+    PERMISSIONS.PURCHASES_CREATE,
+  );
+
+  const canUpdatePurchase = hasPermission(
+    businessRole,
+    PERMISSIONS.PURCHASES_UPDATE,
+  );
+
+  const canDeletePurchase = hasPermission(
+    businessRole,
+    PERMISSIONS.PURCHASES_DELETE,
+  );
+
+  const canReceivePurchase =
+    hasPermission(businessRole, PERMISSIONS.PURCHASES_RECEIVE) &&
+    hasPermission(businessRole, PERMISSIONS.INVENTORY_MANAGE_STOCK);
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -64,12 +86,17 @@ export default async function PurchasesPage() {
             </p>
           </div>
 
-          <CreatePurchaseModal />
+          {canCreatePurchase ? <CreatePurchaseModal /> : null}
         </div>
 
         <PurchaseStats stats={stats} />
 
-        <PurchasesTable purchases={purchases} />
+        <PurchasesTable
+          purchases={purchases}
+          canUpdatePurchase={canUpdatePurchase}
+          canDeletePurchase={canDeletePurchase}
+          canReceivePurchase={canReceivePurchase}
+        />
       </div>
     </DashboardLayout>
   );

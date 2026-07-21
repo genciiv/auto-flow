@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const VALID_STATUSES = ["PENDING", "ORDERED", "CANCELLED"];
 
@@ -33,12 +34,24 @@ function parseNonNegativeNumber(value, fieldName) {
   return number;
 }
 
+function getErrorMessage(error, fallbackMessage) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
 export async function createPurchaseOrder(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.PURCHASES_CREATE,
+    );
 
     const supplier = getFormString(formData, "supplier");
+
     const status = getFormString(formData, "status") || "PENDING";
+
     const notes = getFormString(formData, "notes");
 
     const total = parseNonNegativeNumber(
@@ -81,17 +94,21 @@ export async function createPurchaseOrder(formData) {
 
     return {
       success: false,
-      message: error?.message || "Porosia nuk mund të krijohej.",
+      message: getErrorMessage(error, "Porosia nuk mund të krijohej."),
     };
   }
 }
 
 export async function updatePurchaseOrder(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.PURCHASES_UPDATE,
+    );
 
     const id = getFormString(formData, "id");
+
     const supplier = getFormString(formData, "supplier");
+
     const status = getFormString(formData, "status");
     const notes = getFormString(formData, "notes");
 
@@ -170,14 +187,16 @@ export async function updatePurchaseOrder(formData) {
 
     return {
       success: false,
-      message: error?.message || "Porosia nuk mund të përditësohej.",
+      message: getErrorMessage(error, "Porosia nuk mund të përditësohej."),
     };
   }
 }
 
 export async function updatePurchaseStatus(purchaseId, status) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.PURCHASES_UPDATE,
+    );
 
     if (!purchaseId || typeof purchaseId !== "string") {
       return {
@@ -239,14 +258,16 @@ export async function updatePurchaseStatus(purchaseId, status) {
 
     return {
       success: false,
-      message: "Statusi nuk mund të përditësohej.",
+      message: getErrorMessage(error, "Statusi nuk mund të përditësohej."),
     };
   }
 }
 
 export async function deletePurchaseOrder(purchaseId) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.PURCHASES_DELETE,
+    );
 
     if (!purchaseId || typeof purchaseId !== "string") {
       return {
@@ -294,11 +315,21 @@ export async function deletePurchaseOrder(purchaseId) {
         },
       });
 
-      await transaction.purchaseOrder.delete({
+      const deletedPurchase = await transaction.purchaseOrder.deleteMany({
         where: {
           id: purchase.id,
+          businessId,
+          status: {
+            not: "RECEIVED",
+          },
         },
       });
+
+      if (deletedPurchase.count !== 1) {
+        throw new Error(
+          "Porosia është ndryshuar ose është marrë ndërkohë në magazinë.",
+        );
+      }
     });
 
     refreshPurchasePages();
@@ -315,7 +346,7 @@ export async function deletePurchaseOrder(purchaseId) {
 
     return {
       success: false,
-      message: error?.message || "Porosia nuk mund të fshihej.",
+      message: getErrorMessage(error, "Porosia nuk mund të fshihej."),
     };
   }
 }

@@ -9,6 +9,7 @@ export default function ReceivePurchaseButton({
   purchaseOrderId,
   status = "PENDING",
   itemCount = 0,
+  canReceive = false,
 }) {
   const [isReceiving, setIsReceiving] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +21,7 @@ export default function ReceivePurchaseButton({
   const isDisabled = isReceiving || isReceived || isCancelled || hasNoItems;
 
   async function handleReceive() {
-    if (isDisabled) {
+    if (!canReceive || isDisabled) {
       return;
     }
 
@@ -91,6 +92,10 @@ export default function ReceivePurchaseButton({
         Merr në magazinë
       </>
     );
+  }
+
+  if (!canReceive) {
+    return null;
   }
 
   return (

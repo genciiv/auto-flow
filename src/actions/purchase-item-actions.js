@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 
 function refreshPurchaseItemPages() {
   revalidatePath("/dashboard/purchases");
@@ -41,11 +42,22 @@ function parseNonNegativeNumber(value, fieldName) {
   return number;
 }
 
+function getErrorMessage(error, fallbackMessage) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
 export async function addPurchaseItem(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.PURCHASES_UPDATE,
+    );
 
     const purchaseOrderId = getFormString(formData, "purchaseOrderId");
+
     const name = getFormString(formData, "name");
 
     if (!purchaseOrderId || !name) {
@@ -65,40 +77,34 @@ export async function addPurchaseItem(formData) {
       "Çmimi për njësi",
     );
 
-    const purchase = await db.purchaseOrder.findFirst({
-      where: {
-        id: purchaseOrderId,
-        businessId,
-      },
-      select: {
-        id: true,
-        status: true,
-      },
-    });
-
-    if (!purchase) {
-      return {
-        success: false,
-        message: "Porosia nuk u gjet.",
-      };
-    }
-
-    if (purchase.status === "RECEIVED") {
-      return {
-        success: false,
-        message:
-          "Nuk mund të shtohen artikuj sepse porosia është marrë në magazinë.",
-      };
-    }
-
-    if (purchase.status === "CANCELLED") {
-      return {
-        success: false,
-        message: "Nuk mund të shtohen artikuj në një porosi të anuluar.",
-      };
-    }
-
     await db.$transaction(async (transaction) => {
+      const purchase = await transaction.purchaseOrder.findFirst({
+        where: {
+          id: purchaseOrderId,
+          businessId,
+        },
+        select: {
+          id: true,
+          status: true,
+        },
+      });
+
+      if (!purchase) {
+        throw new Error("Porosia nuk u gjet.");
+      }
+
+      if (purchase.status === "RECEIVED") {
+        throw new Error(
+          "Nuk mund të shtohen artikuj sepse porosia është marrë në magazinë.",
+        );
+      }
+
+      if (purchase.status === "CANCELLED") {
+        throw new Error(
+          "Nuk mund të shtohen artikuj në një porosi të anuluar.",
+        );
+      }
+
       await transaction.purchaseOrderItem.create({
         data: {
           purchaseOrderId: purchase.id,
@@ -139,14 +145,29 @@ export async function addPurchaseItem(formData) {
 
     return {
       success: false,
-      message: error?.message || "Artikulli nuk mund të shtohej.",
+      message: getErrorMessage(error, "Artikulli nuk mund të shtohej."),
     };
   }
 }
 
 export async function receivePurchaseOrder(purchaseOrderId) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const purchaseContext = await requireBusinessActionPermission(
+      PERMISSIONS.PURCHASES_RECEIVE,
+    );
+
+    const stockContext = await requireBusinessActionPermission(
+      PERMISSIONS.INVENTORY_MANAGE_STOCK,
+    );
+
+    const { businessId } = purchaseContext;
+
+    if (stockContext.businessId !== businessId) {
+      return {
+        success: false,
+        message: "Biznesi aktiv nuk përputhet me magazinën.",
+      };
+    }
 
     if (!purchaseOrderId || typeof purchaseOrderId !== "string") {
       return {
@@ -155,70 +176,60 @@ export async function receivePurchaseOrder(purchaseOrderId) {
       };
     }
 
-    const purchase = await db.purchaseOrder.findFirst({
-      where: {
-        id: purchaseOrderId,
-        businessId,
-      },
-      include: {
-        items: true,
-      },
-    });
-
-    if (!purchase) {
-      return {
-        success: false,
-        message: "Porosia nuk u gjet.",
-      };
-    }
-
-    if (purchase.status === "RECEIVED") {
-      return {
-        success: false,
-        message: "Kjo porosi është marrë më parë në magazinë.",
-      };
-    }
-
-    if (purchase.status === "CANCELLED") {
-      return {
-        success: false,
-        message: "Një porosi e anuluar nuk mund të merret në magazinë.",
-      };
-    }
-
-    if (purchase.items.length === 0) {
-      return {
-        success: false,
-        message: "Porosia nuk ka artikuj për t'u futur në magazinë.",
-      };
-    }
-
     await db.$transaction(async (transaction) => {
-      const currentPurchase = await transaction.purchaseOrder.findFirst({
+      const purchase = await transaction.purchaseOrder.findFirst({
         where: {
-          id: purchase.id,
+          id: purchaseOrderId,
           businessId,
         },
-        select: {
-          id: true,
-          status: true,
+        include: {
+          items: true,
         },
       });
 
-      if (!currentPurchase) {
+      if (!purchase) {
         throw new Error("Porosia nuk u gjet.");
       }
 
-      if (currentPurchase.status === "RECEIVED") {
+      if (purchase.status === "RECEIVED") {
         throw new Error("Kjo porosi është marrë më parë në magazinë.");
       }
 
-      if (currentPurchase.status === "CANCELLED") {
+      if (purchase.status === "CANCELLED") {
         throw new Error("Një porosi e anuluar nuk mund të merret në magazinë.");
       }
 
+      if (purchase.items.length === 0) {
+        throw new Error("Porosia nuk ka artikuj për t'u futur në magazinë.");
+      }
+
+      /*
+       * Ky updateMany e rezervon porosinë për marrje.
+       * Nëse dy kërkesa provojnë njëkohësisht, vetëm njëra kalon.
+       * Nëse ndonjë veprim më poshtë dështon, transaction e kthen
+       * edhe statusin në gjendjen e mëparshme.
+       */
+      const receivedUpdate = await transaction.purchaseOrder.updateMany({
+        where: {
+          id: purchase.id,
+          businessId,
+          status: {
+            in: ["PENDING", "ORDERED"],
+          },
+        },
+        data: {
+          status: "RECEIVED",
+        },
+      });
+
+      if (receivedUpdate.count !== 1) {
+        throw new Error(
+          "Porosia është ndryshuar ose është marrë më parë në magazinë.",
+        );
+      }
+
       for (const item of purchase.items) {
-        const itemName = item.name?.trim();
+        const itemName = String(item.name || "").trim();
 
         if (!itemName) {
           throw new Error(
@@ -248,14 +259,14 @@ export async function receivePurchaseOrder(purchaseOrderId) {
           },
           select: {
             id: true,
-            stock: true,
           },
         });
 
         if (existingPart) {
-          await transaction.part.update({
+          await transaction.part.updateMany({
             where: {
               id: existingPart.id,
+              businessId,
             },
             data: {
               stock: {
@@ -279,15 +290,6 @@ export async function receivePurchaseOrder(purchaseOrderId) {
           });
         }
       }
-
-      await transaction.purchaseOrder.update({
-        where: {
-          id: purchase.id,
-        },
-        data: {
-          status: "RECEIVED",
-        },
-      });
     });
 
     refreshPurchaseItemPages();
@@ -301,7 +303,10 @@ export async function receivePurchaseOrder(purchaseOrderId) {
 
     return {
       success: false,
-      message: error?.message || "Porosia nuk mund të merrej në magazinë.",
+      message: getErrorMessage(
+        error,
+        "Porosia nuk mund të merrej në magazinë.",
+      ),
     };
   }
 }
