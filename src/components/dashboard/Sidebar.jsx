@@ -17,50 +17,114 @@ import {
 
 import WorkspaceSwitcher from "@/components/dashboard/WorkspaceSwitcher";
 import SidebarGroup from "@/components/dashboard/SidebarGroup";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 const sidebarGroups = [
   {
-    title: "Main",
+    title: "Kryesore",
     items: [
-      { name: "Dashboard", icon: Home, href: "/dashboard" },
-      { name: "Klientët", icon: Users, href: "/dashboard/customers" },
-      { name: "Automjetet", icon: Car, href: "/dashboard/vehicles" },
+      {
+        name: "Dashboard",
+        icon: Home,
+        href: "/dashboard",
+        permission: PERMISSIONS.DASHBOARD_VIEW,
+      },
+      {
+        name: "Klientët",
+        icon: Users,
+        href: "/dashboard/customers",
+        permission: PERMISSIONS.CUSTOMERS_VIEW,
+      },
+      {
+        name: "Automjetet",
+        icon: Car,
+        href: "/dashboard/vehicles",
+        permission: PERMISSIONS.VEHICLES_VIEW,
+      },
     ],
   },
   {
-    title: "Workshop",
+    title: "Servisi",
     items: [
-      { name: "Terminet", icon: Calendar, href: "/dashboard/appointments" },
-      { name: "Shërbimet", icon: Wrench, href: "/dashboard/services" },
-      { name: "Faturat", icon: FileText, href: "/dashboard/invoices" },
+      {
+        name: "Terminet",
+        icon: Calendar,
+        href: "/dashboard/appointments",
+        permission: PERMISSIONS.APPOINTMENTS_VIEW,
+      },
+      {
+        name: "Shërbimet",
+        icon: Wrench,
+        href: "/dashboard/services",
+        permission: PERMISSIONS.SERVICES_VIEW,
+      },
+      {
+        name: "Faturat",
+        icon: FileText,
+        href: "/dashboard/invoices",
+        permission: PERMISSIONS.INVOICES_VIEW,
+      },
     ],
   },
   {
-    title: "Inventory",
+    title: "Magazina",
     items: [
-      { name: "Magazina", icon: Package, href: "/dashboard/inventory" },
-      { name: "Porositë", icon: CreditCard, href: "/dashboard/purchases" },
+      {
+        name: "Inventari",
+        icon: Package,
+        href: "/dashboard/inventory",
+        permission: PERMISSIONS.INVENTORY_VIEW,
+      },
+      {
+        name: "Porositë",
+        icon: CreditCard,
+        href: "/dashboard/purchases",
+        permission: PERMISSIONS.PURCHASES_VIEW,
+      },
     ],
   },
   {
-    title: "Growth",
+    title: "Rritja",
     items: [
       {
         name: "Marketplace",
         icon: ShoppingCart,
         href: "/dashboard/marketplace",
+        permission: PERMISSIONS.MARKETPLACE_VIEW,
       },
-      { name: "Analytics", icon: BarChart3, href: "/dashboard/analytics" },
+      {
+        name: "Analytics",
+        icon: BarChart3,
+        href: "/dashboard/analytics",
+        permission: PERMISSIONS.ANALYTICS_VIEW,
+      },
     ],
   },
   {
-    title: "System",
-    items: [{ name: "Settings", icon: Settings, href: "/dashboard/settings" }],
+    title: "Sistemi",
+    items: [
+      {
+        name: "Settings",
+        icon: Settings,
+        href: "/dashboard/settings",
+        permission: PERMISSIONS.SETTINGS_VIEW,
+      },
+    ],
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ businessRole }) {
   const pathname = usePathname();
+
+  const visibleGroups = sidebarGroups
+    .map((group) => ({
+      ...group,
+
+      items: group.items.filter((item) =>
+        hasPermission(businessRole, item.permission),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-72 overflow-y-auto border-r border-slate-200 bg-white p-5 lg:block">
@@ -73,6 +137,7 @@ export default function Sidebar() {
           <p className="text-lg font-bold tracking-tight text-slate-950">
             AutoFlow
           </p>
+
           <p className="text-xs font-medium text-slate-500">Service OS</p>
         </div>
       </div>
@@ -80,7 +145,7 @@ export default function Sidebar() {
       <WorkspaceSwitcher />
 
       <nav className="mt-8 space-y-7">
-        {sidebarGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <SidebarGroup
             key={group.title}
             title={group.title}

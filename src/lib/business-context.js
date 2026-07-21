@@ -2,6 +2,11 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import {
+  hasAllPermissions,
+  hasAnyPermission,
+  hasPermission,
+} from "@/lib/permissions";
 
 export async function requireBusinessContext(allowedRoles = []) {
   const session = await auth();
@@ -25,12 +30,6 @@ export async function requireBusinessContext(allowedRoles = []) {
     redirect("/login");
   }
 
-  /*
-   * Nuk marrim membership-in e parë.
-   *
-   * Kontrollojmë pikërisht biznesin aktiv që ndodhet në session.
-   * Kjo mbështet edhe WorkspaceSwitcher.
-   */
   const membership = await db.businessUser.findFirst({
     where: {
       userId,
@@ -65,8 +64,12 @@ export async function requireBusinessContext(allowedRoles = []) {
     redirect("/login");
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(membership.role)) {
-    redirect("/dashboard");
+  if (
+    Array.isArray(allowedRoles) &&
+    allowedRoles.length > 0 &&
+    !allowedRoles.includes(membership.role)
+  ) {
+    redirect("/dashboard/unauthorized");
   }
 
   return {
@@ -78,4 +81,71 @@ export async function requireBusinessContext(allowedRoles = []) {
     membershipId: membership.id,
     business: membership.business,
   };
+}
+
+export async function requireBusinessPermission(permission) {
+  const context = await requireBusinessContext();
+
+  if (!hasPermission(context.businessRole, permission)) {
+    redirect("/dashboard/unauthorized");
+  }
+
+  return context;
+}
+
+export async function requireAnyBusinessPermission(permissions = []) {
+  const context = await requireBusinessContext();
+
+  if (!hasAnyPermission(context.businessRole, permissions)) {
+    redirect("/dashboard/unauthorized");
+  }
+
+  return context;
+}
+
+export async function requireAllBusinessPermissions(permissions = []) {
+  const context = await requireBusinessContext();
+
+  if (!hasAllPermissions(context.businessRole, permissions)) {
+    redirect("/dashboard/unauthorized");
+  }
+
+  return context;
+}
+
+/*
+ * Përdoret brenda Server Actions.
+ *
+ * Nuk bën redirect, por ndalon veprimin me error.
+ * Kjo mbron serverin edhe nëse dikush përpiqet ta thërrasë
+ * action-in direkt pa kaluar nga UI.
+ */
+export async function requireBusinessActionPermission(permission) {
+  const context = await requireBusinessContext();
+
+  if (!hasPermission(context.businessRole, permission)) {
+    throw new Error("Nuk keni leje për të kryer këtë veprim.");
+  }
+
+  return context;
+}
+
+export async function requireAnyBusinessActionPermission(permissions = []) {
+  const context = await requireBusinessContext();
+
+  if (!hasAnyPermission(context.businessRole, permissions)) {
+    throw new Error("Nuk keni leje për të kryer këtë veprim.");
+  }
+
+  return context;
+}
+
+export async function requireAllBusinessActionPermissions(permissions = []) {
+  const context = await requireBusinessContext();
+
+  if (!hasAllPermissions(context.businessRole, permissions)) {
+    throw new Error("Nuk keni leje për të kryer këtë veprim.");
+  }
+
+  return context;
 }
