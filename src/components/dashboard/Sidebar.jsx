@@ -113,13 +113,12 @@ const sidebarGroups = [
   },
 ];
 
-export default function Sidebar({ businessRole }) {
+export default function Sidebar({ businessRole, businessName }) {
   const pathname = usePathname();
 
   const visibleGroups = sidebarGroups
     .map((group) => ({
       ...group,
-
       items: group.items.filter((item) =>
         hasPermission(businessRole, item.permission),
       ),
@@ -142,7 +141,7 @@ export default function Sidebar({ businessRole }) {
         </div>
       </div>
 
-      <WorkspaceSwitcher />
+      <WorkspaceSwitcher businessName={businessName} />
 
       <nav className="mt-8 space-y-7">
         {visibleGroups.map((group) => (

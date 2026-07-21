@@ -36,9 +36,53 @@ const menuItems = [
   },
 ];
 
-export default function ProfileMenu() {
+function getInitials(name) {
+  if (!name || typeof name !== "string") {
+    return "AF";
+  }
+
+  const words = name.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) {
+    return "AF";
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+}
+
+function getRoleLabel(role) {
+  const roleLabels = {
+    OWNER: "Pronar",
+    MANAGER: "Menaxher",
+    MECHANIC: "Mekanik",
+    RECEPTIONIST: "Recepsionist",
+    WAREHOUSE: "Magazinier",
+    ACCOUNTANT: "Financier",
+  };
+
+  return roleLabels[role] || "Përdorues";
+}
+
+export default function ProfileMenu({
+  businessName,
+  userName,
+  userEmail,
+  businessRole,
+}) {
   const [open, setOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const displayedBusinessName = businessName?.trim() || "Biznesi im";
+
+  const displayedUserName = userName?.trim() || "Përdorues";
+
+  const displayedUserEmail = userEmail?.trim() || "";
+
+  const initials = getInitials(displayedUserName);
+  const roleLabel = getRoleLabel(businessRole);
 
   async function handleLogout() {
     try {
@@ -50,6 +94,7 @@ export default function ProfileMenu() {
       });
     } catch (error) {
       console.error("Gabim gjatë daljes nga llogaria:", error);
+
       setIsLoggingOut(false);
     }
   }
@@ -63,19 +108,21 @@ export default function ProfileMenu() {
         aria-label="Hap menunë e profilit"
         className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-2 transition hover:bg-slate-50"
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-sm font-bold text-slate-600">
-          AS
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-bold text-slate-600">
+          {initials}
         </div>
 
-        <div className="hidden text-left sm:block">
-          <p className="text-sm font-bold text-slate-950">Auto Service</p>
+        <div className="hidden min-w-0 text-left sm:block">
+          <p className="max-w-40 truncate text-sm font-bold text-slate-950">
+            {displayedUserName}
+          </p>
 
-          <p className="text-xs text-slate-500">Pronar</p>
+          <p className="text-xs text-slate-500">{roleLabel}</p>
         </div>
 
         <ChevronDown
           size={16}
-          className={`hidden text-slate-400 transition-transform sm:block ${
+          className={`hidden shrink-0 text-slate-400 transition-transform sm:block ${
             open ? "rotate-180" : ""
           }`}
         />
@@ -92,9 +139,15 @@ export default function ProfileMenu() {
 
           <div className="absolute right-0 z-50 mt-3 w-64 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/10">
             <div className="border-b border-slate-100 px-3 py-3">
-              <p className="font-bold text-slate-950">Auto Service Fier</p>
+              <p className="truncate font-bold text-slate-950">
+                {displayedBusinessName}
+              </p>
 
-              <p className="mt-1 text-sm text-slate-500">owner@autoflow.al</p>
+              {displayedUserEmail ? (
+                <p className="mt-1 truncate text-sm text-slate-500">
+                  {displayedUserEmail}
+                </p>
+              ) : null}
             </div>
 
             <div className="mt-2 space-y-1">
@@ -109,6 +162,7 @@ export default function ProfileMenu() {
                     className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                   >
                     <Icon size={18} />
+
                     {item.title}
                   </Link>
                 );
