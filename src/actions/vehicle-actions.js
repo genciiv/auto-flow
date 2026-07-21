@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 
 function getFormString(formData, fieldName) {
   const value = formData.get(fieldName);
@@ -13,6 +14,17 @@ function getFormString(formData, fieldName) {
   }
 
   return value.trim();
+}
+
+function getPermissionErrorMessage(error) {
+  if (
+    error instanceof Error &&
+    error.message === "Nuk keni leje për të kryer këtë veprim."
+  ) {
+    return error.message;
+  }
+
+  return null;
 }
 
 async function validateCustomerOwnership(customerId, businessId) {
@@ -48,7 +60,9 @@ async function validateCustomerOwnership(customerId, businessId) {
 
 export async function createVehicle(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.VEHICLES_CREATE,
+    );
 
     const customerId = getFormString(formData, "customerId");
     const plate = getFormString(formData, "plate").toUpperCase();
@@ -147,16 +161,21 @@ export async function createVehicle(formData) {
   } catch (error) {
     console.error("Gabim gjatë krijimit të automjetit:", error);
 
+    const permissionMessage = getPermissionErrorMessage(error);
+
     return {
       success: false,
-      message: "Ndodhi një gabim gjatë krijimit të automjetit.",
+      message:
+        permissionMessage || "Ndodhi një gabim gjatë krijimit të automjetit.",
     };
   }
 }
 
 export async function updateVehicle(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.VEHICLES_UPDATE,
+    );
 
     const id = getFormString(formData, "id");
     const customerId = getFormString(formData, "customerId");
@@ -289,16 +308,22 @@ export async function updateVehicle(formData) {
   } catch (error) {
     console.error("Gabim gjatë përditësimit të automjetit:", error);
 
+    const permissionMessage = getPermissionErrorMessage(error);
+
     return {
       success: false,
-      message: "Ndodhi një gabim gjatë përditësimit të automjetit.",
+      message:
+        permissionMessage ||
+        "Ndodhi një gabim gjatë përditësimit të automjetit.",
     };
   }
 }
 
 export async function deleteVehicle(vehicleId) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.VEHICLES_DELETE,
+    );
 
     if (!vehicleId || typeof vehicleId !== "string") {
       return {
@@ -325,18 +350,35 @@ export async function deleteVehicle(vehicleId) {
       };
     }
 
-    const serviceCount = await db.serviceRecord.count({
-      where: {
-        businessId,
-        vehicleId: vehicle.id,
-      },
-    });
+    const [serviceCount, appointmentCount] = await Promise.all([
+      db.serviceRecord.count({
+        where: {
+          businessId,
+          vehicleId: vehicle.id,
+        },
+      }),
+
+      db.appointment.count({
+        where: {
+          businessId,
+          vehicleId: vehicle.id,
+        },
+      }),
+    ]);
 
     if (serviceCount > 0) {
       return {
         success: false,
         message:
           "Automjeti nuk mund të fshihet sepse ka shërbime të regjistruara.",
+      };
+    }
+
+    if (appointmentCount > 0) {
+      return {
+        success: false,
+        message:
+          "Automjeti nuk mund të fshihet sepse ka termine të regjistruara.",
       };
     }
 
@@ -357,9 +399,12 @@ export async function deleteVehicle(vehicleId) {
   } catch (error) {
     console.error("Gabim gjatë fshirjes së automjetit:", error);
 
+    const permissionMessage = getPermissionErrorMessage(error);
+
     return {
       success: false,
       message:
+        permissionMessage ||
         "Automjeti nuk mund të fshihet sepse është i lidhur me të dhëna të tjera.",
     };
   }

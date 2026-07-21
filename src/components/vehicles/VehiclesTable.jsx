@@ -132,7 +132,12 @@ function sortVehicles(vehicles, sort) {
   });
 }
 
-export default function VehiclesTable({ vehicles = [], customers = [] }) {
+export default function VehiclesTable({
+  vehicles = [],
+  customers = [],
+  canUpdateVehicle = false,
+  canDeleteVehicle = false,
+}) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
   const [sort, setSort] = useState("NEWEST");
@@ -324,6 +329,8 @@ export default function VehiclesTable({ vehicles = [], customers = [] }) {
                           <VehicleRowActions
                             vehicle={vehicle}
                             customers={customers}
+                            canUpdate={canUpdateVehicle}
+                            canDelete={canDeleteVehicle}
                           />
                         </div>
                       </td>

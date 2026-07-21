@@ -3,11 +3,14 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VehicleStats from "@/components/vehicles/VehicleStats";
 import VehiclesTable from "@/components/vehicles/VehiclesTable";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 export default async function VehiclesPage() {
-  const { businessId } = await requireBusinessContext();
+  const { businessId, businessRole } = await requireBusinessPermission(
+    PERMISSIONS.VEHICLES_VIEW,
+  );
 
   const [vehicles, customers] = await Promise.all([
     db.vehicle.findMany({
@@ -67,6 +70,21 @@ export default async function VehiclesPage() {
     pendingVehicles,
   };
 
+  const canCreateVehicle = hasPermission(
+    businessRole,
+    PERMISSIONS.VEHICLES_CREATE,
+  );
+
+  const canUpdateVehicle = hasPermission(
+    businessRole,
+    PERMISSIONS.VEHICLES_UPDATE,
+  );
+
+  const canDeleteVehicle = hasPermission(
+    businessRole,
+    PERMISSIONS.VEHICLES_DELETE,
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -83,12 +101,19 @@ export default async function VehiclesPage() {
             </p>
           </div>
 
-          <CreateVehicleModal customers={customers} />
+          {canCreateVehicle ? (
+            <CreateVehicleModal customers={customers} />
+          ) : null}
         </div>
 
         <VehicleStats stats={stats} />
 
-        <VehiclesTable vehicles={vehicles} customers={customers} />
+        <VehiclesTable
+          vehicles={vehicles}
+          customers={customers}
+          canUpdateVehicle={canUpdateVehicle}
+          canDeleteVehicle={canDeleteVehicle}
+        />
       </div>
     </DashboardLayout>
   );
