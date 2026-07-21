@@ -140,6 +140,9 @@ export default function AppointmentsTable({
   appointments = [],
   customers = [],
   vehicles = [],
+  canUpdateAppointment = false,
+  canDeleteAppointment = false,
+  canStartService = false,
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -358,6 +361,9 @@ export default function AppointmentsTable({
                             appointment={appointment}
                             customers={customers}
                             vehicles={vehicles}
+                            canUpdate={canUpdateAppointment}
+                            canDelete={canDeleteAppointment}
+                            canStartService={canStartService}
                           />
                         </div>
                       </td>

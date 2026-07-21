@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const VALID_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 
@@ -11,6 +12,7 @@ function revalidateAppointmentPages() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/appointments");
   revalidatePath("/dashboard/services");
+  revalidatePath("/dashboard/vehicles");
 }
 
 function getOptionalString(formData, key) {
@@ -26,11 +28,17 @@ function getOptionalString(formData, key) {
 }
 
 function normalizeStatus(value, fallback = "PENDING") {
-  const normalizedStatus = String(value || fallback)
+  return String(value || fallback)
     .trim()
     .toUpperCase();
+}
 
-  return normalizedStatus;
+function getErrorMessage(error, fallbackMessage) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallbackMessage;
 }
 
 async function validateAppointmentRelations({
@@ -94,13 +102,11 @@ async function validateAppointmentRelations({
   };
 }
 
-function getErrorMessage(error, fallbackMessage) {
-  return error?.message || fallbackMessage;
-}
-
 export async function createAppointment(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.APPOINTMENTS_CREATE,
+    );
 
     const title = getOptionalString(formData, "title");
     const description = getOptionalString(formData, "description");
@@ -180,7 +186,9 @@ export async function createAppointment(formData) {
 
 export async function updateAppointment(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.APPOINTMENTS_UPDATE,
+    );
 
     const appointmentId = getOptionalString(formData, "appointmentId");
 
@@ -288,7 +296,9 @@ export async function updateAppointment(formData) {
 
 export async function deleteAppointment(appointmentId) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.APPOINTMENTS_DELETE,
+    );
 
     if (!appointmentId || typeof appointmentId !== "string") {
       return {
@@ -338,7 +348,9 @@ export async function deleteAppointment(appointmentId) {
 
 export async function updateAppointmentStatus(appointmentId, status) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.APPOINTMENTS_UPDATE,
+    );
 
     if (!appointmentId || typeof appointmentId !== "string") {
       return {
@@ -400,7 +412,13 @@ export async function updateAppointmentStatus(appointmentId, status) {
 
 export async function startServiceFromAppointment(appointmentId) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const appointmentContext = await requireBusinessActionPermission(
+      PERMISSIONS.APPOINTMENTS_UPDATE,
+    );
+
+    await requireBusinessActionPermission(PERMISSIONS.SERVICES_CREATE);
+
+    const { businessId } = appointmentContext;
 
     if (!appointmentId || typeof appointmentId !== "string") {
       return {
@@ -506,7 +524,7 @@ export async function startServiceFromAppointment(appointmentId) {
         data: {
           businessId,
           vehicleId: appointment.vehicleId,
-          customerId: appointment.customerId,
+          customerId: appointment.customerId || vehicle.customerId || null,
           title: appointment.title,
           description: appointment.description,
           status: "IN_PROGRESS",

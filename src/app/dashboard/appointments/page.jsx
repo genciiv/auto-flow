@@ -3,11 +3,14 @@ import AppointmentsView from "@/components/appointments/AppointmentsView";
 import CreateAppointmentModal from "@/components/appointments/CreateAppointmentModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 export default async function AppointmentsPage() {
-  const { businessId } = await requireBusinessContext();
+  const { businessId, businessRole } = await requireBusinessPermission(
+    PERMISSIONS.APPOINTMENTS_VIEW,
+  );
 
   const [appointments, customers, vehicles] = await Promise.all([
     db.appointment.findMany({
@@ -71,6 +74,26 @@ export default async function AppointmentsPage() {
     ).length,
   };
 
+  const canCreateAppointment = hasPermission(
+    businessRole,
+    PERMISSIONS.APPOINTMENTS_CREATE,
+  );
+
+  const canUpdateAppointment = hasPermission(
+    businessRole,
+    PERMISSIONS.APPOINTMENTS_UPDATE,
+  );
+
+  const canDeleteAppointment = hasPermission(
+    businessRole,
+    PERMISSIONS.APPOINTMENTS_DELETE,
+  );
+
+  const canCreateService = hasPermission(
+    businessRole,
+    PERMISSIONS.SERVICES_CREATE,
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -90,7 +113,9 @@ export default async function AppointmentsPage() {
             </p>
           </div>
 
-          <CreateAppointmentModal customers={customers} vehicles={vehicles} />
+          {canCreateAppointment ? (
+            <CreateAppointmentModal customers={customers} vehicles={vehicles} />
+          ) : null}
         </div>
 
         <AppointmentStats stats={stats} />
@@ -99,6 +124,9 @@ export default async function AppointmentsPage() {
           appointments={appointments}
           customers={customers}
           vehicles={vehicles}
+          canUpdateAppointment={canUpdateAppointment}
+          canDeleteAppointment={canDeleteAppointment}
+          canStartService={canUpdateAppointment && canCreateService}
         />
       </div>
     </DashboardLayout>

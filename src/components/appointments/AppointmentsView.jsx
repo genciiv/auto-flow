@@ -10,6 +10,9 @@ export default function AppointmentsView({
   appointments = [],
   customers = [],
   vehicles = [],
+  canUpdateAppointment = false,
+  canDeleteAppointment = false,
+  canStartService = false,
 }) {
   const [activeView, setActiveView] = useState("calendar");
 
@@ -60,12 +63,18 @@ export default function AppointmentsView({
           appointments={appointments}
           customers={customers}
           vehicles={vehicles}
+          canUpdateAppointment={canUpdateAppointment}
+          canDeleteAppointment={canDeleteAppointment}
+          canStartService={canStartService}
         />
       ) : (
         <AppointmentsTable
           appointments={appointments}
           customers={customers}
           vehicles={vehicles}
+          canUpdateAppointment={canUpdateAppointment}
+          canDeleteAppointment={canDeleteAppointment}
+          canStartService={canStartService}
         />
       )}
     </div>
