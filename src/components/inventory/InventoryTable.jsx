@@ -136,7 +136,12 @@ const stockStatusConfig = {
   },
 };
 
-export default function InventoryTable({ parts = [] }) {
+export default function InventoryTable({
+  parts = [],
+  canUpdatePart = false,
+  canDeletePart = false,
+  canManageStock = false,
+}) {
   const [search, setSearch] = useState("");
   const [stockStatus, setStockStatus] = useState("ALL");
   const [sort, setSort] = useState("NEWEST");
@@ -318,7 +323,12 @@ export default function InventoryTable({ parts = [] }) {
 
                       <td className="whitespace-nowrap px-6 py-5">
                         <div className="flex justify-end">
-                          <InventoryRowActions part={part} />
+                          <InventoryRowActions
+                            part={part}
+                            canUpdate={canUpdatePart}
+                            canDelete={canDeletePart}
+                            canManageStock={canManageStock}
+                          />
                         </div>
                       </td>
                     </tr>

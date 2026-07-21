@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 
 function refreshInventoryPages() {
   revalidatePath("/dashboard/inventory");
@@ -32,11 +33,22 @@ function parseNonNegativeNumber(value, fieldName) {
   return number;
 }
 
+function getErrorMessage(error, fallbackMessage) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
 export async function createPart(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.INVENTORY_CREATE,
+    );
 
     const code = getFormString(formData, "code").toUpperCase();
+
     const name = getFormString(formData, "name");
     const category = getFormString(formData, "category");
     const supplier = getFormString(formData, "supplier");
@@ -64,6 +76,19 @@ export async function createPart(formData) {
       formData.get("sellPrice"),
       "Çmimi i shitjes",
     );
+
+    if (stock > 0) {
+      const stockContext = await requireBusinessActionPermission(
+        PERMISSIONS.INVENTORY_MANAGE_STOCK,
+      );
+
+      if (stockContext.businessId !== businessId) {
+        return {
+          success: false,
+          message: "Biznesi aktiv nuk përputhet me inventarin.",
+        };
+      }
+    }
 
     if (code) {
       const existingPart = await db.part.findFirst({
@@ -109,17 +134,21 @@ export async function createPart(formData) {
 
     return {
       success: false,
-      message: error?.message || "Pjesa nuk mund të krijohej.",
+      message: getErrorMessage(error, "Pjesa nuk mund të krijohej."),
     };
   }
 }
 
 export async function updatePart(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.INVENTORY_UPDATE,
+    );
 
     const id = getFormString(formData, "id");
+
     const code = getFormString(formData, "code").toUpperCase();
+
     const name = getFormString(formData, "name");
     const category = getFormString(formData, "category");
     const supplier = getFormString(formData, "supplier");
@@ -162,6 +191,7 @@ export async function updatePart(formData) {
       },
       select: {
         id: true,
+        stock: true,
       },
     });
 
@@ -170,6 +200,21 @@ export async function updatePart(formData) {
         success: false,
         message: "Pjesa nuk u gjet.",
       };
+    }
+
+    const currentStock = Number(part.stock || 0);
+
+    if (stock !== currentStock) {
+      const stockContext = await requireBusinessActionPermission(
+        PERMISSIONS.INVENTORY_MANAGE_STOCK,
+      );
+
+      if (stockContext.businessId !== businessId) {
+        return {
+          success: false,
+          message: "Biznesi aktiv nuk përputhet me inventarin.",
+        };
+      }
     }
 
     if (code) {
@@ -221,14 +266,16 @@ export async function updatePart(formData) {
 
     return {
       success: false,
-      message: error?.message || "Pjesa nuk mund të përditësohej.",
+      message: getErrorMessage(error, "Pjesa nuk mund të përditësohej."),
     };
   }
 }
 
 export async function deletePart(partId) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.INVENTORY_DELETE,
+    );
 
     if (!partId || typeof partId !== "string") {
       return {
@@ -270,6 +317,14 @@ export async function deletePart(partId) {
       };
     }
 
+    if (Number(part.stock || 0) > 0) {
+      return {
+        success: false,
+        message:
+          "Pjesa nuk mund të fshihet ndërkohë që ka stok. Vendose stokun në zero fillimisht.",
+      };
+    }
+
     await db.part.delete({
       where: {
         id: part.id,
@@ -287,7 +342,7 @@ export async function deletePart(partId) {
 
     return {
       success: false,
-      message: error?.message || "Pjesa nuk mund të fshihej.",
+      message: getErrorMessage(error, "Pjesa nuk mund të fshihej."),
     };
   }
 }

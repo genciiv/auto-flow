@@ -3,11 +3,14 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InventoryStats from "@/components/inventory/InventoryStats";
 import InventoryTable from "@/components/inventory/InventoryTable";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 export default async function InventoryPage() {
-  const { businessId } = await requireBusinessContext();
+  const { businessId, businessRole } = await requireBusinessPermission(
+    PERMISSIONS.INVENTORY_VIEW,
+  );
 
   const parts = await db.part.findMany({
     where: {
@@ -39,6 +42,26 @@ export default async function InventoryPage() {
     inventoryValue,
   };
 
+  const canCreatePart = hasPermission(
+    businessRole,
+    PERMISSIONS.INVENTORY_CREATE,
+  );
+
+  const canUpdatePart = hasPermission(
+    businessRole,
+    PERMISSIONS.INVENTORY_UPDATE,
+  );
+
+  const canDeletePart = hasPermission(
+    businessRole,
+    PERMISSIONS.INVENTORY_DELETE,
+  );
+
+  const canManageStock = hasPermission(
+    businessRole,
+    PERMISSIONS.INVENTORY_MANAGE_STOCK,
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -55,12 +78,19 @@ export default async function InventoryPage() {
             </p>
           </div>
 
-          <CreatePartModal />
+          {canCreatePart ? (
+            <CreatePartModal canManageStock={canManageStock} />
+          ) : null}
         </div>
 
         <InventoryStats stats={stats} />
 
-        <InventoryTable parts={parts} />
+        <InventoryTable
+          parts={parts}
+          canUpdatePart={canUpdatePart}
+          canDeletePart={canDeletePart}
+          canManageStock={canManageStock}
+        />
       </div>
     </DashboardLayout>
   );

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Loader2, X } from "lucide-react";
+
 import { createPart } from "@/actions/part-actions";
 
-export default function CreatePartModal() {
+export default function CreatePartModal({ canManageStock = false }) {
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -15,7 +16,9 @@ export default function CreatePartModal() {
   }
 
   function handleClose() {
-    if (isSaving) return;
+    if (isSaving) {
+      return;
+    }
 
     setError("");
     setOpen(false);
@@ -36,6 +39,7 @@ export default function CreatePartModal() {
       setOpen(false);
     } catch (error) {
       console.error("Gabim gjatë krijimit të pjesës:", error);
+
       setError("Ndodhi një gabim gjatë krijimit të pjesës.");
     } finally {
       setIsSaving(false);
@@ -81,6 +85,10 @@ export default function CreatePartModal() {
               action={handleCreatePart}
               className="mt-6 grid gap-4 md:grid-cols-2"
             >
+              {!canManageStock && (
+                <input type="hidden" name="stock" value="0" />
+              )}
+
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Kodi
@@ -139,15 +147,25 @@ export default function CreatePartModal() {
                   Stoku fillestar
                 </label>
 
-                <input
-                  name="stock"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue="0"
-                  disabled={isSaving}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70"
-                />
+                {canManageStock ? (
+                  <input
+                    name="stock"
+                    type="number"
+                    min="0"
+                    step="1"
+                    defaultValue="0"
+                    disabled={isSaving}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    min="0"
+                    value="0"
+                    readOnly
+                    className="w-full cursor-not-allowed rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 outline-none"
+                  />
+                )}
               </div>
 
               <div>
