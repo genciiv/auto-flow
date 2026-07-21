@@ -1,13 +1,51 @@
-import { BadgeEuro, Car, Package, ShoppingCart } from "lucide-react";
+import { BadgeEuro, Car, FilePenLine, Package } from "lucide-react";
 
-const stats = [
-  { title: "Produkte aktive", value: "486", icon: Package },
-  { title: "Porosi", value: "128", icon: ShoppingCart },
-  { title: "Automjete në shitje", value: "42", icon: Car },
-  { title: "Të ardhura", value: "€24,300", icon: BadgeEuro },
-];
+function formatCurrency(value, currency = "ALL") {
+  const amount = Number(value || 0);
 
-export default function MarketplaceStats() {
+  if (currency === "EUR") {
+    return new Intl.NumberFormat("sq-AL", {
+      style: "currency",
+      currency: "EUR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  }
+
+  return `${new Intl.NumberFormat("sq-AL", {
+    maximumFractionDigits: 0,
+  }).format(amount)} Lek`;
+}
+
+export default function MarketplaceStats({
+  activeListings = 0,
+  draftListings = 0,
+  vehicleListings = 0,
+  soldValue = 0,
+  currency = "ALL",
+}) {
+  const stats = [
+    {
+      title: "Publikime aktive",
+      value: new Intl.NumberFormat("sq-AL").format(activeListings),
+      icon: Package,
+    },
+    {
+      title: "Draft",
+      value: new Intl.NumberFormat("sq-AL").format(draftListings),
+      icon: FilePenLine,
+    },
+    {
+      title: "Automjete në shitje",
+      value: new Intl.NumberFormat("sq-AL").format(vehicleListings),
+      icon: Car,
+    },
+    {
+      title: "Vlera e shitjeve",
+      value: formatCurrency(soldValue, currency),
+      icon: BadgeEuro,
+    },
+  ];
+
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
       {stats.map((stat) => {

@@ -75,6 +75,34 @@ enum ApplicationStatus {
 
 /**
  * |--------------------------------------------------------------------------
+ * | Marketplace enums
+ * |--------------------------------------------------------------------------
+ */
+
+enum MarketplaceSellerType {
+  BUSINESS
+  USER
+}
+
+enum MarketplaceListingType {
+  VEHICLE
+  MOTORCYCLE
+  PART
+  ACCESSORY
+  SERVICE
+  OTHER
+}
+
+enum MarketplaceListingStatus {
+  DRAFT
+  PUBLISHED
+  SOLD
+  ARCHIVED
+  REJECTED
+}
+
+/**
+ * |--------------------------------------------------------------------------
  * | User
  * |--------------------------------------------------------------------------
  */
@@ -93,6 +121,10 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   businesses BusinessUser[]
+
+  marketplaceListings  MarketplaceListing[]  @relation("MarketplaceUserListings")
+  marketplaceFavorites MarketplaceFavorite[]
+  marketplaceInquiries MarketplaceInquiry[]  @relation("MarketplaceInquirySender")
 
   @@index([email])
   @@index([phone])
@@ -124,14 +156,15 @@ model Business {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  users          BusinessUser[]
-  customers      Customer[]
-  vehicles       Vehicle[]
-  services       ServiceRecord[]
-  appointments   Appointment[]
-  parts          Part[]
-  invoices       Invoice[]
-  purchaseOrders PurchaseOrder[]
+  users               BusinessUser[]
+  customers           Customer[]
+  vehicles            Vehicle[]
+  services            ServiceRecord[]
+  appointments        Appointment[]
+  parts               Part[]
+  invoices            Invoice[]
+  purchaseOrders      PurchaseOrder[]
+  marketplaceListings MarketplaceListing[] @relation("MarketplaceBusinessListings")
 
   @@index([name])
   @@index([city])
@@ -441,4 +474,132 @@ model BusinessApplication {
   @@index([email])
   @@index([city])
   @@index([createdAt])
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | MarketplaceListing
+ * |--------------------------------------------------------------------------
+ */
+
+model MarketplaceListing {
+  id String @id @default(cuid())
+
+  sellerType MarketplaceSellerType
+
+  businessId   String?
+  sellerUserId String?
+
+  type   MarketplaceListingType
+  status MarketplaceListingStatus @default(DRAFT)
+
+  title       String
+  slug        String  @unique
+  description String?
+
+  price        Float
+  isNegotiable Boolean @default(false)
+
+  category  String?
+  condition String?
+
+  city    String?
+  address String?
+
+  phone String?
+  email String?
+
+  brand          String?
+  model          String?
+  productionYear Int?
+  mileage        Int?
+  fuelType       String?
+  transmission   String?
+  engine         String?
+  color          String?
+  vin            String?
+
+  stock Int?
+
+  isFeatured  Boolean   @default(false)
+  publishedAt DateTime?
+  soldAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business   Business? @relation("MarketplaceBusinessListings", fields: [businessId], references: [id], onDelete: Cascade)
+  sellerUser User?     @relation("MarketplaceUserListings", fields: [sellerUserId], references: [id], onDelete: Cascade)
+
+  images    MarketplaceListingImage[]
+  favorites MarketplaceFavorite[]
+  inquiries MarketplaceInquiry[]
+
+  @@index([businessId])
+  @@index([sellerUserId])
+  @@index([sellerType])
+  @@index([type])
+  @@index([status])
+  @@index([city])
+  @@index([brand])
+  @@index([price])
+  @@index([publishedAt])
+  @@index([createdAt])
+  @@index([status, publishedAt])
+  @@index([businessId, status])
+  @@index([sellerUserId, status])
+}
+
+model MarketplaceListingImage {
+  id        String   @id @default(cuid())
+  listingId String
+  url       String
+  alt       String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([listingId, position])
+}
+
+model MarketplaceFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([userId])
+  @@index([listingId])
+}
+
+model MarketplaceInquiry {
+  id String @id @default(cuid())
+
+  listingId    String
+  senderUserId String?
+
+  name    String
+  email   String?
+  phone   String?
+  message String
+
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  listing    MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  senderUser User?              @relation("MarketplaceInquirySender", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([listingId])
+  @@index([senderUserId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([listingId, isRead])
 }
