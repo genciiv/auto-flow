@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Ban,
@@ -20,6 +20,7 @@ import { updatePurchaseStatus } from "@/actions/purchase-actions";
 const MENU_WIDTH = 288;
 const MENU_GAP = 8;
 const VIEWPORT_PADDING = 12;
+const DEFAULT_MENU_HEIGHT = 320;
 
 export default function PurchaseRowActions({
   purchase,
@@ -31,12 +32,11 @@ export default function PurchaseRowActions({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
-  const [mounted, setMounted] = useState(false);
 
   const [menuPosition, setMenuPosition] = useState({
     top: 0,
     left: 0,
-    maxHeight: 320,
+    maxHeight: DEFAULT_MENU_HEIGHT,
   });
 
   const buttonRef = useRef(null);
@@ -45,17 +45,12 @@ export default function PurchaseRowActions({
   const isReceived = purchase.status === "RECEIVED";
   const hasAvailableActions = canUpdate || canDelete;
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  function calculateMenuPosition() {
-    if (!buttonRef.current) {
+  const calculateMenuPosition = useCallback(() => {
+    if (!buttonRef.current || typeof window === "undefined") {
       return;
     }
 
     const buttonRect = buttonRef.current.getBoundingClientRect();
-
     const estimatedMenuHeight = isReceived ? 150 : 290;
 
     const spaceBelow =
@@ -69,9 +64,11 @@ export default function PurchaseRowActions({
     let top;
 
     if (shouldOpenAbove) {
+      const visibleHeight = Math.min(estimatedMenuHeight, spaceAbove);
+
       top = Math.max(
         VIEWPORT_PADDING,
-        buttonRect.top - Math.min(estimatedMenuHeight, spaceAbove) - MENU_GAP,
+        buttonRect.top - visibleHeight - MENU_GAP,
       );
     } else {
       top = buttonRect.bottom + MENU_GAP;
@@ -97,9 +94,9 @@ export default function PurchaseRowActions({
     setMenuPosition({
       top,
       left,
-      maxHeight: Math.min(320, availableHeight),
+      maxHeight: Math.min(DEFAULT_MENU_HEIGHT, availableHeight),
     });
-  }
+  }, [isReceived]);
 
   function handleToggleMenu() {
     if (isUpdating) {
@@ -108,17 +105,17 @@ export default function PurchaseRowActions({
 
     if (!menuOpen) {
       calculateMenuPosition();
+      setMenuOpen(true);
+      return;
     }
 
-    setMenuOpen((current) => !current);
+    setMenuOpen(false);
   }
 
   useEffect(() => {
     if (!menuOpen) {
-      return;
+      return undefined;
     }
-
-    calculateMenuPosition();
 
     function handleClickOutside(event) {
       const clickedButton = buttonRef.current?.contains(event.target);
@@ -152,7 +149,7 @@ export default function PurchaseRowActions({
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, true);
     };
-  }, [menuOpen, isReceived]);
+  }, [menuOpen, calculateMenuPosition]);
 
   async function handleStatusChange(status) {
     if (!canUpdate || isReceived || isUpdating) {
@@ -181,6 +178,8 @@ export default function PurchaseRowActions({
   if (!hasAvailableActions) {
     return null;
   }
+
+  const canUsePortal = typeof document !== "undefined" && document.body;
 
   const menuContent = menuOpen ? (
     <div
@@ -292,6 +291,23 @@ export default function PurchaseRowActions({
     </div>
   ) : null;
 
+  const errorContent = error ? (
+    <div className="fixed bottom-6 right-6 z-[10000] max-w-sm rounded-2xl border border-red-200 bg-red-50 px-4 py-3 shadow-xl">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-red-700">{error}</p>
+
+        <button
+          type="button"
+          onClick={() => setError("")}
+          className="font-bold text-red-500 transition hover:text-red-700"
+          aria-label="Mbyll gabimin"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <button
@@ -311,27 +327,11 @@ export default function PurchaseRowActions({
         )}
       </button>
 
-      {mounted && menuContent && createPortal(menuContent, document.body)}
+      {canUsePortal && menuContent && createPortal(menuContent, document.body)}
 
-      {error &&
-        mounted &&
-        createPortal(
-          <div className="fixed bottom-6 right-6 z-[10000] max-w-sm rounded-2xl border border-red-200 bg-red-50 px-4 py-3 shadow-xl">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-sm font-medium text-red-700">{error}</p>
-
-              <button
-                type="button"
-                onClick={() => setError("")}
-                className="font-bold text-red-500 transition hover:text-red-700"
-                aria-label="Mbyll gabimin"
-              >
-                ×
-              </button>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {canUsePortal &&
+        errorContent &&
+        createPortal(errorContent, document.body)}
 
       {canUpdate && editOpen && (
         <EditPurchaseModal
