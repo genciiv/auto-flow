@@ -100,7 +100,11 @@ function sortCustomers(customers, sort) {
   });
 }
 
-export default function CustomersTable({ customers = [] }) {
+export default function CustomersTable({
+  customers = [],
+  canUpdateCustomer = false,
+  canDeleteCustomer = false,
+}) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
   const [sort, setSort] = useState("NEWEST");
@@ -289,7 +293,11 @@ export default function CustomersTable({ customers = [] }) {
 
                       <td className="whitespace-nowrap px-6 py-5">
                         <div className="flex justify-end">
-                          <CustomerRowActions customer={customer} />
+                          <CustomerRowActions
+                            customer={customer}
+                            canUpdate={canUpdateCustomer}
+                            canDelete={canDeleteCustomer}
+                          />
                         </div>
                       </td>
                     </tr>

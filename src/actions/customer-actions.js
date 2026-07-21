@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 
 function getOptionalFormValue(formData, fieldName) {
   const value = formData.get(fieldName);
@@ -17,8 +18,18 @@ function getOptionalFormValue(formData, fieldName) {
   return trimmedValue || null;
 }
 
+function validateEmail(email) {
+  if (!email) {
+    return true;
+  }
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export async function createCustomer(formData) {
-  const { businessId } = await requireBusinessContext();
+  const { businessId } = await requireBusinessActionPermission(
+    PERMISSIONS.CUSTOMERS_CREATE,
+  );
 
   const name = getOptionalFormValue(formData, "name");
   const phone = getOptionalFormValue(formData, "phone");
@@ -27,6 +38,10 @@ export async function createCustomer(formData) {
 
   if (!name) {
     throw new Error("Emri është i detyrueshëm.");
+  }
+
+  if (!validateEmail(email)) {
+    throw new Error("Adresa e email-it nuk është e vlefshme.");
   }
 
   await db.customer.create({
@@ -44,7 +59,9 @@ export async function createCustomer(formData) {
 }
 
 export async function updateCustomer(formData) {
-  const { businessId } = await requireBusinessContext();
+  const { businessId } = await requireBusinessActionPermission(
+    PERMISSIONS.CUSTOMERS_UPDATE,
+  );
 
   const id = getOptionalFormValue(formData, "id");
   const name = getOptionalFormValue(formData, "name");
@@ -58,6 +75,10 @@ export async function updateCustomer(formData) {
 
   if (!name) {
     throw new Error("Emri është i detyrueshëm.");
+  }
+
+  if (!validateEmail(email)) {
+    throw new Error("Adresa e email-it nuk është e vlefshme.");
   }
 
   const customer = await db.customer.findFirst({
@@ -93,7 +114,9 @@ export async function updateCustomer(formData) {
 
 export async function deleteCustomer(customerId) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.CUSTOMERS_DELETE,
+    );
 
     if (!customerId || typeof customerId !== "string") {
       return {
@@ -113,7 +136,6 @@ export async function deleteCustomer(customerId) {
           select: {
             vehicles: true,
             invoices: true,
-            serviceRecords: true,
             appointments: true,
           },
         },
@@ -126,6 +148,13 @@ export async function deleteCustomer(customerId) {
         message: "Klienti nuk u gjet.",
       };
     }
+
+    const serviceRecordsCount = await db.serviceRecord.count({
+      where: {
+        businessId,
+        customerId: customer.id,
+      },
+    });
 
     if (customer._count.vehicles > 0) {
       return {
@@ -143,7 +172,7 @@ export async function deleteCustomer(customerId) {
       };
     }
 
-    if (customer._count.serviceRecords > 0) {
+    if (serviceRecordsCount > 0) {
       return {
         success: false,
         message:
@@ -155,7 +184,7 @@ export async function deleteCustomer(customerId) {
       return {
         success: false,
         message:
-          "Ky klient nuk mund të fshihet sepse ka takime të regjistruara.",
+          "Ky klient nuk mund të fshihet sepse ka termine të regjistruara.",
       };
     }
 
@@ -174,6 +203,16 @@ export async function deleteCustomer(customerId) {
     };
   } catch (error) {
     console.error("Gabim gjatë fshirjes së klientit:", error);
+
+    if (
+      error instanceof Error &&
+      error.message === "Nuk keni leje për të kryer këtë veprim."
+    ) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
 
     return {
       success: false,

@@ -3,11 +3,14 @@ import CustomerStats from "@/components/customers/CustomerStats";
 import CustomersTable from "@/components/customers/CustomersTable";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 export default async function CustomersPage() {
-  const { businessId } = await requireBusinessContext();
+  const { businessId, businessRole } = await requireBusinessPermission(
+    PERMISSIONS.CUSTOMERS_VIEW,
+  );
 
   const customers = await db.customer.findMany({
     where: {
@@ -55,6 +58,21 @@ export default async function CustomersPage() {
     totalSpent,
   };
 
+  const canCreateCustomer = hasPermission(
+    businessRole,
+    PERMISSIONS.CUSTOMERS_CREATE,
+  );
+
+  const canUpdateCustomer = hasPermission(
+    businessRole,
+    PERMISSIONS.CUSTOMERS_UPDATE,
+  );
+
+  const canDeleteCustomer = hasPermission(
+    businessRole,
+    PERMISSIONS.CUSTOMERS_DELETE,
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -71,12 +89,16 @@ export default async function CustomersPage() {
             </p>
           </div>
 
-          <CreateCustomerModal />
+          {canCreateCustomer ? <CreateCustomerModal /> : null}
         </div>
 
         <CustomerStats stats={stats} />
 
-        <CustomersTable customers={customers} />
+        <CustomersTable
+          customers={customers}
+          canUpdateCustomer={canUpdateCustomer}
+          canDeleteCustomer={canDeleteCustomer}
+        />
       </div>
     </DashboardLayout>
   );
