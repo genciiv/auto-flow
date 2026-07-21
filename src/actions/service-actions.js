@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const VALID_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 
@@ -15,6 +16,17 @@ function getFormString(formData, fieldName) {
   }
 
   return value.trim();
+}
+
+function getPermissionErrorMessage(error) {
+  if (
+    error instanceof Error &&
+    error.message === "Nuk keni leje për të kryer këtë veprim."
+  ) {
+    return error.message;
+  }
+
+  return null;
 }
 
 function refreshServicePages(serviceId) {
@@ -30,7 +42,9 @@ function refreshServicePages(serviceId) {
 
 export async function createService(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.SERVICES_CREATE,
+    );
 
     const vehicleId = getFormString(formData, "vehicleId");
     const title = getFormString(formData, "title");
@@ -100,16 +114,21 @@ export async function createService(formData) {
   } catch (error) {
     console.error("Gabim gjatë krijimit të shërbimit:", error);
 
+    const permissionMessage = getPermissionErrorMessage(error);
+
     return {
       success: false,
-      message: "Ndodhi një gabim gjatë krijimit të shërbimit.",
+      message:
+        permissionMessage || "Ndodhi një gabim gjatë krijimit të shërbimit.",
     };
   }
 }
 
 export async function updateService(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.SERVICES_UPDATE,
+    );
 
     const id = getFormString(formData, "id");
     const vehicleId = getFormString(formData, "vehicleId");
@@ -208,16 +227,22 @@ export async function updateService(formData) {
   } catch (error) {
     console.error("Gabim gjatë përditësimit të shërbimit:", error);
 
+    const permissionMessage = getPermissionErrorMessage(error);
+
     return {
       success: false,
-      message: "Ndodhi një gabim gjatë përditësimit të shërbimit.",
+      message:
+        permissionMessage ||
+        "Ndodhi një gabim gjatë përditësimit të shërbimit.",
     };
   }
 }
 
 export async function updateServiceStatus(serviceId, status) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.SERVICES_UPDATE,
+    );
 
     if (!serviceId || typeof serviceId !== "string") {
       return {
@@ -268,16 +293,21 @@ export async function updateServiceStatus(serviceId, status) {
   } catch (error) {
     console.error("Gabim gjatë ndryshimit të statusit:", error);
 
+    const permissionMessage = getPermissionErrorMessage(error);
+
     return {
       success: false,
-      message: "Ndodhi një gabim gjatë ndryshimit të statusit.",
+      message:
+        permissionMessage || "Ndodhi një gabim gjatë ndryshimit të statusit.",
     };
   }
 }
 
 export async function deleteService(serviceId) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.SERVICES_DELETE,
+    );
 
     if (!serviceId || typeof serviceId !== "string") {
       return {
@@ -343,9 +373,12 @@ export async function deleteService(serviceId) {
   } catch (error) {
     console.error("Gabim gjatë fshirjes së shërbimit:", error);
 
+    const permissionMessage = getPermissionErrorMessage(error);
+
     return {
       success: false,
       message:
+        permissionMessage ||
         "Shërbimi nuk mund të fshihet sepse është i lidhur me të dhëna të tjera.",
     };
   }

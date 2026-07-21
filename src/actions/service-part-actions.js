@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 
 function refreshServicePartPages(serviceId = null) {
   revalidatePath("/dashboard/services");
@@ -39,9 +40,12 @@ function parsePositiveInteger(value, fieldName) {
 
 export async function addPartToService(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessActionPermission(
+      PERMISSIONS.SERVICES_MANAGE_PARTS,
+    );
 
     const serviceId = getRequiredString(formData, "serviceId");
+
     const partId = getRequiredString(formData, "partId");
 
     const quantity = parsePositiveInteger(
@@ -165,7 +169,10 @@ export async function addPartToService(formData) {
 
     return {
       success: false,
-      message: error?.message || "Pjesa nuk mund t'i shtohej shërbimit.",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Pjesa nuk mund t'i shtohej shërbimit.",
     };
   }
 }

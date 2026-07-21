@@ -101,6 +101,9 @@ export default function ServicesTable({
   services = [],
   vehicles = [],
   parts = [],
+  canUpdateService = false,
+  canDeleteService = false,
+  canManageServiceParts = false,
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -282,14 +285,18 @@ export default function ServicesTable({
 
                       <td className="whitespace-nowrap px-6 py-5">
                         <div className="flex justify-end gap-2">
-                          <AddServicePartModal
-                            serviceId={service.id}
-                            parts={parts}
-                          />
+                          {canManageServiceParts ? (
+                            <AddServicePartModal
+                              serviceId={service.id}
+                              parts={parts}
+                            />
+                          ) : null}
 
                           <ServiceRowActions
                             service={service}
                             vehicles={vehicles}
+                            canUpdate={canUpdateService}
+                            canDelete={canDeleteService}
                           />
                         </div>
                       </td>

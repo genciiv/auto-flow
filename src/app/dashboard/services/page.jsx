@@ -3,11 +3,14 @@ import CreateServiceModal from "@/components/services/CreateServiceModal";
 import ServiceStats from "@/components/services/ServiceStats";
 import ServicesTable from "@/components/services/ServicesTable";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 export default async function ServicesPage() {
-  const { businessId } = await requireBusinessContext();
+  const { businessId, businessRole } = await requireBusinessPermission(
+    PERMISSIONS.SERVICES_VIEW,
+  );
 
   const [services, vehicles, parts] = await Promise.all([
     db.serviceRecord.findMany({
@@ -79,6 +82,26 @@ export default async function ServicesPage() {
     totalRevenue,
   };
 
+  const canCreateService = hasPermission(
+    businessRole,
+    PERMISSIONS.SERVICES_CREATE,
+  );
+
+  const canUpdateService = hasPermission(
+    businessRole,
+    PERMISSIONS.SERVICES_UPDATE,
+  );
+
+  const canDeleteService = hasPermission(
+    businessRole,
+    PERMISSIONS.SERVICES_DELETE,
+  );
+
+  const canManageServiceParts = hasPermission(
+    businessRole,
+    PERMISSIONS.SERVICES_MANAGE_PARTS,
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -95,12 +118,19 @@ export default async function ServicesPage() {
             </p>
           </div>
 
-          <CreateServiceModal vehicles={vehicles} />
+          {canCreateService ? <CreateServiceModal vehicles={vehicles} /> : null}
         </div>
 
         <ServiceStats stats={stats} />
 
-        <ServicesTable services={services} vehicles={vehicles} parts={parts} />
+        <ServicesTable
+          services={services}
+          vehicles={vehicles}
+          parts={parts}
+          canUpdateService={canUpdateService}
+          canDeleteService={canDeleteService}
+          canManageServiceParts={canManageServiceParts}
+        />
       </div>
     </DashboardLayout>
   );
