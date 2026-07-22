@@ -56,6 +56,18 @@ const sortOptions = [
   },
 ];
 
+function SortIcon({ sort, className }) {
+  if (sort === "OLDEST") {
+    return <CalendarArrowUp className={className} />;
+  }
+
+  if (sort === "NEWEST") {
+    return <CalendarArrowDown className={className} />;
+  }
+
+  return <ArrowDownAZ className={className} />;
+}
+
 export default function InvoiceFilters({
   search,
   status,
@@ -69,20 +81,6 @@ export default function InvoiceFilters({
 }) {
   const hasActiveFilters =
     search.trim() !== "" || status !== "ALL" || sort !== "NEWEST";
-
-  function getSortIcon() {
-    if (sort === "OLDEST") {
-      return CalendarArrowUp;
-    }
-
-    if (sort === "NEWEST") {
-      return CalendarArrowDown;
-    }
-
-    return ArrowDownAZ;
-  }
-
-  const SortIcon = getSortIcon();
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white">
@@ -107,7 +105,7 @@ export default function InvoiceFilters({
               {resultCount} nga {totalCount} fatura
             </span>
 
-            {hasActiveFilters && (
+            {hasActiveFilters ? (
               <button
                 type="button"
                 onClick={onReset}
@@ -116,7 +114,7 @@ export default function InvoiceFilters({
                 <RotateCcw className="h-3.5 w-3.5" />
                 Pastro
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -142,7 +140,7 @@ export default function InvoiceFilters({
               className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
             />
 
-            {search && (
+            {search ? (
               <button
                 type="button"
                 onClick={() => onSearchChange("")}
@@ -151,7 +149,7 @@ export default function InvoiceFilters({
               >
                 <X className="h-4 w-4" />
               </button>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -186,7 +184,10 @@ export default function InvoiceFilters({
           </label>
 
           <div className="relative">
-            <SortIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <SortIcon
+              sort={sort}
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            />
 
             <select
               id="invoice-sort"
