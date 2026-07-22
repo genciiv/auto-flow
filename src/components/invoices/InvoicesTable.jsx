@@ -42,11 +42,11 @@ function formatDate(value) {
     return "—";
   }
 
-  return new Intl.DateTimeFormat("sq-AL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}.${month}.${year}`;
 }
 
 function normalizeText(value) {
