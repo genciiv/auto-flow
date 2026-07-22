@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function MarketplaceSection() {
   return (
     <section id="marketplace" className="bg-white py-24">
@@ -18,9 +20,12 @@ export default function MarketplaceSection() {
               direkt nga platforma.
             </p>
 
-            <button className="mt-8 rounded-full bg-slate-950 px-7 py-4 text-sm font-bold text-white hover:bg-slate-800">
+            <Link
+              href="/marketplace"
+              className="mt-8 inline-flex rounded-full bg-slate-950 px-7 py-4 text-sm font-bold text-white transition hover:bg-slate-800"
+            >
               Eksploro Marketplace
-            </button>
+            </Link>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -35,7 +40,9 @@ export default function MarketplaceSection() {
                 className="rounded-[2rem] border border-slate-200 bg-slate-50 p-6"
               >
                 <div className="mb-6 h-32 rounded-3xl bg-white shadow-inner" />
+
                 <h3 className="font-bold text-slate-950">{name}</h3>
+
                 <p className="mt-2 text-sm font-semibold text-slate-500">
                   {price}
                 </p>

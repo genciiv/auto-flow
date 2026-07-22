@@ -49,10 +49,7 @@ export default async function Header() {
             Karakteristikat
           </Link>
 
-          <Link
-            href="/#marketplace"
-            className="transition hover:text-slate-950"
-          >
+          <Link href="/marketplace" className="transition hover:text-slate-950">
             Marketplace
           </Link>
 
