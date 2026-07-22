@@ -1,21 +1,15 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import {
-  BarChart3,
-  CarFront,
-  CheckCircle2,
-  ShieldCheck,
-  Wrench,
-} from "lucide-react";
+import { CarFront, Heart, Search, ShieldCheck, Sparkles } from "lucide-react";
 
 import { auth } from "@/auth";
 
-import LoginForm from "./login-form";
+import RegisterForm from "./register-form";
 
 export const metadata = {
-  title: "Hyr në AutoFlow",
-  description: "Hyr në platformën AutoFlow për të menaxhuar llogarinë tënde.",
+  title: "Krijo llogari | AutoFlow",
+  description:
+    "Krijo llogarinë tënde AutoFlow dhe menaxho automjetet, kërkesat dhe publikimet.",
 };
 
 function getUserDestination(user) {
@@ -34,7 +28,7 @@ function getUserDestination(user) {
   return null;
 }
 
-export default async function LoginPage() {
+export default async function RegisterPage() {
   const session = await auth();
 
   if (session?.user) {
@@ -62,63 +56,64 @@ export default async function LoginPage() {
               <div>
                 <p className="text-xl font-bold">AutoFlow</p>
 
-                <p className="text-xs text-slate-400">
-                  Auto Service Management
-                </p>
+                <p className="text-xs text-slate-400">Portali i klientit</p>
               </div>
             </div>
           </div>
 
           <div className="relative z-10 max-w-xl">
             <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-300">
-              <ShieldCheck className="size-4" />
-              Platformë e sigurt për servisin tuaj
+              <Sparkles className="size-4" />
+              Llogaria jote personale AutoFlow
             </div>
 
             <h1 className="text-4xl font-semibold leading-tight xl:text-5xl">
-              Menaxho çdo pjesë të servisit nga një platformë e vetme.
+              Automjeti, shërbimet dhe Marketplace në një vend.
             </h1>
 
             <p className="mt-6 max-w-lg text-base leading-7 text-slate-300">
-              Klientë, automjete, shërbime, magazinë, termine dhe fatura në një
-              sistem të organizuar.
+              Krijo llogarinë për të regjistruar automjetet, për të ruajtur
+              publikimet dhe për të kontaktuar bizneset në Marketplace.
             </p>
 
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <Wrench className="mb-4 size-5 text-slate-300" />
+                <CarFront className="mb-4 size-5 text-slate-300" />
 
-                <p className="text-sm font-medium">Shërbime</p>
-
-                <p className="mt-1 text-xs text-slate-400">Menaxhim i plotë</p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <BarChart3 className="mb-4 size-5 text-slate-300" />
-
-                <p className="text-sm font-medium">Analitika</p>
+                <p className="text-sm font-medium">Automjetet</p>
 
                 <p className="mt-1 text-xs text-slate-400">
-                  Të dhëna në kohë reale
+                  Menaxho makinat e tua
                 </p>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <CheckCircle2 className="mb-4 size-5 text-slate-300" />
+                <Search className="mb-4 size-5 text-slate-300" />
 
-                <p className="text-sm font-medium">Kontroll</p>
+                <p className="text-sm font-medium">Marketplace</p>
 
                 <p className="mt-1 text-xs text-slate-400">
-                  Çdo proces në një vend
+                  Gjej makina dhe pjesë
                 </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <Heart className="mb-4 size-5 text-slate-300" />
+
+                <p className="text-sm font-medium">Favoritet</p>
+
+                <p className="mt-1 text-xs text-slate-400">Ruaj publikimet</p>
               </div>
             </div>
           </div>
 
-          <p className="relative z-10 text-xs text-slate-500">
-            © {new Date().getFullYear()} AutoFlow. Të gjitha të drejtat e
-            rezervuara.
-          </p>
+          <div className="relative z-10 flex items-center gap-2 text-xs text-slate-500">
+            <ShieldCheck className="size-4" />
+
+            <span>
+              Të dhënat e tua mbrohen dhe përdoren vetëm brenda AutoFlow.
+            </span>
+          </div>
         </section>
 
         <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
@@ -131,45 +126,32 @@ export default async function LoginPage() {
               <div>
                 <p className="font-bold text-slate-950">AutoFlow</p>
 
-                <p className="text-xs text-slate-500">
-                  Auto Service Management
-                </p>
+                <p className="text-xs text-slate-500">Portali i klientit</p>
               </div>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div>
                 <p className="text-sm font-medium text-slate-500">
-                  Mirë se u riktheve
+                  Fillo me AutoFlow
                 </p>
 
                 <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-                  Hyr në llogarinë tënde
+                  Krijo llogarinë tënde
                 </h2>
 
                 <p className="mt-3 text-sm leading-6 text-slate-500">
-                  Përdor email-in dhe password-in e llogarisë AutoFlow.
+                  Regjistrohu falas për të përdorur portalin e klientit dhe
+                  Marketplace.
                 </p>
               </div>
 
-              <LoginForm />
-
-              <div className="mt-6 border-t border-slate-100 pt-6 text-center">
-                <p className="text-sm text-slate-500">
-                  Nuk ke ende një llogari?{" "}
-                  <Link
-                    href="/register"
-                    className="font-semibold text-blue-600 transition hover:text-blue-700"
-                  >
-                    Regjistrohu
-                  </Link>
-                </p>
-              </div>
+              <RegisterForm />
             </div>
 
             <p className="mt-6 text-center text-xs leading-5 text-slate-400">
-              Duke vazhduar, pranon kushtet e përdorimit dhe politikën e
-              privatësisë.
+              © {new Date().getFullYear()} AutoFlow. Të gjitha të drejtat e
+              rezervuara.
             </p>
           </div>
         </section>
