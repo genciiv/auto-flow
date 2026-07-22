@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronRight, Inbox, MessageSquareText } from "lucide-react";
 
+import useNotificationRefresh from "@/hooks/useNotificationRefresh";
+
 function getTypeLabel(type) {
   const labels = {
     VEHICLE: "Makinë",
@@ -24,6 +26,11 @@ function getRelativeTime(value) {
   }
 
   const createdAt = new Date(value);
+
+  if (Number.isNaN(createdAt.getTime())) {
+    return "";
+  }
+
   const now = new Date();
 
   const differenceInSeconds = Math.max(
@@ -44,32 +51,34 @@ function getRelativeTime(value) {
   const hours = Math.floor(minutes / 60);
 
   if (hours < 24) {
-    return `${hours} ${hours === 1 ? "orë" : "orë"} më parë`;
+    return `${hours} orë më parë`;
   }
 
   const days = Math.floor(hours / 24);
 
   if (days < 7) {
-    return `${days} ${days === 1 ? "ditë" : "ditë"} më parë`;
+    return `${days} ditë më parë`;
   }
 
-  return new Intl.DateTimeFormat("sq-AL", {
-    day: "2-digit",
-    month: "short",
-    year: createdAt.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-  }).format(createdAt);
+  const day = String(createdAt.getDate()).padStart(2, "0");
+  const month = String(createdAt.getMonth() + 1).padStart(2, "0");
+  const year = createdAt.getFullYear();
+
+  return `${day}.${month}.${year}`;
 }
 
 function truncateText(value, maxLength = 76) {
-  if (!value) {
-    return "";
+  const text = String(value || "").trim();
+
+  if (!text) {
+    return "Pa mesazh";
   }
 
-  if (value.length <= maxLength) {
-    return value;
+  if (text.length <= maxLength) {
+    return text;
   }
 
-  return `${value.slice(0, maxLength).trim()}...`;
+  return `${text.slice(0, maxLength).trim()}...`;
 }
 
 export default function NotificationDropdown({
@@ -78,6 +87,8 @@ export default function NotificationDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  useNotificationRefresh();
 
   useEffect(() => {
     function handleOutsideClick(event) {
@@ -93,7 +104,6 @@ export default function NotificationDropdown({
     }
 
     document.addEventListener("mousedown", handleOutsideClick);
-
     document.addEventListener("keydown", handleEscape);
 
     return () => {
@@ -116,14 +126,14 @@ export default function NotificationDropdown({
       >
         <Bell size={18} />
 
-        {unreadCount > 0 ? (
+        {unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {visibleUnreadCount}
           </span>
-        ) : null}
+        )}
       </button>
 
-      {open ? (
+      {open && (
         <div className="absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-[390px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
           <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
             <div>
@@ -134,12 +144,12 @@ export default function NotificationDropdown({
               </p>
             </div>
 
-            {unreadCount > 0 ? (
+            {unreadCount > 0 && (
               <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
                 {unreadCount}{" "}
                 {unreadCount === 1 ? "e palexuar" : "të palexuara"}
               </span>
-            ) : null}
+            )}
           </div>
 
           {notifications.length === 0 ? (
@@ -161,7 +171,7 @@ export default function NotificationDropdown({
               {notifications.map((notification) => (
                 <Link
                   key={notification.id}
-                  href="/dashboard/marketplace/inquiries"
+                  href={`/dashboard/marketplace/inquiries?inquiry=${notification.id}`}
                   onClick={() => setOpen(false)}
                   className={`group flex gap-3 rounded-2xl p-3 transition ${
                     notification.isRead
@@ -170,10 +180,12 @@ export default function NotificationDropdown({
                   }`}
                 >
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    {notification.listing.image ? (
+                    {notification.listing?.image ? (
                       <Image
                         src={notification.listing.image}
-                        alt={notification.listing.title}
+                        alt={
+                          notification.listing.title || "Publikim Marketplace"
+                        }
                         fill
                         sizes="48px"
                         className="object-cover"
@@ -192,16 +204,16 @@ export default function NotificationDropdown({
                           notification.isRead ? "font-semibold" : "font-bold"
                         }`}
                       >
-                        {notification.name}
+                        {notification.name || "Vizitor"}
                       </p>
 
-                      {!notification.isRead ? (
+                      {!notification.isRead && (
                         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
-                      ) : null}
+                      )}
                     </div>
 
                     <p className="mt-0.5 truncate text-xs font-semibold text-blue-600">
-                      {notification.listing.title}
+                      {notification.listing?.title || "Publikim Marketplace"}
                     </p>
 
                     <p className="mt-1 text-xs leading-5 text-slate-500">
@@ -210,7 +222,7 @@ export default function NotificationDropdown({
 
                     <div className="mt-2 flex items-center justify-between gap-3">
                       <span className="text-[11px] font-medium text-slate-400">
-                        {getTypeLabel(notification.listing.type)} ·{" "}
+                        {getTypeLabel(notification.listing?.type)} ·{" "}
                         {getRelativeTime(notification.createdAt)}
                       </span>
 
@@ -236,7 +248,7 @@ export default function NotificationDropdown({
             </Link>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
