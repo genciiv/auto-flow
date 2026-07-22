@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import MarketplaceListingActions from "@/components/marketplace/MarketplaceListingActions";
 
 import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
@@ -391,7 +392,12 @@ export default async function MarketplaceListingDetailsPage({ params }) {
                 ) : null}
               </div>
             </section>
-
+            {canManage ? (
+              <MarketplaceListingActions
+                listingId={listing.id}
+                status={listing.status}
+              />
+            ) : null}
             <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
               <SectionHeader title="Informacioni i publikimit" />
 

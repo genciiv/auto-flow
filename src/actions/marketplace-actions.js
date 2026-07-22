@@ -66,6 +66,57 @@ function extractStoragePath(publicUrl, bucket) {
   return decodeURIComponent(publicUrl.slice(markerIndex + marker.length));
 }
 
+function getListingDates(status, listing) {
+  return {
+    publishedAt:
+      status === "PUBLISHED"
+        ? listing.publishedAt || new Date()
+        : listing.publishedAt,
+
+    soldAt: status === "SOLD" ? listing.soldAt || new Date() : null,
+  };
+}
+
+async function getManagedListing({
+  listingId,
+  businessId,
+  includeImages = false,
+}) {
+  if (!listingId) {
+    throw new Error("Publikimi nuk u gjet.");
+  }
+
+  const listing = await db.marketplaceListing.findFirst({
+    where: {
+      id: listingId,
+      businessId,
+    },
+    ...(includeImages
+      ? {
+          include: {
+            images: {
+              orderBy: {
+                position: "asc",
+              },
+            },
+          },
+        }
+      : {}),
+  });
+
+  if (!listing) {
+    throw new Error("Publikimi nuk ekziston ose nuk i përket biznesit aktiv.");
+  }
+
+  return listing;
+}
+
+function revalidateMarketplaceListing(listingId) {
+  revalidatePath("/dashboard/marketplace");
+  revalidatePath(`/dashboard/marketplace/${listingId}`);
+  revalidatePath(`/dashboard/marketplace/${listingId}/edit`);
+}
+
 export async function updateMarketplaceListing(formData) {
   const { businessId } = await requireBusinessActionPermission(
     PERMISSIONS.MARKETPLACE_MANAGE,
@@ -76,10 +127,6 @@ export async function updateMarketplaceListing(formData) {
   const requestedType = getString(formData, "type");
   const requestedStatus = getString(formData, "status");
   const priceValue = getString(formData, "price");
-
-  if (!listingId) {
-    throw new Error("Publikimi nuk u gjet.");
-  }
 
   if (title.length < 3) {
     throw new Error("Titulli duhet të ketë të paktën 3 karaktere.");
@@ -99,23 +146,11 @@ export async function updateMarketplaceListing(formData) {
     throw new Error("Vendos një çmim të vlefshëm.");
   }
 
-  const listing = await db.marketplaceListing.findFirst({
-    where: {
-      id: listingId,
-      businessId,
-    },
-    include: {
-      images: {
-        orderBy: {
-          position: "asc",
-        },
-      },
-    },
+  const listing = await getManagedListing({
+    listingId,
+    businessId,
+    includeImages: true,
   });
-
-  if (!listing) {
-    throw new Error("Publikimi nuk ekziston ose nuk i përket biznesit aktiv.");
-  }
 
   const requestedDeleteImageIds = formData
     .getAll("deleteImageIds")
@@ -197,13 +232,7 @@ export async function updateMarketplaceListing(formData) {
       });
     }
 
-    const publishedAt =
-      requestedStatus === "PUBLISHED"
-        ? listing.publishedAt || new Date()
-        : null;
-
-    const soldAt =
-      requestedStatus === "SOLD" ? listing.soldAt || new Date() : null;
+    const { publishedAt, soldAt } = getListingDates(requestedStatus, listing);
 
     await db.$transaction(async (transaction) => {
       await transaction.marketplaceListing.update({
@@ -225,15 +254,12 @@ export async function updateMarketplaceListing(formData) {
           condition: getOptionalString(formData, "condition"),
 
           city: getOptionalString(formData, "city"),
-
           address: getOptionalString(formData, "address"),
 
           phone: getOptionalString(formData, "phone"),
-
           email: getOptionalString(formData, "email"),
 
           brand: getOptionalString(formData, "brand"),
-
           model: getOptionalString(formData, "model"),
 
           productionYear: getOptionalInteger(formData, "productionYear"),
@@ -247,7 +273,6 @@ export async function updateMarketplaceListing(formData) {
           engine: getOptionalString(formData, "engine"),
 
           color: getOptionalString(formData, "color"),
-
           vin: getOptionalString(formData, "vin"),
 
           stock: getOptionalInteger(formData, "stock"),
@@ -320,9 +345,85 @@ export async function updateMarketplaceListing(formData) {
     }
   }
 
-  revalidatePath("/dashboard/marketplace");
-  revalidatePath(`/dashboard/marketplace/${listingId}`);
-  revalidatePath(`/dashboard/marketplace/${listingId}/edit`);
+  revalidateMarketplaceListing(listingId);
 
   redirect(`/dashboard/marketplace/${listingId}`);
+}
+
+export async function changeMarketplaceListingStatus(formData) {
+  const { businessId } = await requireBusinessActionPermission(
+    PERMISSIONS.MARKETPLACE_MANAGE,
+  );
+
+  const listingId = getString(formData, "listingId");
+  const requestedStatus = getString(formData, "status");
+
+  if (!VALID_STATUSES.includes(requestedStatus)) {
+    throw new Error("Statusi i publikimit nuk është i vlefshëm.");
+  }
+
+  const listing = await getManagedListing({
+    listingId,
+    businessId,
+  });
+
+  const { publishedAt, soldAt } = getListingDates(requestedStatus, listing);
+
+  await db.marketplaceListing.update({
+    where: {
+      id: listingId,
+    },
+    data: {
+      status: requestedStatus,
+      publishedAt,
+      soldAt,
+    },
+  });
+
+  revalidateMarketplaceListing(listingId);
+
+  redirect(`/dashboard/marketplace/${listingId}`);
+}
+
+export async function deleteMarketplaceListing(formData) {
+  const { businessId } = await requireBusinessActionPermission(
+    PERMISSIONS.MARKETPLACE_MANAGE,
+  );
+
+  const listingId = getString(formData, "listingId");
+
+  const listing = await getManagedListing({
+    listingId,
+    businessId,
+    includeImages: true,
+  });
+
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET || "marketplace-images";
+
+  const storagePaths = listing.images
+    .map((image) => extractStoragePath(image.url, bucket))
+    .filter(Boolean);
+
+  await db.marketplaceListing.delete({
+    where: {
+      id: listingId,
+    },
+  });
+
+  if (storagePaths.length > 0) {
+    const { error: storageError } = await supabaseAdmin.storage
+      .from(bucket)
+      .remove(storagePaths);
+
+    if (storageError) {
+      console.error(
+        "Publikimi u fshi, por disa fotografi nuk u fshinë nga Storage:",
+        storageError,
+      );
+    }
+  }
+
+  revalidatePath("/dashboard/marketplace");
+
+  redirect("/dashboard/marketplace");
 }
