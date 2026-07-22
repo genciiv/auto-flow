@@ -8,6 +8,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import MarketplaceInquiryForm from "@/components/public-marketplace/details/MarketplaceInquiryForm";
+
 function normalizeWebsiteUrl(website) {
   if (!website) {
     return "";
@@ -50,13 +52,13 @@ export default function MarketplaceBusinessCard({ listing }) {
               className="h-16 w-16 rounded-2xl border border-slate-200 object-cover"
             />
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <Building2 size={28} />
             </div>
           )}
 
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-blue-600">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
               Informacioni i shitësit
             </p>
 
@@ -157,6 +159,12 @@ export default function MarketplaceBusinessCard({ listing }) {
           Vizito faqen e biznesit
         </a>
       ) : null}
+
+      <MarketplaceInquiryForm
+        listingId={listing.id}
+        slug={listing.slug}
+        listingTitle={listing.title}
+      />
     </section>
   );
 }
