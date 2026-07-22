@@ -1,20 +1,29 @@
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
+
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
-export default async function DashboardLayout({ children }) {
-  const { userId, businessRole, business } = await requireBusinessContext();
+import { getDashboardNotifications } from "@/services/dashboard-notification-service";
 
-  const user = await db.user.findUnique({
-    where: {
-      id: userId,
-    },
-    select: {
-      name: true,
-      email: true,
-    },
-  });
+export default async function DashboardLayout({ children }) {
+  const { userId, businessId, businessRole, business } =
+    await requireBusinessContext();
+
+  const [user, notificationData] = await Promise.all([
+    db.user.findUnique({
+      where: {
+        id: userId,
+      },
+
+      select: {
+        name: true,
+        email: true,
+      },
+    }),
+
+    getDashboardNotifications(businessId),
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -26,6 +35,7 @@ export default async function DashboardLayout({ children }) {
           userName={user?.name}
           userEmail={user?.email}
           businessRole={businessRole}
+          notificationData={notificationData}
         />
 
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">

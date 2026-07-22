@@ -7,6 +7,7 @@ export default function Topbar({
   userName,
   userEmail,
   businessRole,
+  notificationData,
 }) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
@@ -14,7 +15,10 @@ export default function Topbar({
         <SearchCommand />
 
         <div className="ml-auto flex items-center gap-3">
-          <NotificationDropdown />
+          <NotificationDropdown
+            unreadCount={notificationData?.unreadCount ?? 0}
+            notifications={notificationData?.notifications ?? []}
+          />
 
           <ProfileMenu
             businessName={businessName}
