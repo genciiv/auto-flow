@@ -5,12 +5,18 @@ import { redirect } from "next/navigation";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import MarketplaceImageUpload from "@/components/marketplace/MarketplaceImageUpload";
+
 import {
   requireBusinessActionPermission,
   requireBusinessPermission,
 } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import {
+  createMarketplaceImagePath,
+  validateMarketplaceImages,
+} from "@/lib/marketplace-images";
 import { PERMISSIONS } from "@/lib/permissions";
+import { supabaseAdmin } from "@/lib/supabase-server";
 
 const LISTING_TYPES = [
   {
@@ -93,8 +99,8 @@ async function createMarketplaceListing(formData) {
   const title = getString(formData, "title");
   const description = getOptionalString(formData, "description");
   const requestedType = getString(formData, "type");
-  const priceValue = getString(formData, "price");
   const requestedStatus = getString(formData, "status");
+  const priceValue = getString(formData, "price");
 
   if (title.length < 3) {
     throw new Error("Titulli duhet të ketë të paktën 3 karaktere.");
@@ -110,54 +116,139 @@ async function createMarketplaceListing(formData) {
     throw new Error("Vendos një çmim të vlefshëm.");
   }
 
+  const files = formData
+    .getAll("images")
+    .filter(
+      (file) => file && typeof file.arrayBuffer === "function" && file.size > 0,
+    );
+
+  validateMarketplaceImages(files);
+
   const status = requestedStatus === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
 
-  const listing = await db.marketplaceListing.create({
-    data: {
-      sellerType: "BUSINESS",
-      businessId,
+  const listingId = crypto.randomUUID();
 
-      type: requestedType,
-      status,
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET || "marketplace-images";
 
-      title,
-      slug: createSlug(title),
-      description,
+  const uploadedPaths = [];
+  const uploadedImages = [];
 
-      price,
-      isNegotiable: formData.get("isNegotiable") === "on",
+  try {
+    for (const [position, file] of files.entries()) {
+      const storagePath = createMarketplaceImagePath({
+        businessId,
+        listingId,
+        file,
+        position,
+      });
 
-      category: getOptionalString(formData, "category"),
-      condition: getOptionalString(formData, "condition"),
+      const buffer = Buffer.from(await file.arrayBuffer());
 
-      city: getOptionalString(formData, "city"),
-      address: getOptionalString(formData, "address"),
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from(bucket)
+        .upload(storagePath, buffer, {
+          contentType: file.type,
+          cacheControl: "3600",
+          upsert: false,
+        });
 
-      phone: getOptionalString(formData, "phone"),
-      email: getOptionalString(formData, "email"),
+      if (uploadError) {
+        throw new Error(
+          `Ngarkimi i fotografisë "${file.name}" dështoi: ${uploadError.message}`,
+        );
+      }
 
-      brand: getOptionalString(formData, "brand"),
-      model: getOptionalString(formData, "model"),
-      productionYear: getOptionalInteger(formData, "productionYear"),
-      mileage: getOptionalInteger(formData, "mileage"),
-      fuelType: getOptionalString(formData, "fuelType"),
-      transmission: getOptionalString(formData, "transmission"),
-      engine: getOptionalString(formData, "engine"),
-      color: getOptionalString(formData, "color"),
-      vin: getOptionalString(formData, "vin"),
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from(bucket)
+        .getPublicUrl(storagePath);
 
-      stock: getOptionalInteger(formData, "stock"),
+      if (!publicUrlData?.publicUrl) {
+        throw new Error(
+          `Nuk u krijua URL-ja publike për fotografinë "${file.name}".`,
+        );
+      }
 
-      publishedAt: status === "PUBLISHED" ? new Date() : null,
-    },
-    select: {
-      id: true,
-    },
-  });
+      uploadedPaths.push(storagePath);
+
+      uploadedImages.push({
+        url: publicUrlData.publicUrl,
+        alt: title,
+        position,
+      });
+    }
+
+    await db.marketplaceListing.create({
+      data: {
+        id: listingId,
+
+        sellerType: "BUSINESS",
+        businessId,
+
+        type: requestedType,
+        status,
+
+        title,
+        slug: createSlug(title),
+        description,
+
+        price,
+        isNegotiable: formData.get("isNegotiable") === "on",
+
+        category: getOptionalString(formData, "category"),
+
+        condition: getOptionalString(formData, "condition"),
+
+        city: getOptionalString(formData, "city"),
+        address: getOptionalString(formData, "address"),
+
+        phone: getOptionalString(formData, "phone"),
+        email: getOptionalString(formData, "email"),
+
+        brand: getOptionalString(formData, "brand"),
+        model: getOptionalString(formData, "model"),
+
+        productionYear: getOptionalInteger(formData, "productionYear"),
+
+        mileage: getOptionalInteger(formData, "mileage"),
+
+        fuelType: getOptionalString(formData, "fuelType"),
+
+        transmission: getOptionalString(formData, "transmission"),
+
+        engine: getOptionalString(formData, "engine"),
+
+        color: getOptionalString(formData, "color"),
+        vin: getOptionalString(formData, "vin"),
+
+        stock: getOptionalInteger(formData, "stock"),
+
+        publishedAt: status === "PUBLISHED" ? new Date() : null,
+
+        images:
+          uploadedImages.length > 0
+            ? {
+                create: uploadedImages,
+              }
+            : undefined,
+      },
+    });
+  } catch (error) {
+    if (uploadedPaths.length > 0) {
+      const { error: cleanupError } = await supabaseAdmin.storage
+        .from(bucket)
+        .remove(uploadedPaths);
+
+      if (cleanupError) {
+        console.error("Gabim gjatë pastrimit të fotografive:", cleanupError);
+      }
+    }
+
+    throw error;
+  }
 
   revalidatePath("/dashboard/marketplace");
 
-  redirect(`/dashboard/marketplace/${listing.id}`);
+  redirect("/dashboard/marketplace");
 }
 
 function SectionHeader({ title, description }) {
@@ -185,6 +276,7 @@ function Field({
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-slate-700">
         {label}
+
         {required ? <span className="ml-1 text-red-500">*</span> : null}
       </span>
 
@@ -317,10 +409,12 @@ export default async function NewMarketplaceListingPage() {
                 </div>
               </section>
 
+              <MarketplaceImageUpload />
+
               <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
                 <SectionHeader
                   title="Të dhënat e automjetit"
-                  description="Plotësoji kur publikimi është makinë ose motor."
+                  description="Plotësoji vetëm kur publikimi është makinë ose motor."
                 />
 
                 <div className="grid gap-5 p-6 md:grid-cols-2">
@@ -368,8 +462,6 @@ export default async function NewMarketplaceListingPage() {
                     name="color"
                     placeholder="P.sh. E zezë"
                   />
-
-                  <MarketplaceImageUpload />
 
                   <div className="md:col-span-2">
                     <Field
@@ -419,8 +511,11 @@ export default async function NewMarketplaceListingPage() {
                       className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-50"
                     >
                       <option value="">E paspecifikuar</option>
+
                       <option value="NEW">E re</option>
+
                       <option value="USED">E përdorur</option>
+
                       <option value="REFURBISHED">E rikondicionuar</option>
                     </select>
                   </label>
