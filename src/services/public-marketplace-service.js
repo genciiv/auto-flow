@@ -153,10 +153,11 @@ export async function getPublicMarketplaceListings({
   const normalizedSearch = normalizeString(search);
   const normalizedType = normalizeString(type).toUpperCase();
   const normalizedCity = normalizeString(city);
-  const normalizedSort = VALID_SORTS.includes(
-    normalizeString(sort).toUpperCase(),
-  )
-    ? normalizeString(sort).toUpperCase()
+
+  const requestedSort = normalizeString(sort).toUpperCase();
+
+  const normalizedSort = VALID_SORTS.includes(requestedSort)
+    ? requestedSort
     : "NEWEST";
 
   const normalizedPage = normalizePage(page);
@@ -222,5 +223,103 @@ export async function getPublicMarketplaceListings({
       city: normalizedCity,
       sort: normalizedSort,
     },
+  };
+}
+
+export async function getPublicMarketplaceListingBySlug(slug) {
+  const normalizedSlug = normalizeString(slug);
+
+  if (!normalizedSlug) {
+    return null;
+  }
+
+  const listing = await db.marketplaceListing.findFirst({
+    where: {
+      slug: normalizedSlug,
+      status: "PUBLISHED",
+    },
+    include: {
+      images: {
+        orderBy: {
+          position: "asc",
+        },
+      },
+      business: {
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          address: true,
+          phone: true,
+          email: true,
+          website: true,
+          logo: true,
+          currency: true,
+          workingHours: true,
+          isActive: true,
+        },
+      },
+      sellerUser: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  if (!listing) {
+    return null;
+  }
+
+  const relatedListings = await db.marketplaceListing.findMany({
+    where: {
+      id: {
+        not: listing.id,
+      },
+      status: "PUBLISHED",
+      type: listing.type,
+    },
+    include: {
+      images: {
+        orderBy: {
+          position: "asc",
+        },
+        take: 1,
+      },
+      business: {
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          currency: true,
+        },
+      },
+      sellerUser: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: [
+      {
+        isFeatured: "desc",
+      },
+      {
+        publishedAt: "desc",
+      },
+      {
+        createdAt: "desc",
+      },
+    ],
+    take: 4,
+  });
+
+  return {
+    listing,
+    relatedListings,
   };
 }
