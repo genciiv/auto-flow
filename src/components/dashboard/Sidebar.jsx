@@ -8,6 +8,7 @@ import {
   CreditCard,
   FileText,
   Home,
+  MessageSquareText,
   Package,
   Settings,
   ShoppingCart,
@@ -93,6 +94,12 @@ const sidebarGroups = [
         permission: PERMISSIONS.MARKETPLACE_VIEW,
       },
       {
+        name: "Kërkesat",
+        icon: MessageSquareText,
+        href: "/dashboard/marketplace/inquiries",
+        permission: PERMISSIONS.MARKETPLACE_VIEW,
+      },
+      {
         name: "Analytics",
         icon: BarChart3,
         href: "/dashboard/analytics",
@@ -119,6 +126,7 @@ export default function Sidebar({ businessRole, businessName }) {
   const visibleGroups = sidebarGroups
     .map((group) => ({
       ...group,
+
       items: group.items.filter((item) =>
         hasPermission(businessRole, item.permission),
       ),

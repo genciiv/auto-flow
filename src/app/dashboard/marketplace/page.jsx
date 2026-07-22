@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { MessageSquareText, Plus } from "lucide-react";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import MarketplaceFilters from "@/components/marketplace/MarketplaceFilters";
@@ -180,15 +180,25 @@ export default async function MarketplacePage({ searchParams }) {
             </p>
           </div>
 
-          {canManage ? (
+          <div className="flex flex-wrap gap-3">
             <Link
-              href="/dashboard/marketplace/new"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+              href="/dashboard/marketplace/inquiries"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
             >
-              <Plus size={18} />
-              Publikim i ri
+              <MessageSquareText size={18} />
+              Kërkesat
             </Link>
-          ) : null}
+
+            {canManage ? (
+              <Link
+                href="/dashboard/marketplace/new"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+              >
+                <Plus size={18} />
+                Publikim i ri
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <MarketplaceStats
