@@ -97,6 +97,7 @@ export default function MarketplaceCard({ listing }) {
           <MarketplaceFavoriteButton
             listingId={listing.id}
             initialIsFavorite={Boolean(listing.isFavorite)}
+            initialFavoritesCount={listing.favoritesCount || 0}
           />
         </div>
       </div>

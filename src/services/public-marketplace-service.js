@@ -46,7 +46,9 @@ function buildMarketplaceWhere({ search, type, city }) {
     status: "PUBLISHED",
   };
 
-  if (VALID_TYPES.includes(type)) where.type = type;
+  if (VALID_TYPES.includes(type)) {
+    where.type = type;
+  }
 
   if (city) {
     where.city = {
@@ -81,8 +83,30 @@ function addFavoriteState(listings, viewerUserId) {
   return listings.map((listing) => ({
     ...listing,
     isFavorite: viewerUserId ? listing.favorites?.length > 0 : false,
+    favoritesCount: listing._count?.favorites || 0,
     favorites: undefined,
+    _count: undefined,
   }));
+}
+
+function buildFavoriteInclude(viewerUserId) {
+  return {
+    favorites: viewerUserId
+      ? {
+          where: {
+            userId: viewerUserId,
+          },
+          select: {
+            id: true,
+          },
+        }
+      : false,
+    _count: {
+      select: {
+        favorites: true,
+      },
+    },
+  };
 }
 
 export async function getPublicMarketplaceListings({
@@ -136,16 +160,7 @@ export async function getPublicMarketplaceListings({
             name: true,
           },
         },
-        favorites: viewerUserId
-          ? {
-              where: {
-                userId: viewerUserId,
-              },
-              select: {
-                id: true,
-              },
-            }
-          : false,
+        ...buildFavoriteInclude(viewerUserId),
       },
       orderBy: getOrderBy(normalizedSort),
       skip: (normalizedPage - 1) * ITEMS_PER_PAGE,
@@ -220,16 +235,7 @@ export async function getPublicMarketplaceListingBySlug(
           email: true,
         },
       },
-      favorites: viewerUserId
-        ? {
-            where: {
-              userId: viewerUserId,
-            },
-            select: {
-              id: true,
-            },
-          }
-        : false,
+      ...buildFavoriteInclude(viewerUserId),
     },
   });
 
@@ -266,16 +272,7 @@ export async function getPublicMarketplaceListingBySlug(
           name: true,
         },
       },
-      favorites: viewerUserId
-        ? {
-            where: {
-              userId: viewerUserId,
-            },
-            select: {
-              id: true,
-            },
-          }
-        : false,
+      ...buildFavoriteInclude(viewerUserId),
     },
     orderBy: [
       { isFeatured: "desc" },

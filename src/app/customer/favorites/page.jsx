@@ -11,60 +11,56 @@ export const metadata = {
 };
 
 export default async function CustomerFavoritesPage() {
-  const { profileId } = await requireCustomerContext();
+  const { userId } = await requireCustomerContext();
 
-  const profile = await db.customerProfile.findUnique({
+  const favorites = await db.marketplaceFavorite.findMany({
     where: {
-      id: profileId,
+      userId,
+      listing: {
+        status: "PUBLISHED",
+      },
     },
-    select: {
-      userId: true,
-    },
-  });
-
-  const favorites = profile?.userId
-    ? await db.marketplaceFavorite.findMany({
-        where: {
-          userId: profile.userId,
-          listing: {
-            status: "PUBLISHED",
-          },
-        },
+    include: {
+      listing: {
         include: {
-          listing: {
-            include: {
-              images: {
-                orderBy: {
-                  position: "asc",
-                },
-                take: 1,
-              },
-              business: {
-                select: {
-                  id: true,
-                  name: true,
-                  city: true,
-                  currency: true,
-                },
-              },
-              sellerUser: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
+          images: {
+            orderBy: {
+              position: "asc",
+            },
+            take: 1,
+          },
+          business: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+              currency: true,
+            },
+          },
+          sellerUser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          _count: {
+            select: {
+              favorites: true,
             },
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
-      })
-    : [];
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
 
   const listings = favorites.map((favorite) => ({
     ...favorite.listing,
     isFavorite: true,
+    favoritesCount: favorite.listing._count.favorites,
+    _count: undefined,
   }));
 
   return (
