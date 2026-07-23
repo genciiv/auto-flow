@@ -3,7 +3,6 @@ import Topbar from "@/components/dashboard/Topbar";
 
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
-
 import { getDashboardNotifications } from "@/services/dashboard-notification-service";
 
 export default async function DashboardLayout({ children }) {
@@ -15,7 +14,6 @@ export default async function DashboardLayout({ children }) {
       where: {
         id: userId,
       },
-
       select: {
         name: true,
         email: true,
@@ -27,7 +25,14 @@ export default async function DashboardLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
-      <Sidebar businessRole={businessRole} businessName={business?.name} />
+      <Sidebar
+        businessRole={businessRole}
+        businessName={business?.name}
+        badgeCounts={{
+          vehicleClaimPendingCount:
+            notificationData?.vehicleClaimPendingCount ?? 0,
+        }}
+      />
 
       <div className="lg:pl-72">
         <Topbar

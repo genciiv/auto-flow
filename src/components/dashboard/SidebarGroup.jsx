@@ -15,6 +15,8 @@ export default function SidebarGroup({ title, items, pathname }) {
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
+          const badge = Number(item.badge || 0);
+
           return (
             <Link
               key={item.name}
@@ -26,7 +28,20 @@ export default function SidebarGroup({ title, items, pathname }) {
               }`}
             >
               <Icon size={19} />
-              {item.name}
+
+              <span className="min-w-0 flex-1 truncate">{item.name}</span>
+
+              {badge > 0 ? (
+                <span
+                  className={`inline-flex min-h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-black ${
+                    isActive
+                      ? "bg-blue-600 text-white"
+                      : "bg-red-500 text-white"
+                  }`}
+                >
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}

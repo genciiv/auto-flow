@@ -8,6 +8,7 @@ import {
   CreditCard,
   FileText,
   Home,
+  Link2,
   MessageSquareText,
   Package,
   Settings,
@@ -16,8 +17,8 @@ import {
   Wrench,
 } from "lucide-react";
 
-import WorkspaceSwitcher from "@/components/dashboard/WorkspaceSwitcher";
 import SidebarGroup from "@/components/dashboard/SidebarGroup";
+import WorkspaceSwitcher from "@/components/dashboard/WorkspaceSwitcher";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 const sidebarGroups = [
@@ -65,6 +66,13 @@ const sidebarGroups = [
         href: "/dashboard/invoices",
         permission: PERMISSIONS.INVOICES_VIEW,
       },
+      {
+        name: "Kërkesat për lidhje",
+        icon: Link2,
+        href: "/dashboard/vehicle-claims",
+        permission: PERMISSIONS.VEHICLES_VIEW,
+        badgeKey: "vehicleClaimPendingCount",
+      },
     ],
   },
   {
@@ -94,7 +102,7 @@ const sidebarGroups = [
         permission: PERMISSIONS.MARKETPLACE_VIEW,
       },
       {
-        name: "Kërkesat",
+        name: "Kërkesat Marketplace",
         icon: MessageSquareText,
         href: "/dashboard/marketplace/inquiries",
         permission: PERMISSIONS.MARKETPLACE_VIEW,
@@ -120,16 +128,22 @@ const sidebarGroups = [
   },
 ];
 
-export default function Sidebar({ businessRole, businessName }) {
+export default function Sidebar({
+  businessRole,
+  businessName,
+  badgeCounts = {},
+}) {
   const pathname = usePathname();
 
   const visibleGroups = sidebarGroups
     .map((group) => ({
       ...group,
-
-      items: group.items.filter((item) =>
-        hasPermission(businessRole, item.permission),
-      ),
+      items: group.items
+        .filter((item) => hasPermission(businessRole, item.permission))
+        .map((item) => ({
+          ...item,
+          badge: item.badgeKey ? Number(badgeCounts[item.badgeKey] || 0) : 0,
+        })),
     }))
     .filter((group) => group.items.length > 0);
 

@@ -3,7 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronRight, Inbox, MessageSquareText } from "lucide-react";
+import {
+  Bell,
+  CarFront,
+  ChevronRight,
+  Inbox,
+  MessageSquareText,
+} from "lucide-react";
 
 import useNotificationRefresh from "@/hooks/useNotificationRefresh";
 
@@ -21,64 +27,71 @@ function getTypeLabel(type) {
 }
 
 function getRelativeTime(value) {
-  if (!value) {
-    return "";
-  }
+  if (!value) return "";
 
   const createdAt = new Date(value);
 
-  if (Number.isNaN(createdAt.getTime())) {
-    return "";
-  }
-
-  const now = new Date();
+  if (Number.isNaN(createdAt.getTime())) return "";
 
   const differenceInSeconds = Math.max(
     0,
-    Math.floor((now.getTime() - createdAt.getTime()) / 1000),
+    Math.floor((Date.now() - createdAt.getTime()) / 1000),
   );
 
-  if (differenceInSeconds < 60) {
-    return "Tani";
-  }
+  if (differenceInSeconds < 60) return "Tani";
 
   const minutes = Math.floor(differenceInSeconds / 60);
 
-  if (minutes < 60) {
-    return `${minutes} min më parë`;
-  }
+  if (minutes < 60) return `${minutes} min më parë`;
 
   const hours = Math.floor(minutes / 60);
 
-  if (hours < 24) {
-    return `${hours} orë më parë`;
-  }
+  if (hours < 24) return `${hours} orë më parë`;
 
   const days = Math.floor(hours / 24);
 
-  if (days < 7) {
-    return `${days} ditë më parë`;
-  }
+  if (days < 7) return `${days} ditë më parë`;
 
-  const day = String(createdAt.getDate()).padStart(2, "0");
-  const month = String(createdAt.getMonth() + 1).padStart(2, "0");
-  const year = createdAt.getFullYear();
-
-  return `${day}.${month}.${year}`;
+  return new Intl.DateTimeFormat("sq-AL", {
+    dateStyle: "short",
+  }).format(createdAt);
 }
 
-function truncateText(value, maxLength = 76) {
+function truncateText(value, maxLength = 82) {
   const text = String(value || "").trim();
 
-  if (!text) {
-    return "Pa mesazh";
-  }
-
-  if (text.length <= maxLength) {
-    return text;
-  }
+  if (!text) return "Pa mesazh";
+  if (text.length <= maxLength) return text;
 
   return `${text.slice(0, maxLength).trim()}...`;
+}
+
+function NotificationIcon({ notification }) {
+  if (notification.kind === "VEHICLE_CLAIM") {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-blue-50 text-blue-600">
+        <CarFront size={20} />
+      </div>
+    );
+  }
+
+  if (notification.image) {
+    return (
+      <Image
+        src={notification.image}
+        alt={notification.subtitle || "Publikim Marketplace"}
+        fill
+        sizes="48px"
+        className="object-cover"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full w-full items-center justify-center text-blue-600">
+      <MessageSquareText size={19} />
+    </div>
+  );
 }
 
 export default function NotificationDropdown({
@@ -108,7 +121,6 @@ export default function NotificationDropdown({
 
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
-
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
@@ -126,30 +138,29 @@ export default function NotificationDropdown({
       >
         <Bell size={18} />
 
-        {unreadCount > 0 && (
+        {unreadCount > 0 ? (
           <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {visibleUnreadCount}
           </span>
-        )}
+        ) : null}
       </button>
 
-      {open && (
-        <div className="absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-[390px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
+      {open ? (
+        <div className="absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-[410px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
           <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
             <div>
               <p className="font-bold text-slate-950">Njoftimet</p>
 
               <p className="mt-1 text-xs text-slate-500">
-                Kërkesat më të fundit nga Marketplace
+                Marketplace dhe kërkesat për automjete
               </p>
             </div>
 
-            {unreadCount > 0 && (
+            {unreadCount > 0 ? (
               <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
-                {unreadCount}{" "}
-                {unreadCount === 1 ? "e palexuar" : "të palexuara"}
+                {unreadCount} {unreadCount === 1 ? "njoftim" : "njoftime"}
               </span>
-            )}
+            ) : null}
           </div>
 
           {notifications.length === 0 ? (
@@ -163,15 +174,15 @@ export default function NotificationDropdown({
               </p>
 
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Kërkesat e reja nga Marketplace do të shfaqen këtu.
+                Kërkesat e reja do të shfaqen këtu.
               </p>
             </div>
           ) : (
-            <div className="max-h-[420px] overflow-y-auto p-2">
+            <div className="max-h-[440px] overflow-y-auto p-2">
               {notifications.map((notification) => (
                 <Link
                   key={notification.id}
-                  href={`/dashboard/marketplace/inquiries?inquiry=${notification.id}`}
+                  href={notification.href}
                   onClick={() => setOpen(false)}
                   className={`group flex gap-3 rounded-2xl p-3 transition ${
                     notification.isRead
@@ -180,21 +191,7 @@ export default function NotificationDropdown({
                   }`}
                 >
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    {notification.listing?.image ? (
-                      <Image
-                        src={notification.listing.image}
-                        alt={
-                          notification.listing.title || "Publikim Marketplace"
-                        }
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-blue-600">
-                        <MessageSquareText size={19} />
-                      </div>
-                    )}
+                    <NotificationIcon notification={notification} />
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -204,16 +201,16 @@ export default function NotificationDropdown({
                           notification.isRead ? "font-semibold" : "font-bold"
                         }`}
                       >
-                        {notification.name || "Vizitor"}
+                        {notification.title}
                       </p>
 
-                      {!notification.isRead && (
+                      {!notification.isRead ? (
                         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
-                      )}
+                      ) : null}
                     </div>
 
                     <p className="mt-0.5 truncate text-xs font-semibold text-blue-600">
-                      {notification.listing?.title || "Publikim Marketplace"}
+                      {notification.subtitle}
                     </p>
 
                     <p className="mt-1 text-xs leading-5 text-slate-500">
@@ -222,7 +219,10 @@ export default function NotificationDropdown({
 
                     <div className="mt-2 flex items-center justify-between gap-3">
                       <span className="text-[11px] font-medium text-slate-400">
-                        {getTypeLabel(notification.listing?.type)} ·{" "}
+                        {notification.kind === "VEHICLE_CLAIM"
+                          ? "Lidhje automjeti"
+                          : getTypeLabel(notification.listingType)}
+                        {" · "}
                         {getRelativeTime(notification.createdAt)}
                       </span>
 
@@ -237,18 +237,27 @@ export default function NotificationDropdown({
             </div>
           )}
 
-          <div className="border-t border-slate-100 bg-slate-50/70 p-3">
+          <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/70 p-3">
+            <Link
+              href="/dashboard/vehicle-claims"
+              onClick={() => setOpen(false)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-blue-600 hover:text-white hover:ring-blue-600"
+            >
+              Lidhjet
+              <ChevronRight size={15} />
+            </Link>
+
             <Link
               href="/dashboard/marketplace/inquiries"
               onClick={() => setOpen(false)}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-blue-600 hover:text-white hover:ring-blue-600"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-blue-600 hover:text-white hover:ring-blue-600"
             >
-              Shiko të gjitha kërkesat
-              <ChevronRight size={16} />
+              Marketplace
+              <ChevronRight size={15} />
             </Link>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
