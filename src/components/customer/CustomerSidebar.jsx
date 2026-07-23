@@ -9,6 +9,7 @@ import {
   Heart,
   LogOut,
   MessageSquareText,
+  Wrench,
   Settings,
   ShoppingBag,
   X,
@@ -26,6 +27,11 @@ const navigationItems = [
     label: "Makinat e mia",
     href: "/customer/vehicles",
     icon: CarFront,
+  },
+  {
+    label: "Historiku i serviseve",
+    href: "/customer/services",
+    icon: Wrench,
   },
   {
     label: "Kërkesat e mia",
