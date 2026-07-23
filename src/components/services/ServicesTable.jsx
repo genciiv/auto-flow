@@ -4,6 +4,7 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { FileSearch, Wrench } from "lucide-react";
 
 import AddServicePartModal from "@/components/services/AddServicePartModal";
+import CompleteServiceModal from "@/components/services/CompleteServiceModal";
 import ServiceFilters from "@/components/services/ServiceFilters";
 import ServicePartsList from "@/components/services/ServicePartsList";
 import ServiceRowActions from "@/components/services/ServiceRowActions";
@@ -101,9 +102,6 @@ export default function ServicesTable({
   services = [],
   vehicles = [],
   parts = [],
-  canUpdateService = false,
-  canDeleteService = false,
-  canManageServiceParts = false,
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -285,18 +283,16 @@ export default function ServicesTable({
 
                       <td className="whitespace-nowrap px-6 py-5">
                         <div className="flex justify-end gap-2">
-                          {canManageServiceParts ? (
-                            <AddServicePartModal
-                              serviceId={service.id}
-                              parts={parts}
-                            />
-                          ) : null}
+                          <CompleteServiceModal service={service} />
+
+                          <AddServicePartModal
+                            serviceId={service.id}
+                            parts={parts}
+                          />
 
                           <ServiceRowActions
                             service={service}
                             vehicles={vehicles}
-                            canUpdate={canUpdateService}
-                            canDelete={canDeleteService}
                           />
                         </div>
                       </td>
