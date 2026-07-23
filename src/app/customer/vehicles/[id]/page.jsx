@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Link2 } from "lucide-react";
 
 import {
   ArrowLeft,
@@ -120,10 +121,37 @@ export default async function CustomerVehicleDetailsPage({ params }) {
               </p>
             </div>
 
-            <DeleteCustomerVehicleButton
-              vehicleId={vehicle.id}
-              vehicleName={`${vehicleTitle} (${vehicle.plate})`}
-            />
+            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300">
+                  <CarFront size={14} />
+                  Detajet e automjetit
+                </div>
+
+                <h1 className="mt-5 text-3xl font-bold tracking-tight sm:text-4xl">
+                  {vehicleTitle}
+                </h1>
+
+                <p className="mt-3 text-sm font-black tracking-[0.18em] text-blue-300">
+                  {vehicle.plate}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:items-end">
+                <Link
+                  href={`/customer/vehicles/${vehicle.id}/claim`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  <Link2 size={18} />
+                  Lidhe me një servis
+                </Link>
+
+                <DeleteCustomerVehicleButton
+                  vehicleId={vehicle.id}
+                  vehicleName={`${vehicleTitle} (${vehicle.plate})`}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </section>

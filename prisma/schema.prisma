@@ -101,6 +101,12 @@ enum MarketplaceListingStatus {
   REJECTED
 }
 
+enum VehicleClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 /**
  * |--------------------------------------------------------------------------
  * | User
@@ -155,44 +161,6 @@ model CustomerProfile {
   vehicles CustomerVehicle[]
 
   @@index([userId])
-}
-
-model CustomerVehicle {
-  id String @id @default(cuid())
-
-  profileId String
-
-  plate String
-
-  brand String
-  model String?
-
-  year Int?
-
-  fuel String?
-
-  engine String?
-
-  transmission String?
-
-  vin String?
-
-  mileage Int?
-
-  color String?
-
-  notes String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@unique([profileId, plate])
-  @@index([profileId])
-  @@index([plate])
-  @@index([brand])
-  @@index([vin])
 }
 
 /**
@@ -320,12 +288,79 @@ model Vehicle {
   services     ServiceRecord[]
   appointments Appointment[]
   invoices     Invoice[]
+  portalClaims VehicleClaim[]
 
   @@unique([businessId, plate])
   @@index([businessId])
   @@index([customerId])
   @@index([businessId, brand])
   @@index([businessId, vin])
+}
+
+model CustomerVehicle {
+  id String @id @default(cuid())
+
+  profileId String
+
+  plate String
+
+  brand String
+  model String?
+
+  year Int?
+
+  fuel String?
+
+  engine String?
+
+  transmission String?
+
+  vin String?
+
+  mileage Int?
+
+  color String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  claims VehicleClaim[]
+
+  @@unique([profileId, plate])
+  @@index([profileId])
+  @@index([plate])
+  @@index([brand])
+  @@index([vin])
+}
+
+model VehicleClaim {
+  id String @id @default(cuid())
+
+  customerVehicleId String
+  vehicleId         String
+
+  status VehicleClaimStatus @default(PENDING)
+
+  customerMessage String?
+  rejectionReason String?
+
+  reviewedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerVehicle CustomerVehicle @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([customerVehicleId, vehicleId])
+  @@index([customerVehicleId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([vehicleId, status])
 }
 
 /**
