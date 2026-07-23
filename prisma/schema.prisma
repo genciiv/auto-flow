@@ -122,6 +122,8 @@ model User {
 
   businesses BusinessUser[]
 
+  customerProfile CustomerProfile?
+
   marketplaceListings  MarketplaceListing[]  @relation("MarketplaceUserListings")
   marketplaceFavorites MarketplaceFavorite[]
   marketplaceInquiries MarketplaceInquiry[]  @relation("MarketplaceInquirySender")
@@ -130,6 +132,67 @@ model User {
   @@index([phone])
   @@index([globalRole])
   @@index([isActive])
+}
+
+model CustomerProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  firstName String?
+  lastName  String?
+
+  phone   String?
+  city    String?
+  address String?
+
+  birthDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  vehicles CustomerVehicle[]
+
+  @@index([userId])
+}
+
+model CustomerVehicle {
+  id String @id @default(cuid())
+
+  profileId String
+
+  plate String
+
+  brand String
+  model String?
+
+  year Int?
+
+  fuel String?
+
+  engine String?
+
+  transmission String?
+
+  vin String?
+
+  mileage Int?
+
+  color String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, plate])
+  @@index([profileId])
+  @@index([plate])
+  @@index([brand])
+  @@index([vin])
 }
 
 /**
