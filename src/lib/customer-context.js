@@ -3,6 +3,28 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
+async function getOrCreateCustomerProfile(userId) {
+  return db.customerProfile.upsert({
+    where: {
+      userId,
+    },
+
+    update: {},
+
+    create: {
+      userId,
+    },
+
+    include: {
+      _count: {
+        select: {
+          vehicles: true,
+        },
+      },
+    },
+  });
+}
+
 export async function requireCustomerContext() {
   const session = await auth();
 
@@ -52,10 +74,14 @@ export async function requireCustomerContext() {
     redirect("/login");
   }
 
+  const profile = await getOrCreateCustomerProfile(user.id);
+
   return {
     session,
     user,
+    profile,
     userId: user.id,
+    profileId: profile.id,
   };
 }
 
@@ -89,9 +115,13 @@ export async function requireCustomerActionContext() {
     throw new Error("Llogaria nuk është aktive.");
   }
 
+  const profile = await getOrCreateCustomerProfile(user.id);
+
   return {
     session,
     user,
+    profile,
     userId: user.id,
+    profileId: profile.id,
   };
 }

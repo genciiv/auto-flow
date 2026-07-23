@@ -51,55 +51,66 @@ export const metadata = {
 };
 
 export default async function CustomerDashboardPage() {
-  const { user, userId } = await requireCustomerContext();
+  const { user, userId, profileId } = await requireCustomerContext();
 
-  const [inquiryCount, favoriteCount, listingCount, latestInquiries] =
-    await Promise.all([
-      db.marketplaceInquiry.count({
-        where: {
-          senderUserId: userId,
-        },
-      }),
+  const [
+    vehicleCount,
+    inquiryCount,
+    favoriteCount,
+    listingCount,
+    latestInquiries,
+  ] = await Promise.all([
+    db.customerVehicle.count({
+      where: {
+        profileId,
+      },
+    }),
 
-      db.marketplaceFavorite.count({
-        where: {
-          userId,
-        },
-      }),
+    db.marketplaceInquiry.count({
+      where: {
+        senderUserId: userId,
+      },
+    }),
 
-      db.marketplaceListing.count({
-        where: {
-          sellerUserId: userId,
-        },
-      }),
+    db.marketplaceFavorite.count({
+      where: {
+        userId,
+      },
+    }),
 
-      db.marketplaceInquiry.findMany({
-        where: {
-          senderUserId: userId,
-        },
+    db.marketplaceListing.count({
+      where: {
+        sellerUserId: userId,
+      },
+    }),
 
-        select: {
-          id: true,
-          name: true,
-          message: true,
-          createdAt: true,
+    db.marketplaceInquiry.findMany({
+      where: {
+        senderUserId: userId,
+      },
 
-          listing: {
-            select: {
-              title: true,
-              slug: true,
-              status: true,
-            },
+      select: {
+        id: true,
+        name: true,
+        message: true,
+        createdAt: true,
+
+        listing: {
+          select: {
+            title: true,
+            slug: true,
+            status: true,
           },
         },
+      },
 
-        orderBy: {
-          createdAt: "desc",
-        },
+      orderBy: {
+        createdAt: "desc",
+      },
 
-        take: 4,
-      }),
-    ]);
+      take: 4,
+    }),
+  ]);
 
   const firstName =
     String(user.name || "Klient")
@@ -109,7 +120,7 @@ export default async function CustomerDashboardPage() {
   const stats = [
     {
       label: "Makinat e mia",
-      value: 0,
+      value: vehicleCount,
       description: "Automjete të regjistruara",
       icon: CarFront,
       href: "/customer/vehicles",
