@@ -14,65 +14,31 @@ const VALID_TYPES = [
 const VALID_SORTS = ["NEWEST", "OLDEST", "PRICE_HIGH", "PRICE_LOW"];
 
 function normalizeString(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
+  if (typeof value !== "string") return "";
   return value.trim();
 }
 
 function normalizePage(value) {
   const parsedPage = Number.parseInt(value, 10);
 
-  if (!Number.isInteger(parsedPage) || parsedPage < 1) {
-    return 1;
-  }
-
+  if (!Number.isInteger(parsedPage) || parsedPage < 1) return 1;
   return parsedPage;
 }
 
 function getOrderBy(sort) {
   if (sort === "OLDEST") {
-    return [
-      {
-        publishedAt: "asc",
-      },
-      {
-        createdAt: "asc",
-      },
-    ];
+    return [{ publishedAt: "asc" }, { createdAt: "asc" }];
   }
 
   if (sort === "PRICE_HIGH") {
-    return [
-      {
-        price: "desc",
-      },
-      {
-        publishedAt: "desc",
-      },
-    ];
+    return [{ price: "desc" }, { publishedAt: "desc" }];
   }
 
   if (sort === "PRICE_LOW") {
-    return [
-      {
-        price: "asc",
-      },
-      {
-        publishedAt: "desc",
-      },
-    ];
+    return [{ price: "asc" }, { publishedAt: "desc" }];
   }
 
-  return [
-    {
-      publishedAt: "desc",
-    },
-    {
-      createdAt: "desc",
-    },
-  ];
+  return [{ publishedAt: "desc" }, { createdAt: "desc" }];
 }
 
 function buildMarketplaceWhere({ search, type, city }) {
@@ -80,9 +46,7 @@ function buildMarketplaceWhere({ search, type, city }) {
     status: "PUBLISHED",
   };
 
-  if (VALID_TYPES.includes(type)) {
-    where.type = type;
-  }
+  if (VALID_TYPES.includes(type)) where.type = type;
 
   if (city) {
     where.city = {
@@ -93,42 +57,12 @@ function buildMarketplaceWhere({ search, type, city }) {
 
   if (search) {
     where.OR = [
-      {
-        title: {
-          contains: search,
-          mode: "insensitive",
-        },
-      },
-      {
-        description: {
-          contains: search,
-          mode: "insensitive",
-        },
-      },
-      {
-        category: {
-          contains: search,
-          mode: "insensitive",
-        },
-      },
-      {
-        brand: {
-          contains: search,
-          mode: "insensitive",
-        },
-      },
-      {
-        model: {
-          contains: search,
-          mode: "insensitive",
-        },
-      },
-      {
-        city: {
-          contains: search,
-          mode: "insensitive",
-        },
-      },
+      { title: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
+      { category: { contains: search, mode: "insensitive" } },
+      { brand: { contains: search, mode: "insensitive" } },
+      { model: { contains: search, mode: "insensitive" } },
+      { city: { contains: search, mode: "insensitive" } },
       {
         business: {
           name: {
@@ -143,17 +77,25 @@ function buildMarketplaceWhere({ search, type, city }) {
   return where;
 }
 
+function addFavoriteState(listings, viewerUserId) {
+  return listings.map((listing) => ({
+    ...listing,
+    isFavorite: viewerUserId ? listing.favorites?.length > 0 : false,
+    favorites: undefined,
+  }));
+}
+
 export async function getPublicMarketplaceListings({
   search = "",
   type = "",
   city = "",
   sort = "NEWEST",
   page = 1,
+  viewerUserId = null,
 } = {}) {
   const normalizedSearch = normalizeString(search);
   const normalizedType = normalizeString(type).toUpperCase();
   const normalizedCity = normalizeString(city);
-
   const requestedSort = normalizeString(sort).toUpperCase();
 
   const normalizedSort = VALID_SORTS.includes(requestedSort)
@@ -168,7 +110,7 @@ export async function getPublicMarketplaceListings({
     city: normalizedCity,
   });
 
-  const [listings, totalCount] = await Promise.all([
+  const [rawListings, totalCount] = await Promise.all([
     db.marketplaceListing.findMany({
       where,
       include: {
@@ -194,6 +136,16 @@ export async function getPublicMarketplaceListings({
             name: true,
           },
         },
+        favorites: viewerUserId
+          ? {
+              where: {
+                userId: viewerUserId,
+              },
+              select: {
+                id: true,
+              },
+            }
+          : false,
       },
       orderBy: getOrderBy(normalizedSort),
       skip: (normalizedPage - 1) * ITEMS_PER_PAGE,
@@ -208,7 +160,7 @@ export async function getPublicMarketplaceListings({
   const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
 
   return {
-    listings,
+    listings: addFavoriteState(rawListings, viewerUserId),
     pagination: {
       page: normalizedPage,
       pageSize: ITEMS_PER_PAGE,
@@ -226,14 +178,15 @@ export async function getPublicMarketplaceListings({
   };
 }
 
-export async function getPublicMarketplaceListingBySlug(slug) {
+export async function getPublicMarketplaceListingBySlug(
+  slug,
+  viewerUserId = null,
+) {
   const normalizedSlug = normalizeString(slug);
 
-  if (!normalizedSlug) {
-    return null;
-  }
+  if (!normalizedSlug) return null;
 
-  const listing = await db.marketplaceListing.findFirst({
+  const rawListing = await db.marketplaceListing.findFirst({
     where: {
       slug: normalizedSlug,
       status: "PUBLISHED",
@@ -267,14 +220,24 @@ export async function getPublicMarketplaceListingBySlug(slug) {
           email: true,
         },
       },
+      favorites: viewerUserId
+        ? {
+            where: {
+              userId: viewerUserId,
+            },
+            select: {
+              id: true,
+            },
+          }
+        : false,
     },
   });
 
-  if (!listing) {
-    return null;
-  }
+  if (!rawListing) return null;
 
-  const relatedListings = await db.marketplaceListing.findMany({
+  const listing = addFavoriteState([rawListing], viewerUserId)[0];
+
+  const rawRelatedListings = await db.marketplaceListing.findMany({
     where: {
       id: {
         not: listing.id,
@@ -303,23 +266,27 @@ export async function getPublicMarketplaceListingBySlug(slug) {
           name: true,
         },
       },
+      favorites: viewerUserId
+        ? {
+            where: {
+              userId: viewerUserId,
+            },
+            select: {
+              id: true,
+            },
+          }
+        : false,
     },
     orderBy: [
-      {
-        isFeatured: "desc",
-      },
-      {
-        publishedAt: "desc",
-      },
-      {
-        createdAt: "desc",
-      },
+      { isFeatured: "desc" },
+      { publishedAt: "desc" },
+      { createdAt: "desc" },
     ],
     take: 4,
   });
 
   return {
     listing,
-    relatedListings,
+    relatedListings: addFavoriteState(rawRelatedListings, viewerUserId),
   };
 }

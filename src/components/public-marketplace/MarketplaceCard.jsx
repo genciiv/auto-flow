@@ -9,6 +9,8 @@ import {
   Settings2,
 } from "lucide-react";
 
+import MarketplaceFavoriteButton from "@/components/public-marketplace/MarketplaceFavoriteButton";
+
 function formatCurrency(value, currency = "ALL") {
   const amount = Number(value || 0);
 
@@ -39,14 +41,8 @@ function getTypeLabel(type) {
 }
 
 function getSellerName(listing) {
-  if (listing.business?.name) {
-    return listing.business.name;
-  }
-
-  if (listing.sellerUser?.name) {
-    return listing.sellerUser.name;
-  }
-
+  if (listing.business?.name) return listing.business.name;
+  if (listing.sellerUser?.name) return listing.sellerUser.name;
   return "Shitës privat";
 }
 
@@ -60,42 +56,50 @@ export default function MarketplaceCard({ listing }) {
   const coverImage = listing.images?.[0]?.url;
   const sellerName = getSellerName(listing);
   const location = getLocation(listing);
-
   const currency = listing.business?.currency || "ALL";
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-slate-200/60">
-      <Link
-        href={`/marketplace/${listing.slug}`}
-        className="relative block aspect-[16/11] overflow-hidden bg-slate-100"
-      >
-        {coverImage ? (
-          <img
-            src={coverImage}
-            alt={listing.images?.[0]?.alt || listing.title}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-400">
-            <Package size={42} strokeWidth={1.5} />
-            <span className="text-xs font-semibold">Pa fotografi</span>
-          </div>
-        )}
+      <div className="relative">
+        <Link
+          href={`/marketplace/${listing.slug}`}
+          className="relative block aspect-[16/11] overflow-hidden bg-slate-100"
+        >
+          {coverImage ? (
+            <img
+              src={coverImage}
+              alt={listing.images?.[0]?.alt || listing.title}
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-400">
+              <Package size={42} strokeWidth={1.5} />
+              <span className="text-xs font-semibold">Pa fotografi</span>
+            </div>
+          )}
 
-        <div className="absolute left-4 top-4">
-          <span className="rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm backdrop-blur">
-            {getTypeLabel(listing.type)}
-          </span>
-        </div>
-
-        {listing.isFeatured ? (
-          <div className="absolute right-4 top-4">
-            <span className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm">
-              I veçuar
+          <div className="absolute left-4 top-4">
+            <span className="rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm backdrop-blur">
+              {getTypeLabel(listing.type)}
             </span>
           </div>
-        ) : null}
-      </Link>
+
+          {listing.isFeatured ? (
+            <div className="absolute bottom-4 left-4">
+              <span className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm">
+                I veçuar
+              </span>
+            </div>
+          ) : null}
+        </Link>
+
+        <div className="absolute right-4 top-4 z-10">
+          <MarketplaceFavoriteButton
+            listingId={listing.id}
+            initialIsFavorite={Boolean(listing.isFavorite)}
+          />
+        </div>
+      </div>
 
       <div className="flex flex-1 flex-col p-5">
         <div>
@@ -160,13 +164,11 @@ export default function MarketplaceCard({ listing }) {
         <div className="mt-5 space-y-2">
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <Building2 size={16} className="shrink-0 text-blue-600" />
-
             <span className="truncate font-semibold">{sellerName}</span>
           </div>
 
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <MapPin size={16} className="shrink-0 text-slate-400" />
-
             <span className="truncate">{location}</span>
           </div>
         </div>

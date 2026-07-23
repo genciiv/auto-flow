@@ -1,12 +1,12 @@
 import { ArrowDownAZ, Grid2X2 } from "lucide-react";
 
-import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
+import Header from "@/components/landing/Header";
 import MarketplaceEmpty from "@/components/public-marketplace/MarketplaceEmpty";
 import MarketplaceGrid from "@/components/public-marketplace/MarketplaceGrid";
 import MarketplaceHero from "@/components/public-marketplace/MarketplaceHero";
 import MarketplacePagination from "@/components/public-marketplace/MarketplacePagination";
-
+import { auth } from "@/auth";
 import { getPublicMarketplaceListings } from "@/services/public-marketplace-service";
 
 export const dynamic = "force-dynamic";
@@ -18,59 +18,19 @@ export const metadata = {
 };
 
 const sortOptions = [
-  {
-    value: "NEWEST",
-    label: "Më të rejat",
-  },
-  {
-    value: "OLDEST",
-    label: "Më të vjetrat",
-  },
-  {
-    value: "PRICE_HIGH",
-    label: "Çmimi: më i larti",
-  },
-  {
-    value: "PRICE_LOW",
-    label: "Çmimi: më i ulti",
-  },
+  { value: "NEWEST", label: "Më të rejat" },
+  { value: "OLDEST", label: "Më të vjetrat" },
+  { value: "PRICE_HIGH", label: "Çmimi: më i larti" },
+  { value: "PRICE_LOW", label: "Çmimi: më i ulti" },
 ];
 
-function createSortHref({ sort, search, type, city }) {
-  const params = new URLSearchParams();
-
-  if (search) {
-    params.set("search", search);
-  }
-
-  if (type) {
-    params.set("type", type);
-  }
-
-  if (city) {
-    params.set("city", city);
-  }
-
-  if (sort && sort !== "NEWEST") {
-    params.set("sort", sort);
-  }
-
-  const query = params.toString();
-
-  return query ? `/marketplace?${query}` : "/marketplace";
-}
-
 export default async function PublicMarketplacePage({ searchParams }) {
-  const params = await searchParams;
+  const [params, session] = await Promise.all([searchParams, auth()]);
 
   const search = typeof params?.search === "string" ? params.search : "";
-
   const type = typeof params?.type === "string" ? params.type : "";
-
   const city = typeof params?.city === "string" ? params.city : "";
-
   const sort = typeof params?.sort === "string" ? params.sort : "NEWEST";
-
   const page = typeof params?.page === "string" ? params.page : "1";
 
   const { listings, pagination, filters } = await getPublicMarketplaceListings({
@@ -79,6 +39,7 @@ export default async function PublicMarketplacePage({ searchParams }) {
     city,
     sort,
     page,
+    viewerUserId: session?.user?.id || null,
   });
 
   return (
@@ -97,7 +58,6 @@ export default async function PublicMarketplacePage({ searchParams }) {
           <div>
             <div className="flex items-center gap-2">
               <Grid2X2 size={18} className="text-blue-600" />
-
               <h2 className="text-lg font-bold text-slate-950">Publikimet</h2>
             </div>
 
@@ -159,7 +119,6 @@ export default async function PublicMarketplacePage({ searchParams }) {
         {listings.length > 0 ? (
           <>
             <MarketplaceGrid listings={listings} />
-
             <MarketplacePagination pagination={pagination} filters={filters} />
           </>
         ) : (
