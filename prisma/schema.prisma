@@ -103,7 +103,6 @@ enum NotificationType {
   ERROR
 }
 
-
 enum NotificationEntity {
   MARKETPLACE
   SERVICE
@@ -177,6 +176,7 @@ model User {
   marketplaceListings  MarketplaceListing[]  @relation("MarketplaceUserListings")
   marketplaceFavorites MarketplaceFavorite[]
   marketplaceInquiries MarketplaceInquiry[]  @relation("MarketplaceInquirySender")
+  notifications        Notification[]
 
   @@index([email])
   @@index([phone])
@@ -240,6 +240,7 @@ model Business {
   invoices            Invoice[]
   purchaseOrders      PurchaseOrder[]
   marketplaceListings MarketplaceListing[] @relation("MarketplaceBusinessListings")
+  notifications       Notification[]
 
   @@index([name])
   @@index([city])
@@ -805,27 +806,26 @@ model MarketplaceInquiry {
   @@index([listingId, isRead])
 }
 
-
 model Notification {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  businessId  String?
-  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  title       String
-  message     String
+  title   String
+  message String
 
-  type        NotificationType
+  type NotificationType
 
-  entityType  NotificationEntity?
-  entityId    String?
+  entityType NotificationEntity?
+  entityId   String?
 
-  isRead      Boolean @default(false)
+  isRead Boolean @default(false)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([businessId])

@@ -4,21 +4,65 @@ import { revalidatePath } from "next/cache";
 
 import { requireCustomerActionContext } from "@/lib/customer-context";
 import { db } from "@/lib/db";
+import {
+  createBusinessNotification,
+  createCustomerNotification,
+} from "@/services/notification-service";
 
 function revalidateFavoritePaths(slug) {
   revalidatePath("/marketplace");
   revalidatePath("/customer/favorites");
   revalidatePath("/customer/dashboard");
   revalidatePath("/customer/listings");
+  revalidatePath("/customer", "layout");
 
   if (slug) {
     revalidatePath(`/marketplace/${slug}`);
   }
 }
 
+async function createFavoriteNotification({ listing, actor }) {
+  const sellerUserId = listing.sellerUserId;
+  const businessId = listing.businessId;
+
+  if (sellerUserId && sellerUserId === actor.id) {
+    return;
+  }
+
+  const notificationData = {
+    title: "Publikim i ri te Favoritet",
+    message: `${actor.name || "Një përdorues"} shtoi “${
+      listing.title
+    }” te Favoritet.`,
+    type: "INFO",
+    entityType: "MARKETPLACE",
+    entityId: listing.id,
+    actorUserId: actor.id,
+    actorName: actor.name || "Përdorues i AutoFlow",
+    actorAvatar: actor.image || null,
+    href: `/marketplace/${listing.slug}`,
+  };
+
+  if (sellerUserId) {
+    await createCustomerNotification({
+      ...notificationData,
+      userId: sellerUserId,
+    });
+
+    return;
+  }
+
+  if (businessId) {
+    await createBusinessNotification({
+      ...notificationData,
+      businessId,
+    });
+  }
+}
+
 export async function toggleMarketplaceFavorite(listingId) {
   try {
-    const { userId } = await requireCustomerActionContext();
+    const { userId, user } = await requireCustomerActionContext();
 
     if (!listingId || typeof listingId !== "string") {
       return {
@@ -37,6 +81,9 @@ export async function toggleMarketplaceFavorite(listingId) {
       select: {
         id: true,
         slug: true,
+        title: true,
+        sellerUserId: true,
+        businessId: true,
       },
     });
 
@@ -78,6 +125,14 @@ export async function toggleMarketplaceFavorite(listingId) {
       });
 
       isFavorite = true;
+
+      await createFavoriteNotification({
+        listing,
+        actor: {
+          id: user.id,
+          name: user.name,
+        },
+      });
     }
 
     const favoritesCount = await db.marketplaceFavorite.count({
