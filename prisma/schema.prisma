@@ -285,10 +285,11 @@ model Vehicle {
   business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
-  services     ServiceRecord[]
-  appointments Appointment[]
-  invoices     Invoice[]
-  portalClaims VehicleClaim[]
+  services      ServiceRecord[]
+  appointments  Appointment[]
+  invoices      Invoice[]
+  portalClaims  VehicleClaim[]
+  customerLinks CustomerVehicleLink[]
 
   @@unique([businessId, plate])
   @@index([businessId])
@@ -329,6 +330,7 @@ model CustomerVehicle {
   profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   claims VehicleClaim[]
+  links  CustomerVehicleLink[]
 
   @@unique([profileId, plate])
   @@index([profileId])
@@ -361,6 +363,28 @@ model VehicleClaim {
   @@index([vehicleId])
   @@index([status])
   @@index([vehicleId, status])
+}
+
+model CustomerVehicleLink {
+  id String @id @default(cuid())
+
+  customerVehicleId String
+  vehicleId         String
+
+  isActive Boolean @default(true)
+
+  linkedAt   DateTime  @default(now())
+  unlinkedAt DateTime?
+
+  customerVehicle CustomerVehicle @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([customerVehicleId, vehicleId])
+  @@index([customerVehicleId])
+  @@index([vehicleId])
+  @@index([isActive])
+  @@index([customerVehicleId, isActive])
+  @@index([vehicleId, isActive])
 }
 
 /**
