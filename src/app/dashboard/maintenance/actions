@@ -1,0 +1,300 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import { db } from "@/lib/db";
+import { requireBusinessContext } from "@/lib/business-context";
+import { calculateMaintenanceStatus } from "@/lib/maintenance";
+
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function dateOrNull(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+async function getBusinessVehicle(vehicleId, businessId) {
+  return db.vehicle.findFirst({
+    where: {
+      id: vehicleId,
+      businessId,
+    },
+    select: {
+      id: true,
+    },
+  });
+}
+
+async function getBusinessService(serviceRecordId, businessId, vehicleId) {
+  if (!serviceRecordId) {
+    return null;
+  }
+
+  return db.serviceRecord.findFirst({
+    where: {
+      id: serviceRecordId,
+      businessId,
+      vehicleId,
+    },
+    select: {
+      id: true,
+    },
+  });
+}
+
+function refreshMaintenancePaths(vehicleId) {
+  revalidatePath("/dashboard/maintenance");
+  revalidatePath("/customer/services");
+  revalidatePath("/customer/vehicles");
+  revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+}
+
+export async function createMaintenanceItem(formData) {
+  const { businessId } = await requireBusinessContext();
+
+  const vehicleId = String(formData.get("vehicleId") || "").trim();
+  const serviceRecordId =
+    String(formData.get("serviceRecordId") || "").trim() || null;
+  const type = String(formData.get("type") || "").trim();
+  const title = String(formData.get("title") || "").trim();
+  const notes = String(formData.get("notes") || "").trim() || null;
+
+  const lastMileage = numberOrNull(formData.get("lastMileage"));
+  const intervalKm = numberOrNull(formData.get("intervalKm"));
+  const manualNextMileage = numberOrNull(formData.get("nextMileage"));
+
+  const lastDate = dateOrNull(formData.get("lastDate"));
+  const nextDate = dateOrNull(formData.get("nextDate"));
+
+  if (!vehicleId || !type || title.length < 2) {
+    return {
+      success: false,
+      message: "Plotëso automjetin, llojin dhe titullin.",
+    };
+  }
+
+  if (
+    [lastMileage, intervalKm, manualNextMileage].some(
+      (value) => value !== null && value < 0,
+    )
+  ) {
+    return {
+      success: false,
+      message: "Kilometrat nuk mund të jenë negativë.",
+    };
+  }
+
+  const vehicle = await getBusinessVehicle(vehicleId, businessId);
+
+  if (!vehicle) {
+    return {
+      success: false,
+      message: "Automjeti nuk u gjet në biznesin tuaj.",
+    };
+  }
+
+  const service = await getBusinessService(
+    serviceRecordId,
+    businessId,
+    vehicleId,
+  );
+
+  if (serviceRecordId && !service) {
+    return {
+      success: false,
+      message: "Shërbimi i zgjedhur nuk i përket këtij automjeti.",
+    };
+  }
+
+  const nextMileage =
+    manualNextMileage ??
+    (lastMileage !== null && intervalKm !== null
+      ? lastMileage + intervalKm
+      : null);
+
+  const status = calculateMaintenanceStatus({
+    currentMileage: lastMileage,
+    nextMileage,
+    nextDate,
+  });
+
+  await db.maintenanceItem.create({
+    data: {
+      vehicleId,
+      serviceRecordId: service?.id || null,
+      type,
+      title,
+      notes,
+      lastMileage,
+      intervalKm,
+      nextMileage,
+      lastDate,
+      nextDate,
+      status,
+    },
+  });
+
+  refreshMaintenancePaths(vehicleId);
+
+  return {
+    success: true,
+    message: "Mirëmbajtja u regjistrua me sukses.",
+  };
+}
+
+export async function updateMaintenanceItem(itemId, formData) {
+  const { businessId } = await requireBusinessContext();
+
+  const existing = await db.maintenanceItem.findFirst({
+    where: {
+      id: itemId,
+      vehicle: {
+        businessId,
+      },
+    },
+    select: {
+      id: true,
+      vehicleId: true,
+    },
+  });
+
+  if (!existing) {
+    return {
+      success: false,
+      message: "Regjistrimi nuk u gjet.",
+    };
+  }
+
+  const vehicleId = String(formData.get("vehicleId") || "").trim();
+  const serviceRecordId =
+    String(formData.get("serviceRecordId") || "").trim() || null;
+  const type = String(formData.get("type") || "").trim();
+  const title = String(formData.get("title") || "").trim();
+  const notes = String(formData.get("notes") || "").trim() || null;
+
+  const lastMileage = numberOrNull(formData.get("lastMileage"));
+  const intervalKm = numberOrNull(formData.get("intervalKm"));
+  const manualNextMileage = numberOrNull(formData.get("nextMileage"));
+
+  const lastDate = dateOrNull(formData.get("lastDate"));
+  const nextDate = dateOrNull(formData.get("nextDate"));
+
+  if (!vehicleId || !type || title.length < 2) {
+    return {
+      success: false,
+      message: "Plotëso automjetin, llojin dhe titullin.",
+    };
+  }
+
+  const vehicle = await getBusinessVehicle(vehicleId, businessId);
+
+  if (!vehicle) {
+    return {
+      success: false,
+      message: "Automjeti nuk u gjet në biznesin tuaj.",
+    };
+  }
+
+  const service = await getBusinessService(
+    serviceRecordId,
+    businessId,
+    vehicleId,
+  );
+
+  if (serviceRecordId && !service) {
+    return {
+      success: false,
+      message: "Shërbimi i zgjedhur nuk i përket këtij automjeti.",
+    };
+  }
+
+  const nextMileage =
+    manualNextMileage ??
+    (lastMileage !== null && intervalKm !== null
+      ? lastMileage + intervalKm
+      : null);
+
+  const status = calculateMaintenanceStatus({
+    currentMileage: lastMileage,
+    nextMileage,
+    nextDate,
+  });
+
+  await db.maintenanceItem.update({
+    where: {
+      id: existing.id,
+    },
+    data: {
+      vehicleId,
+      serviceRecordId: service?.id || null,
+      type,
+      title,
+      notes,
+      lastMileage,
+      intervalKm,
+      nextMileage,
+      lastDate,
+      nextDate,
+      status,
+    },
+  });
+
+  refreshMaintenancePaths(existing.vehicleId);
+
+  if (vehicleId !== existing.vehicleId) {
+    refreshMaintenancePaths(vehicleId);
+  }
+
+  return {
+    success: true,
+    message: "Mirëmbajtja u përditësua.",
+  };
+}
+
+export async function deleteMaintenanceItem(itemId) {
+  const { businessId } = await requireBusinessContext();
+
+  const item = await db.maintenanceItem.findFirst({
+    where: {
+      id: itemId,
+      vehicle: {
+        businessId,
+      },
+    },
+    select: {
+      id: true,
+      vehicleId: true,
+    },
+  });
+
+  if (!item) {
+    return {
+      success: false,
+      message: "Regjistrimi nuk u gjet.",
+    };
+  }
+
+  await db.maintenanceItem.delete({
+    where: {
+      id: item.id,
+    },
+  });
+
+  refreshMaintenancePaths(item.vehicleId);
+
+  return {
+    success: true,
+    message: "Regjistrimi u fshi.",
+  };
+}

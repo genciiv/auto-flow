@@ -53,6 +53,29 @@ enum ServiceStatus {
   CANCELLED
 }
 
+enum MaintenanceType {
+  ENGINE_OIL
+  OIL_FILTER
+  AIR_FILTER
+  CABIN_FILTER
+  FUEL_FILTER
+  BRAKE_FLUID
+  COOLANT
+  TIMING_BELT
+  GEARBOX_OIL
+  BRAKES
+  BATTERY
+  TIRES
+  SPARK_PLUGS
+  OTHER
+}
+
+enum MaintenanceStatus {
+  OK
+  SOON
+  OVERDUE
+}
+
 enum InvoiceStatus {
   DRAFT
   PAID
@@ -285,11 +308,12 @@ model Vehicle {
   business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
-  services      ServiceRecord[]
-  appointments  Appointment[]
-  invoices      Invoice[]
-  portalClaims  VehicleClaim[]
-  customerLinks CustomerVehicleLink[]
+  services         ServiceRecord[]
+  appointments     Appointment[]
+  invoices         Invoice[]
+  portalClaims     VehicleClaim[]
+  customerLinks    CustomerVehicleLink[]
+  maintenanceItems MaintenanceItem[]
 
   @@unique([businessId, plate])
   @@index([businessId])
@@ -387,6 +411,39 @@ model CustomerVehicleLink {
   @@index([vehicleId, isActive])
 }
 
+model MaintenanceItem {
+  id String @id @default(cuid())
+
+  vehicleId       String
+  serviceRecordId String?
+
+  type   MaintenanceType
+  title  String
+  status MaintenanceStatus @default(OK)
+
+  lastMileage Int?
+  nextMileage Int?
+  intervalKm  Int?
+
+  lastDate DateTime?
+  nextDate DateTime?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  serviceRecord ServiceRecord? @relation(fields: [serviceRecordId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId])
+  @@index([serviceRecordId])
+  @@index([type])
+  @@index([status])
+  @@index([vehicleId, status])
+  @@index([vehicleId, type])
+}
+
 /**
  * |--------------------------------------------------------------------------
  * | ServiceRecord
@@ -408,8 +465,9 @@ model ServiceRecord {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   vehicle  Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
-  invoice   Invoice?
-  partsUsed ServicePartUsage[]
+  invoice          Invoice?
+  partsUsed        ServicePartUsage[]
+  maintenanceItems MaintenanceItem[]
 
   @@index([businessId])
   @@index([vehicleId])
