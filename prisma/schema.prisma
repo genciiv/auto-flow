@@ -96,6 +96,27 @@ enum ApplicationStatus {
   REJECTED
 }
 
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+
+enum NotificationEntity {
+  MARKETPLACE
+  SERVICE
+  VEHICLE
+  APPOINTMENT
+  CUSTOMER
+  BUSINESS
+  PAYMENT
+  SUBSCRIPTION
+  DOCUMENT
+  SYSTEM
+}
+
 /**
  * |--------------------------------------------------------------------------
  * | Marketplace enums
@@ -782,4 +803,32 @@ model MarketplaceInquiry {
   @@index([isRead])
   @@index([createdAt])
   @@index([listingId, isRead])
+}
+
+
+model Notification {
+  id          String   @id @default(cuid())
+
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  title       String
+  message     String
+
+  type        NotificationType
+
+  entityType  NotificationEntity?
+  entityId    String?
+
+  isRead      Boolean @default(false)
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([businessId])
+  @@index([isRead])
+  @@index([createdAt])
 }
