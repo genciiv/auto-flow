@@ -13,8 +13,8 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { db } from "@/lib/db";
 import { requireCustomerContext } from "@/lib/customer-context";
+import { db } from "@/lib/db";
 
 export const metadata = {
   title: "Historiku i serviseve | AutoFlow",
@@ -73,13 +73,13 @@ function getStatusConfig(status) {
 export default async function CustomerServicesPage() {
   const { profileId } = await requireCustomerContext();
 
-  const [services, approvedClaimsCount] = await Promise.all([
+  const [services, activeLinksCount] = await Promise.all([
     db.serviceRecord.findMany({
       where: {
         vehicle: {
-          portalClaims: {
+          customerLinks: {
             some: {
-              status: "APPROVED",
+              isActive: true,
               customerVehicle: {
                 profileId,
               },
@@ -127,9 +127,9 @@ export default async function CustomerServicesPage() {
       },
     }),
 
-    db.vehicleClaim.count({
+    db.customerVehicleLink.count({
       where: {
-        status: "APPROVED",
+        isActive: true,
         customerVehicle: {
           profileId,
         },
@@ -168,8 +168,8 @@ export default async function CustomerServicesPage() {
               </h1>
 
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                Shiko shërbimet, pjesët e përdorura dhe faturat për automjetet
-                që ke lidhur me serviset në AutoFlow.
+                Shiko statusin, punët, pjesët dhe faturat që servisi ka
+                regjistruar për automjetet e lidhura.
               </p>
             </div>
 
@@ -182,7 +182,7 @@ export default async function CustomerServicesPage() {
                 </p>
 
                 <p className="text-xl font-black text-white">
-                  {approvedClaimsCount}
+                  {activeLinksCount}
                 </p>
               </div>
             </div>
@@ -221,7 +221,7 @@ export default async function CustomerServicesPage() {
           <Clock3 size={22} className="text-blue-600" />
 
           <p className="mt-4 text-xs font-bold uppercase tracking-wide text-blue-700">
-            Në proces
+            Aktive
           </p>
 
           <p className="mt-1 text-3xl font-black text-blue-950">
@@ -246,7 +246,7 @@ export default async function CustomerServicesPage() {
         </div>
       </section>
 
-      {approvedClaimsCount === 0 ? (
+      {activeLinksCount === 0 ? (
         <section className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
             <Link2 size={25} />
@@ -257,8 +257,8 @@ export default async function CustomerServicesPage() {
           </h2>
 
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-            Lidhe automjetin tënd me automjetin e regjistruar në servis për të
-            parë historikun e shërbimeve.
+            Kërko automjetin e regjistruar nga servisi dhe dërgo kërkesën për
+            aprovim.
           </p>
 
           <Link
@@ -280,8 +280,8 @@ export default async function CustomerServicesPage() {
           </h2>
 
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-            Automjeti është lidhur me servisin, por nuk ka ende shërbime të
-            regjistruara për të.
+            Automjeti është lidhur me servisin, por servisi nuk ka regjistruar
+            ende shërbime për të.
           </p>
         </section>
       ) : (

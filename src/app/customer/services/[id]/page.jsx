@@ -17,8 +17,8 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { db } from "@/lib/db";
 import { requireCustomerContext } from "@/lib/customer-context";
+import { db } from "@/lib/db";
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
@@ -79,6 +79,17 @@ function getStatusConfig(status) {
   };
 }
 
+function getInvoiceStatusLabel(status) {
+  const labels = {
+    DRAFT: "Draft",
+    PAID: "E paguar",
+    UNPAID: "E papaguar",
+    OVERDUE: "Me vonesë",
+  };
+
+  return labels[status] || status;
+}
+
 export default async function CustomerServiceDetailsPage({ params }) {
   const { profileId } = await requireCustomerContext();
   const resolvedParams = await params;
@@ -88,9 +99,9 @@ export default async function CustomerServiceDetailsPage({ params }) {
     where: {
       id: serviceId,
       vehicle: {
-        portalClaims: {
+        customerLinks: {
           some: {
-            status: "APPROVED",
+            isActive: true,
             customerVehicle: {
               profileId,
             },
@@ -405,7 +416,7 @@ export default async function CustomerServiceDetailsPage({ params }) {
                 <span className="text-sm text-slate-500">Statusi</span>
 
                 <span className="text-sm font-bold text-slate-950">
-                  {service.invoice.status}
+                  {getInvoiceStatusLabel(service.invoice.status)}
                 </span>
               </div>
 
