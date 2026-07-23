@@ -4,7 +4,6 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { FileSearch, Wrench } from "lucide-react";
 
 import AddServicePartModal from "@/components/services/AddServicePartModal";
-import CompleteServiceModal from "@/components/services/CompleteServiceModal";
 import ServiceFilters from "@/components/services/ServiceFilters";
 import ServicePartsList from "@/components/services/ServicePartsList";
 import ServiceRowActions from "@/components/services/ServiceRowActions";
@@ -283,8 +282,6 @@ export default function ServicesTable({
 
                       <td className="whitespace-nowrap px-6 py-5">
                         <div className="flex justify-end gap-2">
-                          <CompleteServiceModal service={service} />
-
                           <AddServicePartModal
                             serviceId={service.id}
                             parts={parts}
