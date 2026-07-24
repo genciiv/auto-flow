@@ -11,6 +11,7 @@ import {
 } from "@/lib/marketplace-images";
 import { PERMISSIONS } from "@/lib/permissions";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { logStatusChange, logUpdate } from "@/services/audit-events";
 
 const VALID_TYPES = [
   "VEHICLE",
@@ -77,6 +78,100 @@ function getListingDates(status, listing) {
   };
 }
 
+function getStatusLabel(status) {
+  const labels = {
+    DRAFT: "Draft",
+    PUBLISHED: "Publikuar",
+    SOLD: "Shitur",
+    ARCHIVED: "Arkivuar",
+  };
+
+  return labels[status] || status;
+}
+
+function getTypeLabel(type) {
+  const labels = {
+    VEHICLE: "Automjet",
+    MOTORCYCLE: "Motoçikletë",
+    PART: "Pjesë këmbimi",
+    ACCESSORY: "Aksesor",
+    SERVICE: "Shërbim",
+    OTHER: "Tjetër",
+  };
+
+  return labels[type] || type;
+}
+
+function getMarketplaceAuditValues(listing) {
+  return {
+    title: listing.title,
+    type: listing.type,
+    status: listing.status,
+    description: listing.description,
+    price: listing.price,
+    isNegotiable: listing.isNegotiable,
+    category: listing.category,
+    condition: listing.condition,
+    city: listing.city,
+    address: listing.address,
+    phone: listing.phone,
+    email: listing.email,
+    brand: listing.brand,
+    model: listing.model,
+    productionYear: listing.productionYear,
+    mileage: listing.mileage,
+    fuelType: listing.fuelType,
+    transmission: listing.transmission,
+    engine: listing.engine,
+    color: listing.color,
+    vin: listing.vin,
+    stock: listing.stock,
+    publishedAt: listing.publishedAt,
+    soldAt: listing.soldAt,
+  };
+}
+
+function getMarketplaceStatusAuditContent({
+  listing,
+  previousStatus,
+  newStatus,
+}) {
+  if (newStatus === "PUBLISHED") {
+    return {
+      title: `U publikua produkti "${listing.title}"`,
+      description: `Produkti "${listing.title}" u publikua në Marketplace.`,
+    };
+  }
+
+  if (previousStatus === "PUBLISHED" && newStatus === "DRAFT") {
+    return {
+      title: `U hoq nga publikimi produkti "${listing.title}"`,
+      description: `Produkti "${listing.title}" u hoq nga Marketplace dhe u kthye në draft.`,
+    };
+  }
+
+  if (newStatus === "SOLD") {
+    return {
+      title: `Produkti "${listing.title}" u shënua si i shitur`,
+      description: `Produkti "${listing.title}" u shënua si i shitur në Marketplace.`,
+    };
+  }
+
+  if (newStatus === "ARCHIVED") {
+    return {
+      title: `U arkivua produkti "${listing.title}"`,
+      description: `Produkti "${listing.title}" u arkivua në Marketplace.`,
+    };
+  }
+
+  return {
+    title: `Ndryshoi statusi i produktit "${listing.title}"`,
+    description: `Statusi i produktit "${listing.title}" ndryshoi nga "${getStatusLabel(
+      previousStatus,
+    )}" në "${getStatusLabel(newStatus)}".`,
+  };
+}
+
 async function getManagedListing({
   listingId,
   businessId,
@@ -118,9 +213,11 @@ function revalidateMarketplaceListing(listingId) {
 }
 
 export async function updateMarketplaceListing(formData) {
-  const { businessId } = await requireBusinessActionPermission(
+  const context = await requireBusinessActionPermission(
     PERMISSIONS.MARKETPLACE_MANAGE,
   );
+
+  const { businessId } = context;
 
   const listingId = getString(formData, "listingId");
   const title = getString(formData, "title");
@@ -235,7 +332,7 @@ export async function updateMarketplaceListing(formData) {
     const { publishedAt, soldAt } = getListingDates(requestedStatus, listing);
 
     await db.$transaction(async (transaction) => {
-      await transaction.marketplaceListing.update({
+      const updatedListing = await transaction.marketplaceListing.update({
         where: {
           id: listingId,
         },
@@ -308,6 +405,54 @@ export async function updateMarketplaceListing(formData) {
       if (newImageRecords.length > 0) {
         await transaction.marketplaceListingImage.createMany({
           data: newImageRecords,
+        });
+      }
+
+      await logUpdate({
+        context,
+        entityType: "MARKETPLACE_LISTING",
+        entityId: updatedListing.id,
+        title: `U përditësua produkti "${updatedListing.title}"`,
+        description: `U përditësuan të dhënat e produktit "${updatedListing.title}" në Marketplace.`,
+        oldValues: getMarketplaceAuditValues(listing),
+        newValues: getMarketplaceAuditValues(updatedListing),
+        metadata: {
+          source: "marketplace-actions",
+          operation: "updateMarketplaceListing",
+          listingTitle: updatedListing.title,
+          listingType: updatedListing.type,
+          typeLabel: getTypeLabel(updatedListing.type),
+          previousStatus: listing.status,
+          currentStatus: updatedListing.status,
+          deletedImageCount: deleteImageIds.length,
+          uploadedImageCount: newImageRecords.length,
+        },
+        database: transaction,
+      });
+
+      if (listing.status !== updatedListing.status) {
+        const statusAuditContent = getMarketplaceStatusAuditContent({
+          listing: updatedListing,
+          previousStatus: listing.status,
+          newStatus: updatedListing.status,
+        });
+
+        await logStatusChange({
+          context,
+          entityType: "MARKETPLACE_LISTING",
+          entityId: updatedListing.id,
+          title: statusAuditContent.title,
+          description: statusAuditContent.description,
+          oldStatus: listing.status,
+          newStatus: updatedListing.status,
+          metadata: {
+            source: "marketplace-actions",
+            operation: "updateMarketplaceListing",
+            listingTitle: updatedListing.title,
+            listingType: updatedListing.type,
+            typeLabel: getTypeLabel(updatedListing.type),
+          },
+          database: transaction,
         });
       }
     });
