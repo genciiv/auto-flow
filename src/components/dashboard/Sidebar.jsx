@@ -5,6 +5,7 @@ import {
   BarChart3,
   Calendar,
   Car,
+  ClipboardList,
   CreditCard,
   FileText,
   Home,
@@ -118,6 +119,12 @@ const sidebarGroups = [
   {
     title: "Sistemi",
     items: [
+      {
+        name: "Audit Log",
+        icon: ClipboardList,
+        href: "/dashboard/audit-log",
+        permission: PERMISSIONS.AUDIT_VIEW,
+      },
       {
         name: "Settings",
         icon: Settings,
