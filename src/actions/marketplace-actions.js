@@ -11,8 +11,7 @@ import {
 } from "@/lib/marketplace-images";
 import { PERMISSIONS } from "@/lib/permissions";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import { logStatusChange, logUpdate } from "@/services/audit-events";
-
+import { logDelete, logStatusChange, logUpdate } from "@/services/audit-events";
 const VALID_TYPES = [
   "VEHICLE",
   "MOTORCYCLE",
@@ -496,9 +495,11 @@ export async function updateMarketplaceListing(formData) {
 }
 
 export async function changeMarketplaceListingStatus(formData) {
-  const { businessId } = await requireBusinessActionPermission(
+  const context = await requireBusinessActionPermission(
     PERMISSIONS.MARKETPLACE_MANAGE,
   );
+
+  const { businessId } = context;
 
   const listingId = getString(formData, "listingId");
   const requestedStatus = getString(formData, "status");
@@ -512,17 +513,50 @@ export async function changeMarketplaceListingStatus(formData) {
     businessId,
   });
 
+  if (listing.status === requestedStatus) {
+    revalidateMarketplaceListing(listingId);
+    redirect(`/dashboard/marketplace/${listingId}`);
+  }
+
   const { publishedAt, soldAt } = getListingDates(requestedStatus, listing);
 
-  await db.marketplaceListing.update({
-    where: {
-      id: listingId,
-    },
-    data: {
-      status: requestedStatus,
-      publishedAt,
-      soldAt,
-    },
+  await db.$transaction(async (transaction) => {
+    const updatedListing = await transaction.marketplaceListing.update({
+      where: {
+        id: listingId,
+      },
+      data: {
+        status: requestedStatus,
+        publishedAt,
+        soldAt,
+      },
+    });
+
+    const statusAuditContent = getMarketplaceStatusAuditContent({
+      listing: updatedListing,
+      previousStatus: listing.status,
+      newStatus: updatedListing.status,
+    });
+
+    await logStatusChange({
+      context,
+      entityType: "MARKETPLACE_LISTING",
+      entityId: updatedListing.id,
+      title: statusAuditContent.title,
+      description: statusAuditContent.description,
+      oldStatus: listing.status,
+      newStatus: updatedListing.status,
+      metadata: {
+        source: "marketplace-actions",
+        operation: "changeMarketplaceListingStatus",
+        listingTitle: updatedListing.title,
+        listingType: updatedListing.type,
+        typeLabel: getTypeLabel(updatedListing.type),
+        previousStatus: listing.status,
+        currentStatus: updatedListing.status,
+      },
+      database: transaction,
+    });
   });
 
   revalidateMarketplaceListing(listingId);
@@ -531,9 +565,11 @@ export async function changeMarketplaceListingStatus(formData) {
 }
 
 export async function deleteMarketplaceListing(formData) {
-  const { businessId } = await requireBusinessActionPermission(
+  const context = await requireBusinessActionPermission(
     PERMISSIONS.MARKETPLACE_MANAGE,
   );
+
+  const { businessId } = context;
 
   const listingId = getString(formData, "listingId");
 
@@ -549,10 +585,31 @@ export async function deleteMarketplaceListing(formData) {
     .map((image) => extractStoragePath(image.url, bucket))
     .filter(Boolean);
 
-  await db.marketplaceListing.delete({
-    where: {
-      id: listingId,
-    },
+  await db.$transaction(async (transaction) => {
+    await transaction.marketplaceListing.delete({
+      where: {
+        id: listingId,
+      },
+    });
+
+    await logDelete({
+      context,
+      entityType: "MARKETPLACE_LISTING",
+      entityId: listing.id,
+      title: `U fshi produkti "${listing.title}"`,
+      description: `Produkti "${listing.title}" u fshi nga Marketplace.`,
+      oldValues: getMarketplaceAuditValues(listing),
+      metadata: {
+        source: "marketplace-actions",
+        operation: "deleteMarketplaceListing",
+        listingTitle: listing.title,
+        listingType: listing.type,
+        typeLabel: getTypeLabel(listing.type),
+        listingStatus: listing.status,
+        imageCount: listing.images.length,
+      },
+      database: transaction,
+    });
   });
 
   if (storagePaths.length > 0) {
