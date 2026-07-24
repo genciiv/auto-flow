@@ -4,6 +4,13 @@ import { revalidatePath } from "next/cache";
 
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import {
+  logCreate,
+  logDelete,
+  logPayment,
+  logStatusChange,
+  logUpdate,
+} from "@/services/audit-events";
 
 const ALLOWED_STATUSES = ["DRAFT", "UNPAID", "PAID", "OVERDUE"];
 
@@ -23,6 +30,33 @@ function normalizeStatus(value) {
   }
 
   return status;
+}
+
+function getStatusLabel(status) {
+  const labels = {
+    DRAFT: "Draft",
+    UNPAID: "E papaguar",
+    PAID: "E paguar",
+    OVERDUE: "Me vonesë",
+  };
+
+  return labels[status] || status;
+}
+
+function getInvoiceAuditValues(invoice) {
+  if (!invoice) {
+    return null;
+  }
+
+  return {
+    id: invoice.id,
+    customerId: invoice.customerId,
+    vehicleId: invoice.vehicleId,
+    serviceId: invoice.serviceId,
+    number: invoice.number,
+    status: invoice.status,
+    total: invoice.total,
+  };
 }
 
 function revalidateInvoicePaths(invoiceId = null) {
@@ -178,7 +212,8 @@ function getErrorMessage(error) {
 
 export async function createInvoice(formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const context = await requireBusinessContext();
+    const { businessId } = context;
 
     const selectedCustomerId = normalizeOptionalId(formData.get("customerId"));
 
@@ -268,28 +303,73 @@ export async function createInvoice(formData) {
       };
     }
 
-    const invoice = await db.invoice.create({
-      data: {
-        businessId,
-        customerId,
-        vehicleId,
-        serviceId,
-        number,
-        status,
-        total,
-      },
-      select: {
-        id: true,
-        number: true,
-      },
+    let createdInvoice = null;
+
+    await db.$transaction(async (transaction) => {
+      const invoice = await transaction.invoice.create({
+        data: {
+          businessId,
+          customerId,
+          vehicleId,
+          serviceId,
+          number,
+          status,
+          total,
+        },
+        select: {
+          id: true,
+          customerId: true,
+          vehicleId: true,
+          serviceId: true,
+          number: true,
+          status: true,
+          total: true,
+        },
+      });
+
+      createdInvoice = invoice;
+
+      await logCreate({
+        context,
+        entityType: "INVOICE",
+        entityId: invoice.id,
+        title: `U krijua fatura ${invoice.number}`,
+        description: `Fatura "${invoice.number}" me total ${invoice.total} u krijua me statusin "${getStatusLabel(invoice.status)}".`,
+        newValues: getInvoiceAuditValues(invoice),
+        metadata: {
+          source: "invoice-actions",
+          operation: "createInvoice",
+        },
+        database: transaction,
+      });
+
+      if (invoice.status === "PAID") {
+        await logPayment({
+          context,
+          entityType: "INVOICE",
+          entityId: invoice.id,
+          title: `U regjistrua pagesa për faturën ${invoice.number}`,
+          description: `Fatura "${invoice.number}" u krijua drejtpërdrejt si e paguar.`,
+          amount: invoice.total,
+          metadata: {
+            source: "invoice-actions",
+            operation: "createInvoice",
+            invoiceNumber: invoice.number,
+          },
+          database: transaction,
+        });
+      }
     });
 
-    revalidateInvoicePaths(invoice.id);
+    revalidateInvoicePaths(createdInvoice.id);
 
     return {
       success: true,
       message: "Fatura u krijua me sukses.",
-      invoice,
+      invoice: {
+        id: createdInvoice.id,
+        number: createdInvoice.number,
+      },
     };
   } catch (error) {
     console.error("createInvoice error:", error);
@@ -303,7 +383,8 @@ export async function createInvoice(formData) {
 
 export async function updateInvoice(invoiceId, formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const context = await requireBusinessContext();
+    const { businessId } = context;
 
     if (!invoiceId || typeof invoiceId !== "string") {
       return {
@@ -319,6 +400,12 @@ export async function updateInvoice(invoiceId, formData) {
       },
       select: {
         id: true,
+        customerId: true,
+        vehicleId: true,
+        serviceId: true,
+        number: true,
+        status: true,
+        total: true,
       },
     });
 
@@ -428,18 +515,82 @@ export async function updateInvoice(invoiceId, formData) {
     customerId = validatedCustomerId;
     vehicleId = validatedVehicle?.id || null;
 
-    await db.invoice.update({
-      where: {
-        id: existingInvoice.id,
-      },
-      data: {
-        customerId,
-        vehicleId,
-        serviceId,
-        number,
-        status,
-        total,
-      },
+    await db.$transaction(async (transaction) => {
+      const updatedInvoice = await transaction.invoice.update({
+        where: {
+          id: existingInvoice.id,
+        },
+        data: {
+          customerId,
+          vehicleId,
+          serviceId,
+          number,
+          status,
+          total,
+        },
+        select: {
+          id: true,
+          customerId: true,
+          vehicleId: true,
+          serviceId: true,
+          number: true,
+          status: true,
+          total: true,
+        },
+      });
+
+      await logUpdate({
+        context,
+        entityType: "INVOICE",
+        entityId: updatedInvoice.id,
+        title: `U përditësua fatura ${updatedInvoice.number}`,
+        description: `Të dhënat e faturës "${updatedInvoice.number}" u përditësuan.`,
+        oldValues: getInvoiceAuditValues(existingInvoice),
+        newValues: getInvoiceAuditValues(updatedInvoice),
+        metadata: {
+          source: "invoice-actions",
+          operation: "updateInvoice",
+        },
+        database: transaction,
+      });
+
+      if (existingInvoice.status !== updatedInvoice.status) {
+        await logStatusChange({
+          context,
+          entityType: "INVOICE",
+          entityId: updatedInvoice.id,
+          title: `Ndryshoi statusi i faturës ${updatedInvoice.number}`,
+          description: `Statusi ndryshoi nga "${getStatusLabel(
+            existingInvoice.status,
+          )}" në "${getStatusLabel(updatedInvoice.status)}".`,
+          oldStatus: existingInvoice.status,
+          newStatus: updatedInvoice.status,
+          metadata: {
+            source: "invoice-actions",
+            operation: "updateInvoice",
+            invoiceNumber: updatedInvoice.number,
+          },
+          database: transaction,
+        });
+
+        if (updatedInvoice.status === "PAID") {
+          await logPayment({
+            context,
+            entityType: "INVOICE",
+            entityId: updatedInvoice.id,
+            title: `U regjistrua pagesa për faturën ${updatedInvoice.number}`,
+            description: `Fatura "${updatedInvoice.number}" u shënua si e paguar.`,
+            amount: updatedInvoice.total,
+            metadata: {
+              source: "invoice-actions",
+              operation: "updateInvoice",
+              invoiceNumber: updatedInvoice.number,
+              previousStatus: existingInvoice.status,
+            },
+            database: transaction,
+          });
+        }
+      }
     });
 
     revalidateInvoicePaths(existingInvoice.id);
@@ -457,10 +608,10 @@ export async function updateInvoice(invoiceId, formData) {
     };
   }
 }
-
 export async function updateInvoiceStatus(invoiceId, status) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const context = await requireBusinessContext();
+    const { businessId } = context;
 
     if (!invoiceId || typeof invoiceId !== "string") {
       return {
@@ -487,6 +638,12 @@ export async function updateInvoiceStatus(invoiceId, status) {
       },
       select: {
         id: true,
+        customerId: true,
+        vehicleId: true,
+        serviceId: true,
+        number: true,
+        status: true,
+        total: true,
       },
     });
 
@@ -497,13 +654,70 @@ export async function updateInvoiceStatus(invoiceId, status) {
       };
     }
 
-    await db.invoice.update({
-      where: {
-        id: invoice.id,
-      },
-      data: {
-        status: normalizedStatus,
-      },
+    if (invoice.status === normalizedStatus) {
+      return {
+        success: true,
+        message:
+          normalizedStatus === "PAID"
+            ? "Fatura është tashmë e paguar."
+            : "Statusi është tashmë i përditësuar.",
+      };
+    }
+
+    await db.$transaction(async (transaction) => {
+      const updatedInvoice = await transaction.invoice.update({
+        where: {
+          id: invoice.id,
+        },
+        data: {
+          status: normalizedStatus,
+        },
+        select: {
+          id: true,
+          customerId: true,
+          vehicleId: true,
+          serviceId: true,
+          number: true,
+          status: true,
+          total: true,
+        },
+      });
+
+      await logStatusChange({
+        context,
+        entityType: "INVOICE",
+        entityId: updatedInvoice.id,
+        title: `Ndryshoi statusi i faturës ${updatedInvoice.number}`,
+        description: `Statusi i faturës "${updatedInvoice.number}" ndryshoi nga "${getStatusLabel(
+          invoice.status,
+        )}" në "${getStatusLabel(updatedInvoice.status)}".`,
+        oldStatus: invoice.status,
+        newStatus: updatedInvoice.status,
+        metadata: {
+          source: "invoice-actions",
+          operation: "updateInvoiceStatus",
+          invoiceNumber: updatedInvoice.number,
+        },
+        database: transaction,
+      });
+
+      if (updatedInvoice.status === "PAID") {
+        await logPayment({
+          context,
+          entityType: "INVOICE",
+          entityId: updatedInvoice.id,
+          title: `U regjistrua pagesa për faturën ${updatedInvoice.number}`,
+          description: `Fatura "${updatedInvoice.number}" u shënua si e paguar me total ${updatedInvoice.total}.`,
+          amount: updatedInvoice.total,
+          metadata: {
+            source: "invoice-actions",
+            operation: "updateInvoiceStatus",
+            invoiceNumber: updatedInvoice.number,
+            previousStatus: invoice.status,
+          },
+          database: transaction,
+        });
+      }
     });
 
     revalidateInvoicePaths(invoice.id);
@@ -527,7 +741,8 @@ export async function updateInvoiceStatus(invoiceId, status) {
 
 export async function deleteInvoice(invoiceId) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const context = await requireBusinessContext();
+    const { businessId } = context;
 
     if (!invoiceId || typeof invoiceId !== "string") {
       return {
@@ -543,6 +758,12 @@ export async function deleteInvoice(invoiceId) {
       },
       select: {
         id: true,
+        customerId: true,
+        vehicleId: true,
+        serviceId: true,
+        number: true,
+        status: true,
+        total: true,
       },
     });
 
@@ -553,10 +774,29 @@ export async function deleteInvoice(invoiceId) {
       };
     }
 
-    await db.invoice.delete({
-      where: {
-        id: invoice.id,
-      },
+    await db.$transaction(async (transaction) => {
+      await transaction.invoice.delete({
+        where: {
+          id: invoice.id,
+        },
+      });
+
+      await logDelete({
+        context,
+        entityType: "INVOICE",
+        entityId: invoice.id,
+        title: `U fshi fatura ${invoice.number}`,
+        description: `Fatura "${invoice.number}" me total ${invoice.total} dhe status "${getStatusLabel(
+          invoice.status,
+        )}" u fshi nga sistemi.`,
+        oldValues: getInvoiceAuditValues(invoice),
+        metadata: {
+          source: "invoice-actions",
+          operation: "deleteInvoice",
+          invoiceNumber: invoice.number,
+        },
+        database: transaction,
+      });
     });
 
     revalidateInvoicePaths(invoice.id);
