@@ -5,6 +5,12 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import {
+  logCreate,
+  logDelete,
+  logStatusChange,
+  logUpdate,
+} from "@/services/audit-events";
 
 const VALID_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 
@@ -29,6 +35,33 @@ function getPermissionErrorMessage(error) {
   return null;
 }
 
+function getServiceAuditValues(service) {
+  if (!service) {
+    return null;
+  }
+
+  return {
+    id: service.id,
+    vehicleId: service.vehicleId,
+    customerId: service.customerId,
+    title: service.title,
+    description: service.description,
+    status: service.status,
+    total: service.total,
+  };
+}
+
+function getStatusLabel(status) {
+  const labels = {
+    PENDING: "Në pritje",
+    IN_PROGRESS: "Në proces",
+    COMPLETED: "Përfunduar",
+    CANCELLED: "Anuluar",
+  };
+
+  return labels[status] || status;
+}
+
 function refreshServicePages(serviceId) {
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard/vehicles");
@@ -42,9 +75,11 @@ function refreshServicePages(serviceId) {
 
 export async function createService(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const context = await requireBusinessActionPermission(
       PERMISSIONS.SERVICES_CREATE,
     );
+
+    const { businessId } = context;
 
     const vehicleId = getFormString(formData, "vehicleId");
     const title = getFormString(formData, "title");
@@ -83,6 +118,9 @@ export async function createService(formData) {
       select: {
         id: true,
         customerId: true,
+        plate: true,
+        brand: true,
+        model: true,
       },
     });
 
@@ -93,19 +131,51 @@ export async function createService(formData) {
       };
     }
 
-    const service = await db.serviceRecord.create({
-      data: {
-        businessId,
-        vehicleId: vehicle.id,
-        customerId: vehicle.customerId || null,
-        title,
-        description: description || null,
-        status,
-        total,
-      },
+    let createdServiceId = null;
+
+    await db.$transaction(async (transaction) => {
+      const service = await transaction.serviceRecord.create({
+        data: {
+          businessId,
+          vehicleId: vehicle.id,
+          customerId: vehicle.customerId || null,
+          title,
+          description: description || null,
+          status,
+          total,
+        },
+        select: {
+          id: true,
+          vehicleId: true,
+          customerId: true,
+          title: true,
+          description: true,
+          status: true,
+          total: true,
+        },
+      });
+
+      createdServiceId = service.id;
+
+      await logCreate({
+        context,
+        entityType: "SERVICE",
+        entityId: service.id,
+        title: `U krijua shërbimi ${service.title}`,
+        description: `Shërbimi "${service.title}" u krijua për automjetin me targë "${vehicle.plate}".`,
+        newValues: getServiceAuditValues(service),
+        metadata: {
+          source: "service-actions",
+          operation: "createService",
+          vehiclePlate: vehicle.plate,
+          vehicleBrand: vehicle.brand,
+          vehicleModel: vehicle.model,
+        },
+        database: transaction,
+      });
     });
 
-    refreshServicePages(service.id);
+    refreshServicePages(createdServiceId);
 
     return {
       success: true,
@@ -126,9 +196,11 @@ export async function createService(formData) {
 
 export async function updateService(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const context = await requireBusinessActionPermission(
       PERMISSIONS.SERVICES_UPDATE,
     );
+
+    const { businessId } = context;
 
     const id = getFormString(formData, "id");
     const vehicleId = getFormString(formData, "vehicleId");
@@ -175,6 +247,12 @@ export async function updateService(formData) {
         },
         select: {
           id: true,
+          vehicleId: true,
+          customerId: true,
+          title: true,
+          description: true,
+          status: true,
+          total: true,
         },
       }),
 
@@ -186,6 +264,9 @@ export async function updateService(formData) {
         select: {
           id: true,
           customerId: true,
+          plate: true,
+          brand: true,
+          model: true,
         },
       }),
     ]);
@@ -204,18 +285,65 @@ export async function updateService(formData) {
       };
     }
 
-    await db.serviceRecord.update({
-      where: {
-        id: existingService.id,
-      },
-      data: {
-        vehicleId: vehicle.id,
-        customerId: vehicle.customerId || null,
-        title,
-        description: description || null,
-        status,
-        total,
-      },
+    await db.$transaction(async (transaction) => {
+      const updatedService = await transaction.serviceRecord.update({
+        where: {
+          id: existingService.id,
+        },
+        data: {
+          vehicleId: vehicle.id,
+          customerId: vehicle.customerId || null,
+          title,
+          description: description || null,
+          status,
+          total,
+        },
+        select: {
+          id: true,
+          vehicleId: true,
+          customerId: true,
+          title: true,
+          description: true,
+          status: true,
+          total: true,
+        },
+      });
+
+      await logUpdate({
+        context,
+        entityType: "SERVICE",
+        entityId: updatedService.id,
+        title: `U përditësua shërbimi ${updatedService.title}`,
+        description: `Të dhënat e shërbimit "${updatedService.title}" u përditësuan.`,
+        oldValues: getServiceAuditValues(existingService),
+        newValues: getServiceAuditValues(updatedService),
+        metadata: {
+          source: "service-actions",
+          operation: "updateService",
+          vehiclePlate: vehicle.plate,
+        },
+        database: transaction,
+      });
+
+      if (existingService.status !== updatedService.status) {
+        await logStatusChange({
+          context,
+          entityType: "SERVICE",
+          entityId: updatedService.id,
+          title: `Ndryshoi statusi i shërbimit ${updatedService.title}`,
+          description: `Statusi ndryshoi nga "${getStatusLabel(
+            existingService.status,
+          )}" në "${getStatusLabel(updatedService.status)}".`,
+          oldStatus: existingService.status,
+          newStatus: updatedService.status,
+          metadata: {
+            source: "service-actions",
+            operation: "updateService",
+            vehiclePlate: vehicle.plate,
+          },
+          database: transaction,
+        });
+      }
     });
 
     refreshServicePages(existingService.id);
@@ -240,9 +368,11 @@ export async function updateService(formData) {
 
 export async function updateServiceStatus(serviceId, status) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const context = await requireBusinessActionPermission(
       PERMISSIONS.SERVICES_UPDATE,
     );
+
+    const { businessId } = context;
 
     if (!serviceId || typeof serviceId !== "string") {
       return {
@@ -265,6 +395,13 @@ export async function updateServiceStatus(serviceId, status) {
       },
       select: {
         id: true,
+        title: true,
+        status: true,
+        vehicle: {
+          select: {
+            plate: true,
+          },
+        },
       },
     });
 
@@ -275,13 +412,45 @@ export async function updateServiceStatus(serviceId, status) {
       };
     }
 
-    await db.serviceRecord.update({
-      where: {
-        id: service.id,
-      },
-      data: {
-        status,
-      },
+    if (service.status === status) {
+      return {
+        success: true,
+        message: "Statusi është tashmë i përditësuar.",
+      };
+    }
+
+    await db.$transaction(async (transaction) => {
+      const updatedService = await transaction.serviceRecord.update({
+        where: {
+          id: service.id,
+        },
+        data: {
+          status,
+        },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+        },
+      });
+
+      await logStatusChange({
+        context,
+        entityType: "SERVICE",
+        entityId: updatedService.id,
+        title: `Ndryshoi statusi i shërbimit ${updatedService.title}`,
+        description: `Statusi ndryshoi nga "${getStatusLabel(
+          service.status,
+        )}" në "${getStatusLabel(updatedService.status)}".`,
+        oldStatus: service.status,
+        newStatus: updatedService.status,
+        metadata: {
+          source: "service-actions",
+          operation: "updateServiceStatus",
+          vehiclePlate: service.vehicle?.plate || null,
+        },
+        database: transaction,
+      });
     });
 
     refreshServicePages(service.id);
@@ -305,9 +474,11 @@ export async function updateServiceStatus(serviceId, status) {
 
 export async function deleteService(serviceId) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const context = await requireBusinessActionPermission(
       PERMISSIONS.SERVICES_DELETE,
     );
+
+    const { businessId } = context;
 
     if (!serviceId || typeof serviceId !== "string") {
       return {
@@ -323,11 +494,27 @@ export async function deleteService(serviceId) {
       },
       select: {
         id: true,
+        vehicleId: true,
+        customerId: true,
+        title: true,
+        description: true,
+        status: true,
+        total: true,
+
+        vehicle: {
+          select: {
+            plate: true,
+            brand: true,
+            model: true,
+          },
+        },
+
         _count: {
           select: {
             partsUsed: true,
           },
         },
+
         invoice: {
           select: {
             id: true,
@@ -358,10 +545,29 @@ export async function deleteService(serviceId) {
       };
     }
 
-    await db.serviceRecord.delete({
-      where: {
-        id: service.id,
-      },
+    await db.$transaction(async (transaction) => {
+      await transaction.serviceRecord.delete({
+        where: {
+          id: service.id,
+        },
+      });
+
+      await logDelete({
+        context,
+        entityType: "SERVICE",
+        entityId: service.id,
+        title: `U fshi shërbimi ${service.title}`,
+        description: `Shërbimi "${service.title}" për automjetin me targë "${service.vehicle?.plate || "pa targë"}" u fshi nga sistemi.`,
+        oldValues: getServiceAuditValues(service),
+        metadata: {
+          source: "service-actions",
+          operation: "deleteService",
+          vehiclePlate: service.vehicle?.plate || null,
+          vehicleBrand: service.vehicle?.brand || null,
+          vehicleModel: service.vehicle?.model || null,
+        },
+        database: transaction,
+      });
     });
 
     refreshServicePages();
