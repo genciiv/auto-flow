@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   Bell,
   CheckCircle2,
@@ -8,6 +9,8 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
+
+import { getNotificationUrl } from "@/lib/notification-router";
 
 function formatRelativeTime(value) {
   if (!value) {
@@ -40,7 +43,7 @@ function formatRelativeTime(value) {
   const hours = Math.floor(minutes / 60);
 
   if (hours < 24) {
-    return `${hours} ${hours === 1 ? "orë" : "orë"} më parë`;
+    return `${hours} orë më parë`;
   }
 
   const days = Math.floor(hours / 24);
@@ -95,12 +98,17 @@ function NotificationTypeIcon({ type }) {
 export default function NotificationItem({
   notification,
   disabled = false,
+  onClose,
   onMarkAsRead,
   onDelete,
 }) {
+  const router = useRouter();
+
   if (!notification?.id) {
     return null;
   }
+
+  const notificationUrl = getNotificationUrl(notification);
 
   function handleOpen() {
     if (disabled) {
@@ -109,6 +117,12 @@ export default function NotificationItem({
 
     if (!notification.isRead) {
       onMarkAsRead?.(notification.id);
+    }
+
+    onClose?.();
+
+    if (notificationUrl) {
+      router.push(notificationUrl);
     }
   }
 
@@ -123,18 +137,23 @@ export default function NotificationItem({
     onDelete?.(notification.id);
   }
 
+  function handleKeyDown(event) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleOpen();
+    }
+  }
+
   return (
     <div
       role="button"
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled}
       onClick={handleOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          handleOpen();
-        }
-      }}
-      className={`group relative flex w-full cursor-pointer gap-3 border-b border-slate-100 px-4 py-4 text-left outline-none transition last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
+      onKeyDown={handleKeyDown}
+      className={`group relative flex w-full gap-3 border-b border-slate-100 px-4 py-4 text-left outline-none transition last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+      } ${
         notification.isRead
           ? "bg-white hover:bg-slate-50"
           : "bg-blue-50/50 hover:bg-blue-50"
@@ -184,6 +203,13 @@ export default function NotificationItem({
             <>
               <span aria-hidden="true">•</span>
               <span className="text-blue-600">E re</span>
+            </>
+          ) : null}
+
+          {notificationUrl ? (
+            <>
+              <span aria-hidden="true">•</span>
+              <span className="text-slate-500">Kliko për të hapur</span>
             </>
           ) : null}
         </div>

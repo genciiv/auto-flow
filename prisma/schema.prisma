@@ -150,6 +150,20 @@ enum VehicleClaimStatus {
   REJECTED
 }
 
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  STATUS_CHANGE
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+  PAYMENT
+  CUSTOM
+}
+
 /**
  * |--------------------------------------------------------------------------
  * | User
@@ -177,6 +191,7 @@ model User {
   marketplaceFavorites MarketplaceFavorite[]
   marketplaceInquiries MarketplaceInquiry[]  @relation("MarketplaceInquirySender")
   notifications        Notification[]
+  auditLogs            AuditLog[]
 
   @@index([email])
   @@index([phone])
@@ -241,6 +256,7 @@ model Business {
   purchaseOrders      PurchaseOrder[]
   marketplaceListings MarketplaceListing[] @relation("MarketplaceBusinessListings")
   notifications       Notification[]
+  auditLogs           AuditLog[]
 
   @@index([name])
   @@index([city])
@@ -831,4 +847,37 @@ model Notification {
   @@index([businessId])
   @@index([isRead])
   @@index([createdAt])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  businessId String
+  userId     String?
+
+  action     AuditAction
+  entityType String
+  entityId   String?
+
+  title       String
+  description String?
+
+  oldValues Json?
+  newValues Json?
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@index([businessId, createdAt])
+  @@index([businessId, entityType, entityId])
+  @@index([userId, createdAt])
 }
