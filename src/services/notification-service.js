@@ -41,10 +41,6 @@ function prepareNotificationData(data) {
     type: data.type || "INFO",
     entityType: data.entityType || null,
     entityId: data.entityId || null,
-    actorUserId: data.actorUserId || null,
-    actorName: cleanText(data.actorName) || null,
-    actorAvatar: cleanText(data.actorAvatar) || null,
-    href: cleanText(data.href) || null,
   };
 }
 
@@ -107,12 +103,7 @@ export async function getUserNotificationSummary(
         type: true,
         entityType: true,
         entityId: true,
-        actorUserId: true,
-        actorName: true,
-        actorAvatar: true,
-        href: true,
         isRead: true,
-        readAt: true,
         createdAt: true,
       },
     }),
@@ -160,12 +151,7 @@ export async function getBusinessNotificationSummary(
         type: true,
         entityType: true,
         entityId: true,
-        actorUserId: true,
-        actorName: true,
-        actorAvatar: true,
-        href: true,
         isRead: true,
-        readAt: true,
         createdAt: true,
       },
     }),
@@ -185,14 +171,18 @@ export async function getBusinessNotificationSummary(
 }
 
 export async function markUserNotificationAsRead({ notificationId, userId }) {
+  if (!notificationId || !userId) {
+    return false;
+  }
+
   const result = await db.notification.updateMany({
     where: {
       id: notificationId,
       userId,
+      isRead: false,
     },
     data: {
       isRead: true,
-      readAt: new Date(),
     },
   });
 
@@ -200,6 +190,12 @@ export async function markUserNotificationAsRead({ notificationId, userId }) {
 }
 
 export async function markAllUserNotificationsAsRead(userId) {
+  if (!userId) {
+    return {
+      count: 0,
+    };
+  }
+
   return db.notification.updateMany({
     where: {
       userId,
@@ -207,16 +203,77 @@ export async function markAllUserNotificationsAsRead(userId) {
     },
     data: {
       isRead: true,
-      readAt: new Date(),
     },
   });
 }
 
 export async function deleteUserNotification({ notificationId, userId }) {
+  if (!notificationId || !userId) {
+    return false;
+  }
+
   const result = await db.notification.deleteMany({
     where: {
       id: notificationId,
       userId,
+    },
+  });
+
+  return result.count > 0;
+}
+
+export async function markBusinessNotificationAsRead({
+  notificationId,
+  businessId,
+}) {
+  if (!notificationId || !businessId) {
+    return false;
+  }
+
+  const result = await db.notification.updateMany({
+    where: {
+      id: notificationId,
+      businessId,
+      isRead: false,
+    },
+    data: {
+      isRead: true,
+    },
+  });
+
+  return result.count > 0;
+}
+
+export async function markAllBusinessNotificationsAsRead(businessId) {
+  if (!businessId) {
+    return {
+      count: 0,
+    };
+  }
+
+  return db.notification.updateMany({
+    where: {
+      businessId,
+      isRead: false,
+    },
+    data: {
+      isRead: true,
+    },
+  });
+}
+
+export async function deleteBusinessNotification({
+  notificationId,
+  businessId,
+}) {
+  if (!notificationId || !businessId) {
+    return false;
+  }
+
+  const result = await db.notification.deleteMany({
+    where: {
+      id: notificationId,
+      businessId,
     },
   });
 
