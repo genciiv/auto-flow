@@ -9,39 +9,40 @@ export default function NotificationDropdown({
   unreadCount = 0,
   isPending = false,
   feedback = "",
-  onClose,
   onMarkAsRead,
   onMarkAllAsRead,
   onDelete,
 }) {
   return (
-    <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/15">
-      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Bell size={18} className="text-blue-600" />
+    <div className="absolute right-0 top-[calc(100%+12px)] z-50 w-[390px] max-w-[calc(100vw-24px)] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
+      <div className="sticky top-0 z-10 border-b border-slate-100 bg-white px-5 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Bell size={18} className="text-blue-600" />
 
-            <h2 className="font-bold text-slate-950">Njoftimet</h2>
+              <h2 className="text-base font-bold text-slate-900">Njoftimet</h2>
+            </div>
+
+            <p className="mt-1 text-xs text-slate-500">
+              {unreadCount > 0
+                ? `${unreadCount} njoftime të palexuara`
+                : "Të gjitha njoftimet janë lexuar"}
+            </p>
           </div>
 
-          <p className="mt-1 text-xs text-slate-500">
-            {unreadCount > 0
-              ? `${unreadCount} të palexuara`
-              : "Nuk ke njoftime të palexuara"}
-          </p>
+          {unreadCount > 0 ? (
+            <button
+              type="button"
+              onClick={onMarkAllAsRead}
+              disabled={isPending}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CheckCheck size={15} />
+              Lexo të gjitha
+            </button>
+          ) : null}
         </div>
-
-        {unreadCount > 0 ? (
-          <button
-            type="button"
-            onClick={onMarkAllAsRead}
-            disabled={isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-bold text-blue-600 transition hover:bg-blue-50 disabled:opacity-50"
-          >
-            <CheckCheck size={15} />
-            Lexo të gjitha
-          </button>
-        ) : null}
       </div>
 
       {feedback ? (
@@ -51,27 +52,27 @@ export default function NotificationDropdown({
       ) : null}
 
       {notifications.length === 0 ? (
-        <div className="px-6 py-12 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-            <Inbox size={25} />
+        <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+            <Inbox size={28} />
           </div>
 
-          <h3 className="mt-4 text-sm font-bold text-slate-900">
-            Nuk ka njoftime
+          <h3 className="mt-5 text-sm font-bold text-slate-900">
+            Nuk ke njoftime
           </h3>
 
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Njoftimet e reja do të shfaqen këtu.
+          <p className="mt-2 max-w-[240px] text-xs leading-5 text-slate-500">
+            Kur të ndodhë një aktivitet i ri në sistem, njoftimet do të shfaqen
+            këtu.
           </p>
         </div>
       ) : (
-        <div className="max-h-[28rem] overflow-y-auto">
+        <div className="max-h-[520px] overflow-y-auto">
           {notifications.map((notification) => (
             <NotificationItem
               key={notification.id}
               notification={notification}
               disabled={isPending}
-              onClose={onClose}
               onMarkAsRead={onMarkAsRead}
               onDelete={onDelete}
             />
