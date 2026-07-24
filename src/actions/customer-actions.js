@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import { logCreate, logDelete, logUpdate } from "@/services/audit-events";
 
 function getOptionalFormValue(formData, fieldName) {
   const value = formData.get(fieldName);
@@ -26,10 +27,26 @@ function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function getCustomerAuditValues(customer) {
+  if (!customer) {
+    return null;
+  }
+
+  return {
+    id: customer.id,
+    name: customer.name,
+    phone: customer.phone,
+    email: customer.email,
+    city: customer.city,
+  };
+}
+
 export async function createCustomer(formData) {
-  const { businessId } = await requireBusinessActionPermission(
+  const context = await requireBusinessActionPermission(
     PERMISSIONS.CUSTOMERS_CREATE,
   );
+
+  const { businessId } = context;
 
   const name = getOptionalFormValue(formData, "name");
   const phone = getOptionalFormValue(formData, "phone");
@@ -44,14 +61,37 @@ export async function createCustomer(formData) {
     throw new Error("Adresa e email-it nuk është e vlefshme.");
   }
 
-  await db.customer.create({
-    data: {
-      businessId,
-      name,
-      phone,
-      email,
-      city,
-    },
+  await db.$transaction(async (transaction) => {
+    const customer = await transaction.customer.create({
+      data: {
+        businessId,
+        name,
+        phone,
+        email,
+        city,
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        city: true,
+      },
+    });
+
+    await logCreate({
+      context,
+      entityType: "CUSTOMER",
+      entityId: customer.id,
+      title: `U krijua klienti ${customer.name}`,
+      description: `Klienti "${customer.name}" u regjistrua në sistem.`,
+      newValues: getCustomerAuditValues(customer),
+      metadata: {
+        source: "customer-actions",
+        operation: "createCustomer",
+      },
+      database: transaction,
+    });
   });
 
   revalidatePath("/dashboard/customers");
@@ -59,9 +99,11 @@ export async function createCustomer(formData) {
 }
 
 export async function updateCustomer(formData) {
-  const { businessId } = await requireBusinessActionPermission(
+  const context = await requireBusinessActionPermission(
     PERMISSIONS.CUSTOMERS_UPDATE,
   );
+
+  const { businessId } = context;
 
   const id = getOptionalFormValue(formData, "id");
   const name = getOptionalFormValue(formData, "name");
@@ -81,42 +123,72 @@ export async function updateCustomer(formData) {
     throw new Error("Adresa e email-it nuk është e vlefshme.");
   }
 
-  const customer = await db.customer.findFirst({
+  const existingCustomer = await db.customer.findFirst({
     where: {
       id,
       businessId,
     },
     select: {
       id: true,
+      name: true,
+      phone: true,
+      email: true,
+      city: true,
     },
   });
 
-  if (!customer) {
+  if (!existingCustomer) {
     throw new Error("Klienti nuk u gjet.");
   }
 
-  await db.customer.update({
-    where: {
-      id: customer.id,
-    },
-    data: {
-      name,
-      phone,
-      email,
-      city,
-    },
+  await db.$transaction(async (transaction) => {
+    const updatedCustomer = await transaction.customer.update({
+      where: {
+        id: existingCustomer.id,
+      },
+      data: {
+        name,
+        phone,
+        email,
+        city,
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        city: true,
+      },
+    });
+
+    await logUpdate({
+      context,
+      entityType: "CUSTOMER",
+      entityId: updatedCustomer.id,
+      title: `U përditësua klienti ${updatedCustomer.name}`,
+      description: `Të dhënat e klientit "${updatedCustomer.name}" u përditësuan.`,
+      oldValues: getCustomerAuditValues(existingCustomer),
+      newValues: getCustomerAuditValues(updatedCustomer),
+      metadata: {
+        source: "customer-actions",
+        operation: "updateCustomer",
+      },
+      database: transaction,
+    });
   });
 
   revalidatePath("/dashboard/customers");
-  revalidatePath(`/dashboard/customers/${customer.id}`);
+  revalidatePath(`/dashboard/customers/${existingCustomer.id}`);
   revalidatePath("/dashboard");
 }
 
 export async function deleteCustomer(customerId) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const context = await requireBusinessActionPermission(
       PERMISSIONS.CUSTOMERS_DELETE,
     );
+
+    const { businessId } = context;
 
     if (!customerId || typeof customerId !== "string") {
       return {
@@ -132,6 +204,11 @@ export async function deleteCustomer(customerId) {
       },
       select: {
         id: true,
+        name: true,
+        phone: true,
+        email: true,
+        city: true,
+
         _count: {
           select: {
             vehicles: true,
@@ -188,10 +265,26 @@ export async function deleteCustomer(customerId) {
       };
     }
 
-    await db.customer.delete({
-      where: {
-        id: customer.id,
-      },
+    await db.$transaction(async (transaction) => {
+      await transaction.customer.delete({
+        where: {
+          id: customer.id,
+        },
+      });
+
+      await logDelete({
+        context,
+        entityType: "CUSTOMER",
+        entityId: customer.id,
+        title: `U fshi klienti ${customer.name}`,
+        description: `Klienti "${customer.name}" u fshi nga sistemi.`,
+        oldValues: getCustomerAuditValues(customer),
+        metadata: {
+          source: "customer-actions",
+          operation: "deleteCustomer",
+        },
+        database: transaction,
+      });
     });
 
     revalidatePath("/dashboard/customers");

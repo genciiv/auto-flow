@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import { logCreate, logDelete, logUpdate } from "@/services/audit-events";
 
 function getFormString(formData, fieldName) {
   const value = formData.get(fieldName);
@@ -25,6 +26,22 @@ function getPermissionErrorMessage(error) {
   }
 
   return null;
+}
+
+function getVehicleAuditValues(vehicle) {
+  if (!vehicle) {
+    return null;
+  }
+
+  return {
+    id: vehicle.id,
+    customerId: vehicle.customerId,
+    plate: vehicle.plate,
+    brand: vehicle.brand,
+    model: vehicle.model,
+    year: vehicle.year,
+    vin: vehicle.vin,
+  };
 }
 
 async function validateCustomerOwnership(customerId, businessId) {
@@ -60,9 +77,11 @@ async function validateCustomerOwnership(customerId, businessId) {
 
 export async function createVehicle(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const context = await requireBusinessActionPermission(
       PERMISSIONS.VEHICLES_CREATE,
     );
+
+    const { businessId } = context;
 
     const customerId = getFormString(formData, "customerId");
     const plate = getFormString(formData, "plate").toUpperCase();
@@ -138,16 +157,41 @@ export async function createVehicle(formData) {
       }
     }
 
-    await db.vehicle.create({
-      data: {
-        businessId,
-        customerId: customerValidation.customerId,
-        plate,
-        brand,
-        model: model || null,
-        year,
-        vin: vin || null,
-      },
+    await db.$transaction(async (transaction) => {
+      const vehicle = await transaction.vehicle.create({
+        data: {
+          businessId,
+          customerId: customerValidation.customerId,
+          plate,
+          brand,
+          model: model || null,
+          year,
+          vin: vin || null,
+        },
+        select: {
+          id: true,
+          customerId: true,
+          plate: true,
+          brand: true,
+          model: true,
+          year: true,
+          vin: true,
+        },
+      });
+
+      await logCreate({
+        context,
+        entityType: "VEHICLE",
+        entityId: vehicle.id,
+        title: `U krijua automjeti ${vehicle.plate}`,
+        description: `Automjeti "${vehicle.brand} ${vehicle.model || ""}" me targë "${vehicle.plate}" u regjistrua në sistem.`,
+        newValues: getVehicleAuditValues(vehicle),
+        metadata: {
+          source: "vehicle-actions",
+          operation: "createVehicle",
+        },
+        database: transaction,
+      });
     });
 
     revalidatePath("/dashboard/vehicles");
@@ -173,9 +217,11 @@ export async function createVehicle(formData) {
 
 export async function updateVehicle(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const context = await requireBusinessActionPermission(
       PERMISSIONS.VEHICLES_UPDATE,
     );
+
+    const { businessId } = context;
 
     const id = getFormString(formData, "id");
     const customerId = getFormString(formData, "customerId");
@@ -218,6 +264,12 @@ export async function updateVehicle(formData) {
       },
       select: {
         id: true,
+        customerId: true,
+        plate: true,
+        brand: true,
+        model: true,
+        year: true,
+        vin: true,
       },
     });
 
@@ -282,18 +334,44 @@ export async function updateVehicle(formData) {
       }
     }
 
-    await db.vehicle.update({
-      where: {
-        id: vehicle.id,
-      },
-      data: {
-        customerId: customerValidation.customerId,
-        plate,
-        brand,
-        model: model || null,
-        year,
-        vin: vin || null,
-      },
+    await db.$transaction(async (transaction) => {
+      const updatedVehicle = await transaction.vehicle.update({
+        where: {
+          id: vehicle.id,
+        },
+        data: {
+          customerId: customerValidation.customerId,
+          plate,
+          brand,
+          model: model || null,
+          year,
+          vin: vin || null,
+        },
+        select: {
+          id: true,
+          customerId: true,
+          plate: true,
+          brand: true,
+          model: true,
+          year: true,
+          vin: true,
+        },
+      });
+
+      await logUpdate({
+        context,
+        entityType: "VEHICLE",
+        entityId: updatedVehicle.id,
+        title: `U përditësua automjeti ${updatedVehicle.plate}`,
+        description: `Të dhënat e automjetit me targë "${updatedVehicle.plate}" u përditësuan.`,
+        oldValues: getVehicleAuditValues(vehicle),
+        newValues: getVehicleAuditValues(updatedVehicle),
+        metadata: {
+          source: "vehicle-actions",
+          operation: "updateVehicle",
+        },
+        database: transaction,
+      });
     });
 
     revalidatePath("/dashboard/vehicles");
@@ -321,9 +399,11 @@ export async function updateVehicle(formData) {
 
 export async function deleteVehicle(vehicleId) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const context = await requireBusinessActionPermission(
       PERMISSIONS.VEHICLES_DELETE,
     );
+
+    const { businessId } = context;
 
     if (!vehicleId || typeof vehicleId !== "string") {
       return {
@@ -339,7 +419,12 @@ export async function deleteVehicle(vehicleId) {
       },
       select: {
         id: true,
+        customerId: true,
         plate: true,
+        brand: true,
+        model: true,
+        year: true,
+        vin: true,
       },
     });
 
@@ -382,10 +467,26 @@ export async function deleteVehicle(vehicleId) {
       };
     }
 
-    await db.vehicle.delete({
-      where: {
-        id: vehicle.id,
-      },
+    await db.$transaction(async (transaction) => {
+      await transaction.vehicle.delete({
+        where: {
+          id: vehicle.id,
+        },
+      });
+
+      await logDelete({
+        context,
+        entityType: "VEHICLE",
+        entityId: vehicle.id,
+        title: `U fshi automjeti ${vehicle.plate}`,
+        description: `Automjeti "${vehicle.brand} ${vehicle.model || ""}" me targë "${vehicle.plate}" u fshi nga sistemi.`,
+        oldValues: getVehicleAuditValues(vehicle),
+        metadata: {
+          source: "vehicle-actions",
+          operation: "deleteVehicle",
+        },
+        database: transaction,
+      });
     });
 
     revalidatePath("/dashboard/vehicles");
