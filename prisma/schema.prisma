@@ -164,6 +164,12 @@ enum AuditAction {
   CUSTOM
 }
 
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  ACCOUNT_ACTIVATION
+}
+
 /**
  * |--------------------------------------------------------------------------
  * | User
@@ -192,6 +198,7 @@ model User {
   marketplaceInquiries MarketplaceInquiry[]  @relation("MarketplaceInquirySender")
   notifications        Notification[]
   auditLogs            AuditLog[]
+  authTokens           AuthToken[]
 
   @@index([email])
   @@index([phone])
@@ -880,4 +887,22 @@ model AuditLog {
   @@index([businessId, createdAt])
   @@index([businessId, entityType, entityId])
   @@index([userId, createdAt])
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String
+  type      AuthTokenType
+  tokenHash String        @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([expiresAt])
+  @@index([userId, type])
+  @@index([userId, type, usedAt])
 }
