@@ -14,6 +14,7 @@ export async function loginAction(previousState, formData) {
   if (!email || !password) {
     return {
       error: "Plotëso email-in dhe password-in.",
+      code: null,
     };
   }
 
@@ -26,20 +27,33 @@ export async function loginAction(previousState, formData) {
 
     return {
       error: null,
+      code: null,
     };
   } catch (error) {
     if (error instanceof AuthError) {
-      switch (error.type) {
-        case "CredentialsSignin":
-          return {
-            error: "Email-i ose password-i është i pasaktë.",
-          };
-
-        default:
-          return {
-            error: "Nuk ishte e mundur të kryhej hyrja.",
-          };
+      if (
+        error.type === "CredentialsSignin" &&
+        error.code === "email_not_verified"
+      ) {
+        return {
+          error:
+            "Email-i yt nuk është verifikuar. Kontrollo email-in ose kërko një link të ri.",
+          code: "EMAIL_NOT_VERIFIED",
+          email,
+        };
       }
+
+      if (error.type === "CredentialsSignin") {
+        return {
+          error: "Email-i ose password-i është i pasaktë.",
+          code: "INVALID_CREDENTIALS",
+        };
+      }
+
+      return {
+        error: "Nuk ishte e mundur të kryhej hyrja.",
+        code: "AUTH_ERROR",
+      };
     }
 
     throw error;

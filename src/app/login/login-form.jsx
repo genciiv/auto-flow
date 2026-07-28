@@ -2,12 +2,16 @@
 
 import { useActionState, useState } from "react";
 
+import Link from "next/link";
+
 import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 
 import { loginAction } from "./actions";
 
 const initialState = {
   error: null,
+  code: null,
+  email: null,
 };
 
 export default function LoginForm() {
@@ -94,14 +98,25 @@ export default function LoginForm() {
         </div>
       </div>
 
-      {state?.error ? (
-        <div
-          role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+      {state?.code === "EMAIL_NOT_VERIFIED" ? (
+        <Link
+          href={`/resend-verification?email=${encodeURIComponent(
+            state.email ?? "",
+          )}`}
+          className="block rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-center text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
         >
-          {state.error}
-        </div>
+          Ridërgo email-in e verifikimit
+        </Link>
       ) : null}
+
+      <div className="text-right">
+        <Link
+          href="/resend-verification"
+          className="text-xs font-semibold text-blue-600 transition hover:text-blue-700"
+        >
+          Nuk e ke verifikuar email-in?
+        </Link>
+      </div>
 
       <button
         type="submit"

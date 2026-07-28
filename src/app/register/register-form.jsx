@@ -215,6 +215,16 @@ export default function RegisterForm() {
       <SubmitButton />
 
       <p className="text-center text-sm text-slate-500">
+        E ke krijuar llogarinë, por nuk të erdhi email-i?{" "}
+        <Link
+          href="/resend-verification"
+          className="font-semibold text-blue-600 transition hover:text-blue-700"
+        >
+          Ridërgoje
+        </Link>
+      </p>
+
+      <p className="text-center text-sm text-slate-500">
         Ke tashmë një llogari?{" "}
         <Link
           href="/login"

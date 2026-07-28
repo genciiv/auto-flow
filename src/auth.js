@@ -1,8 +1,12 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
 import { db } from "@/lib/db";
+
+class EmailNotVerifiedError extends CredentialsSignin {
+  code = "email_not_verified";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -25,6 +29,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           label: "Email",
           type: "email",
         },
+
         password: {
           label: "Password",
           type: "password",
@@ -48,14 +53,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: {
             email,
           },
+
           include: {
             businesses: {
               where: {
                 isActive: true,
+
                 business: {
                   isActive: true,
                 },
               },
+
               include: {
                 business: {
                   select: {
@@ -65,6 +73,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                   },
                 },
               },
+
               orderBy: {
                 createdAt: "asc",
               },
@@ -73,10 +82,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (!user || !user.isActive || !user.passwordHash) {
-          return null;
-        }
-
-        if (!user.emailVerified) {
           return null;
         }
 
@@ -89,12 +94,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        /*
+         * Ky kontroll bëhet vetëm pasi password-i është verifikuar.
+         * Kështu nuk zbulojmë statusin e një llogarie pa kredenciale të sakta.
+         */
+        if (!user.emailVerified) {
+          throw new EmailNotVerifiedError();
+        }
+
         const primaryMembership = user.businesses[0] ?? null;
 
         const isPlatformAdmin = user.globalRole === "PLATFORM_ADMIN";
-
         const isCustomer = user.globalRole === "CUSTOMER";
-
         const hasBusinessAccess = user.businesses.length > 0;
 
         if (!isPlatformAdmin && !isCustomer && !hasBusinessAccess) {
@@ -105,6 +116,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: {
             id: user.id,
           },
+
           data: {
             lastLoginAt: new Date(),
           },
@@ -118,9 +130,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           globalRole: user.globalRole,
 
           businessId: primaryMembership?.businessId ?? null,
-
           businessName: primaryMembership?.business?.name ?? null,
-
           businessRole: primaryMembership?.role ?? null,
 
           memberships: user.businesses.map((membership) => ({
@@ -156,9 +166,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (selectedMembership) {
           token.businessId = selectedMembership.businessId;
-
           token.businessName = selectedMembership.businessName;
-
           token.businessRole = selectedMembership.role;
         }
       }
@@ -169,15 +177,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.userId ?? token.sub;
-
         session.user.globalRole = token.globalRole ?? null;
-
         session.user.businessId = token.businessId ?? null;
-
         session.user.businessName = token.businessName ?? null;
-
         session.user.businessRole = token.businessRole ?? null;
-
         session.user.memberships = token.memberships ?? [];
       }
 

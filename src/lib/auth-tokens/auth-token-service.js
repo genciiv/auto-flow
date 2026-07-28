@@ -206,6 +206,57 @@ class AuthTokenService {
 
     return result;
   }
+
+  async canResend(userId, type) {
+    const config = AUTH_TOKEN_CONFIG[type];
+
+    if (!config) {
+      throw new Error(`Unsupported token type: ${type}`);
+    }
+
+    const latestToken = await db.authToken.findFirst({
+      where: {
+        userId,
+        type,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        createdAt: true,
+      },
+    });
+
+    if (!latestToken) {
+      return {
+        allowed: true,
+        retryAfterSeconds: 0,
+      };
+    }
+
+    const resendAfterMilliseconds = config.resendAfterMinutes * 60 * 1000;
+
+    const nextAllowedAt =
+      latestToken.createdAt.getTime() + resendAfterMilliseconds;
+
+    const remainingMilliseconds = nextAllowedAt - Date.now();
+
+    if (remainingMilliseconds <= 0) {
+      return {
+        allowed: true,
+        retryAfterSeconds: 0,
+      };
+    }
+
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.ceil(remainingMilliseconds / 1000),
+    };
+  }
+
+  async canResendEmailVerification(userId) {
+    return this.canResend(userId, AUTH_TOKEN_TYPES.EMAIL_VERIFICATION);
+  }
 }
 
 export const authTokenService = new AuthTokenService();
