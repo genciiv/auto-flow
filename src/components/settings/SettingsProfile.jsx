@@ -99,18 +99,15 @@ export default function SettingsProfile({ profile, canUpdate = false }) {
 
           <input
             id="profile-email"
-            name="email"
             type="email"
-            required
-            maxLength={190}
-            defaultValue={profile?.email || ""}
-            disabled={!canUpdate || isSaving}
-            placeholder="emri@email.com"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
+            value={profile?.email || ""}
+            disabled
+            readOnly
+            className="w-full cursor-not-allowed rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 outline-none"
           />
 
           <p className="mt-2 text-xs leading-5 text-slate-400">
-            Ndryshimi i email-it mund të kërkojë hyrje të re në llogari.
+            Email-i i hyrjes ndryshohet vetëm përmes procesit të verifikimit.
           </p>
         </div>
 

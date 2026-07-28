@@ -75,7 +75,7 @@ export async function updateProfileSettings(formData) {
     );
 
     const name = getTextValue(formData, "name");
-    const email = getTextValue(formData, "email").toLowerCase();
+
     const phone = getOptionalTextValue(formData, "phone");
 
     if (name.length < 2) {
@@ -92,38 +92,12 @@ export async function updateProfileSettings(formData) {
       };
     }
 
-    if (!email || !isValidEmail(email)) {
-      return {
-        success: false,
-        message: "Vendos një adresë email-i të vlefshme.",
-      };
-    }
-
-    if (email.length > 190) {
-      return {
-        success: false,
-        message: "Email-i është shumë i gjatë.",
-      };
-    }
-
     if (phone && phone.length > 30) {
       return {
         success: false,
         message: "Numri i telefonit është shumë i gjatë.",
       };
     }
-
-    const existingUser = await db.user.findFirst({
-      where: {
-        email,
-        id: {
-          not: userId,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
 
     if (existingUser) {
       return {
@@ -138,7 +112,6 @@ export async function updateProfileSettings(formData) {
       },
       data: {
         name,
-        email,
         phone,
       },
     });
