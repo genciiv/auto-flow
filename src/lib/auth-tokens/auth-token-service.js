@@ -231,12 +231,21 @@ class AuthTokenService {
         };
       }
 
-      await tx.user.update({
+      const updatedUser = await tx.user.update({
         where: {
           id: verification.token.userId,
         },
         data: {
           passwordHash,
+          sessionVersion: {
+            increment: 1,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          sessionVersion: true,
         },
       });
 
@@ -257,11 +266,7 @@ class AuthTokenService {
 
       return {
         valid: true,
-        user: {
-          id: verification.token.user.id,
-          name: verification.token.user.name,
-          email: verification.token.user.email,
-        },
+        user: updatedUser,
       };
     });
   }

@@ -177,25 +177,26 @@ enum AuthTokenType {
  */
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  phone         String?
-  passwordHash  String?
-  globalRole    UserRole?
-  isActive      Boolean   @default(true)
-  emailVerified DateTime?
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  phone          String?
+  passwordHash   String?
+  globalRole     UserRole?
+  isActive       Boolean   @default(true)
+  emailVerified  DateTime?
+  lastLoginAt    DateTime?
+  sessionVersion Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   businesses BusinessUser[]
 
   customerProfile CustomerProfile?
 
-  marketplaceListings  MarketplaceListing[]  @relation("MarketplaceUserListings")
+  marketplaceListings  MarketplaceListing[] @relation("MarketplaceUserListings")
   marketplaceFavorites MarketplaceFavorite[]
-  marketplaceInquiries MarketplaceInquiry[]  @relation("MarketplaceInquirySender")
+  marketplaceInquiries MarketplaceInquiry[] @relation("MarketplaceInquirySender")
   notifications        Notification[]
   auditLogs            AuditLog[]
   authTokens           AuthToken[]
