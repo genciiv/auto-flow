@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import BusinessOnboardingCard from "@/components/dashboard/BusinessOnboardingCard";
 import StatsGrid from "@/components/dashboard/StatsGrid";
 import RevenueChart from "@/components/dashboard/RevenueChart";
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -15,6 +16,7 @@ export default async function DashboardPage() {
   const { businessId } = await requireBusinessContext();
 
   const [
+    business,
     customerCount,
     vehicleCount,
     activeServiceCount,
@@ -25,6 +27,22 @@ export default async function DashboardPage() {
     parts,
     upcomingAppointments,
   ] = await Promise.all([
+    db.business.findUnique({
+      where: {
+        id: businessId,
+      },
+      select: {
+        id: true,
+        name: true,
+        nipt: true,
+        city: true,
+        address: true,
+        phone: true,
+        email: true,
+        workingHours: true,
+      },
+    }),
+
     db.customer.count({
       where: {
         businessId,
@@ -67,24 +85,6 @@ export default async function DashboardPage() {
         vehicle: true,
       },
       take: 5,
-    }),
-
-    db.invoice.findMany({
-      where: {
-        businessId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    }),
-
-    db.part.findMany({
-      where: {
-        businessId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
     }),
 
     db.invoice.findMany({
@@ -155,6 +155,8 @@ export default async function DashboardPage() {
             magazinën.
           </p>
         </div>
+
+        <BusinessOnboardingCard business={business} />
 
         <StatsGrid stats={stats} />
 
