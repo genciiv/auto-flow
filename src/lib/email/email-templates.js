@@ -54,3 +54,18 @@ export function emailVerificationTemplate({ name, verificationUrl }) {
     buttonUrl: verificationUrl,
   });
 }
+
+export function passwordResetTemplate({ name, resetPasswordUrl }) {
+  return emailLayout({
+    name,
+    title: "Rivendos password-in",
+    content: `
+      Kemi marrë një kërkesë për ndryshimin e password-it të llogarisë
+      tënde AutoFlow. Kliko butonin më poshtë për të vendosur një
+      password të ri. Linku është i vlefshëm për 1 orë.
+      Nëse nuk e ke bërë ti këtë kërkesë, mund ta injorosh këtë email.
+    `,
+    buttonText: "Vendos password të ri",
+    buttonUrl: resetPasswordUrl,
+  });
+}

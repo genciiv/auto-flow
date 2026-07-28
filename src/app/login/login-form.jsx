@@ -60,7 +60,12 @@ export default function LoginForm() {
             Password
           </label>
 
-          <span className="text-xs text-slate-400">Harrove password-in?</span>
+          <Link
+            href="/forgot-password"
+            className="text-xs font-semibold text-blue-600 transition hover:text-blue-700"
+          >
+            Harrove password-in?
+          </Link>
         </div>
 
         <div className="relative">

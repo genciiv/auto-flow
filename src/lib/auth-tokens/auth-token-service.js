@@ -257,6 +257,71 @@ class AuthTokenService {
   async canResendEmailVerification(userId) {
     return this.canResend(userId, AUTH_TOKEN_TYPES.EMAIL_VERIFICATION);
   }
+  async resetPasswordAndConsume(token, passwordHash) {
+    const verification = await this.verify(
+      token,
+      AUTH_TOKEN_TYPES.PASSWORD_RESET,
+    );
+
+    if (!verification.valid) {
+      return verification;
+    }
+
+    const now = new Date();
+
+    return db.$transaction(async (tx) => {
+      const tokenUpdate = await tx.authToken.updateMany({
+        where: {
+          id: verification.token.id,
+          type: AUTH_TOKEN_TYPES.PASSWORD_RESET,
+          usedAt: null,
+          revokedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          usedAt: now,
+        },
+      });
+
+      if (tokenUpdate.count !== 1) {
+        return {
+          valid: false,
+          reason: "ALREADY_PROCESSED",
+        };
+      }
+
+      await tx.user.update({
+        where: {
+          id: verification.token.userId,
+        },
+        data: {
+          passwordHash,
+        },
+      });
+
+      await tx.authToken.updateMany({
+        where: {
+          userId: verification.token.userId,
+          type: AUTH_TOKEN_TYPES.PASSWORD_RESET,
+          id: {
+            not: verification.token.id,
+          },
+          usedAt: null,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: now,
+        },
+      });
+
+      return {
+        valid: true,
+        userId: verification.token.userId,
+      };
+    });
+  }
 }
 
 export const authTokenService = new AuthTokenService();
