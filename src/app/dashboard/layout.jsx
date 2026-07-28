@@ -1,7 +1,5 @@
-import { requireBusinessUser } from "@/lib/auth-guard";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
 
-export default async function DashboardLayout({ children }) {
-  await requireBusinessUser();
-
-  return <>{children}</>;
+export default function BusinessDashboardLayout({ children }) {
+  return <DashboardLayout>{children}</DashboardLayout>;
 }

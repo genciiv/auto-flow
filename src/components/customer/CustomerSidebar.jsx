@@ -9,13 +9,14 @@ import {
   Heart,
   LogOut,
   MessageSquareText,
-  Wrench,
   Settings,
   ShoppingBag,
+  Wrench,
   X,
 } from "lucide-react";
 
 import { logoutCustomerAction } from "@/app/customer/actions";
+import CustomerBusinessSwitcher from "@/components/customer/CustomerBusinessSwitcher";
 
 const navigationItems = [
   {
@@ -68,6 +69,7 @@ export default function CustomerSidebar({
   onClose,
   userName,
   userEmail,
+  memberships = [],
 }) {
   const pathname = usePathname();
 
@@ -117,6 +119,11 @@ export default function CustomerSidebar({
         </div>
 
         <nav className="flex-1 overflow-y-auto px-4 py-6">
+          <CustomerBusinessSwitcher
+            memberships={memberships}
+            onNavigate={onClose}
+          />
+
           <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
             Menuja
           </p>
@@ -124,6 +131,7 @@ export default function CustomerSidebar({
           <div className="space-y-1.5">
             {navigationItems.map((item) => {
               const Icon = item.icon;
+
               const isActive = isNavigationItemActive(pathname, item.href);
 
               return (

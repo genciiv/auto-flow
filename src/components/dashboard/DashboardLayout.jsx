@@ -1,51 +1,35 @@
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
+import { requireBusinessUser } from "@/lib/auth-guard";
 
-import { requireBusinessContext } from "@/lib/business-context";
-import { db } from "@/lib/db";
-import { getDashboardNotifications } from "@/services/dashboard-notification-service";
-
-export default async function DashboardLayout({ children }) {
-  const { userId, businessId, businessRole, business } =
-    await requireBusinessContext();
-
-  const [user, notificationData] = await Promise.all([
-    db.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        name: true,
-        email: true,
-      },
-    }),
-
-    getDashboardNotifications(businessId),
-  ]);
+export default async function DashboardLayout({
+  children,
+  notificationData = null,
+  badgeCounts = {},
+}) {
+  const user = await requireBusinessUser();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
+    <div className="min-h-screen bg-slate-50">
       <Sidebar
-        businessRole={businessRole}
-        businessName={business?.name}
-        badgeCounts={{
-          vehicleClaimPendingCount:
-            notificationData?.vehicleClaimPendingCount ?? 0,
-        }}
+        businessRole={user.businessRole}
+        businessName={user.businessName}
+        businessId={user.businessId}
+        memberships={user.memberships ?? []}
+        globalRole={user.globalRole}
+        badgeCounts={badgeCounts ?? {}}
       />
 
       <div className="lg:pl-72">
         <Topbar
-          businessName={business?.name}
-          userName={user?.name}
-          userEmail={user?.email}
-          businessRole={businessRole}
+          businessName={user.businessName}
+          userName={user.name}
+          userEmail={user.email}
+          businessRole={user.businessRole}
           notificationData={notificationData}
         />
 
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-          {children}
-        </main>
+        <main className="px-6 py-8">{children}</main>
       </div>
     </div>
   );

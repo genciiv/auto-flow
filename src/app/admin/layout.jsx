@@ -1,8 +1,22 @@
-import AdminLayout from "@/components/admin/AdminLayout";
-import { requirePlatformAdmin } from "@/lib/auth-guard";
+import "./globals.css";
 
-export default async function PlatformAdminLayout({ children }) {
-  const user = await requirePlatformAdmin();
+import AuthSessionProvider from "@/providers/AuthSessionProvider";
 
-  return <AdminLayout user={user}>{children}</AdminLayout>;
+export const metadata = {
+  title: {
+    default: "AutoFlow",
+    template: "%s | AutoFlow",
+  },
+  description:
+    "Platformë moderne për menaxhimin e serviseve, automjeteve, klientëve dhe marketplace-it.",
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="sq">
+      <body>
+        <AuthSessionProvider>{children}</AuthSessionProvider>
+      </body>
+    </html>
+  );
 }

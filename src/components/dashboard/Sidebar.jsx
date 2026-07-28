@@ -138,6 +138,9 @@ const sidebarGroups = [
 export default function Sidebar({
   businessRole,
   businessName,
+  businessId,
+  memberships = [],
+  globalRole,
   badgeCounts = {},
 }) {
   const pathname = usePathname();
@@ -170,7 +173,12 @@ export default function Sidebar({
         </div>
       </div>
 
-      <WorkspaceSwitcher businessName={businessName} />
+      <WorkspaceSwitcher
+        businessName={businessName}
+        businessId={businessId}
+        memberships={memberships}
+        canAccessCustomerPortal={globalRole === "CUSTOMER"}
+      />
 
       <nav className="mt-8 space-y-7">
         {visibleGroups.map((group) => (
