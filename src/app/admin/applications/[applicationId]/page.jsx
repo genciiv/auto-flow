@@ -10,6 +10,8 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { db } from "@/lib/db";
+
 import ApplicationActions from "@/components/admin/applications/ApplicationActions";
 import { getApplicationById } from "@/services/admin/application-service";
 
@@ -77,6 +79,36 @@ export default async function ApplicationDetailsPage({ params }) {
 
   const status = statusConfig(application.status);
 
+  let activationRequired = false;
+  let ownerEmail = application.email;
+
+  if (application.status === "APPROVED" && application.approvedBusinessId) {
+    const ownerMembership = await db.businessUser.findFirst({
+      where: {
+        businessId: application.approvedBusinessId,
+        role: "OWNER",
+        isActive: true,
+      },
+      select: {
+        user: {
+          select: {
+            email: true,
+            passwordHash: true,
+            emailVerified: true,
+          },
+        },
+      },
+    });
+
+    if (ownerMembership?.user) {
+      ownerEmail = ownerMembership.user.email;
+
+      activationRequired =
+        !ownerMembership.user.passwordHash ||
+        !ownerMembership.user.emailVerified;
+    }
+  }
+
   return (
     <div className="space-y-7">
       <Link
@@ -116,6 +148,8 @@ export default async function ApplicationDetailsPage({ params }) {
           <ApplicationActions
             applicationId={application.id}
             status={application.status}
+            activationRequired={activationRequired}
+            ownerEmail={ownerEmail}
           />
         </div>
       </section>

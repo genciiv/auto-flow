@@ -138,6 +138,83 @@ export async function getApplicationById(applicationId) {
   });
 }
 
+export async function getApplicationActivationDetails(applicationId) {
+  if (!applicationId) {
+    throw new Error("ID-ja e aplikimit mungon.");
+  }
+
+  const application = await db.businessApplication.findUnique({
+    where: {
+      id: applicationId,
+    },
+    select: {
+      id: true,
+      status: true,
+      businessName: true,
+      email: true,
+      approvedBusinessId: true,
+    },
+  });
+
+  if (!application) {
+    throw new Error("Aplikimi nuk u gjet.");
+  }
+
+  if (application.status !== "APPROVED") {
+    throw new Error(
+      "Email-i i aktivizimit mund të ridërgohet vetëm për aplikime të aprovuara.",
+    );
+  }
+
+  if (!application.approvedBusinessId) {
+    throw new Error("Aplikimi nuk ka një biznes të aprovuar.");
+  }
+
+  const membership = await db.businessUser.findFirst({
+    where: {
+      businessId: application.approvedBusinessId,
+      role: "OWNER",
+      isActive: true,
+      business: {
+        isActive: true,
+      },
+    },
+    select: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          passwordHash: true,
+          emailVerified: true,
+          isActive: true,
+        },
+      },
+      business: {
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+        },
+      },
+    },
+  });
+
+  if (!membership?.user || !membership?.business) {
+    throw new Error("Pronari aktiv i biznesit nuk u gjet.");
+  }
+
+  const activationRequired =
+    !membership.user.passwordHash || !membership.user.emailVerified;
+
+  return {
+    application,
+    business: membership.business,
+    ownerUser: membership.user,
+    activationRequired,
+  };
+}
+
 export async function approveApplication({ applicationId, reviewedById }) {
   const application = await db.businessApplication.findUnique({
     where: {

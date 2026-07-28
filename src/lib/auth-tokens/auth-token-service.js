@@ -327,11 +327,35 @@ class AuthTokenService {
     return this.canResend(userId, AUTH_TOKEN_TYPES.PASSWORD_RESET);
   }
 
+  async canResendAccountActivation(userId) {
+    return this.canResend(userId, AUTH_TOKEN_TYPES.ACCOUNT_ACTIVATION);
+  }
+
   async revokeUserTokens(userId, type) {
     return db.authToken.updateMany({
       where: {
         userId,
         type,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+  }
+
+  async revokePlainToken(token, type) {
+    if (!token) {
+      return null;
+    }
+
+    const tokenHash = hashToken(token);
+
+    return db.authToken.updateMany({
+      where: {
+        tokenHash,
+        type,
+        usedAt: null,
         revokedAt: null,
       },
       data: {

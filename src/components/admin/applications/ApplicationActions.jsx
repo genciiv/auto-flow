@@ -6,6 +6,7 @@ import {
   Check,
   ExternalLink,
   LoaderCircle,
+  Mail,
   MailCheck,
   TriangleAlert,
   X,
@@ -14,12 +15,19 @@ import {
 import {
   approveApplicationAction,
   rejectApplicationAction,
+  resendActivationEmailAction,
 } from "@/app/admin/applications/actions";
 
-export default function ApplicationActions({ applicationId, status }) {
+export default function ApplicationActions({
+  applicationId,
+  status,
+  activationRequired = false,
+  ownerEmail = "",
+}) {
   const [isPending, startTransition] = useTransition();
 
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [approvalResult, setApprovalResult] = useState(null);
 
   function handleApprove() {
@@ -32,6 +40,7 @@ export default function ApplicationActions({ applicationId, status }) {
     }
 
     setError("");
+    setSuccessMessage("");
     setApprovalResult(null);
 
     startTransition(async () => {
@@ -63,6 +72,7 @@ export default function ApplicationActions({ applicationId, status }) {
     }
 
     setError("");
+    setSuccessMessage("");
 
     startTransition(async () => {
       try {
@@ -71,6 +81,36 @@ export default function ApplicationActions({ applicationId, status }) {
         console.error(actionError);
 
         setError(actionError?.message || "Aplikimi nuk mund të refuzohej.");
+      }
+    });
+  }
+
+  function handleResendActivation() {
+    const confirmed = window.confirm(
+      `Dëshiron ta ridërgosh email-in e aktivizimit te ${ownerEmail}?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setSuccessMessage("");
+
+    startTransition(async () => {
+      try {
+        const result = await resendActivationEmailAction(applicationId);
+
+        setSuccessMessage(
+          `Email-i i aktivizimit u dërgua te ${result.ownerEmail}.`,
+        );
+      } catch (actionError) {
+        console.error(actionError);
+
+        setError(
+          actionError?.message ||
+            "Email-i i aktivizimit nuk mund të ridërgohej.",
+        );
       }
     });
   }
@@ -125,6 +165,52 @@ export default function ApplicationActions({ applicationId, status }) {
           Shiko biznesin
           <ExternalLink size={15} />
         </Link>
+      </div>
+    );
+  }
+
+  if (status === "APPROVED") {
+    return (
+      <div className="w-full max-w-md">
+        {activationRequired ? (
+          <button
+            type="button"
+            onClick={handleResendActivation}
+            disabled={isPending}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPending ? (
+              <LoaderCircle size={17} className="animate-spin" />
+            ) : (
+              <Mail size={17} />
+            )}
+
+            {isPending ? "Duke dërguar..." : "Ridërgo email-in e aktivizimit"}
+          </button>
+        ) : (
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            <MailCheck size={17} />
+            Llogaria e pronarit është aktive
+          </div>
+        )}
+
+        {successMessage ? (
+          <div
+            role="status"
+            className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+          >
+            {successMessage}
+          </div>
+        ) : null}
+
+        {error ? (
+          <div
+            role="alert"
+            className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+          >
+            {error}
+          </div>
+        ) : null}
       </div>
     );
   }
