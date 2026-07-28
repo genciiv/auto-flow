@@ -5,14 +5,25 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL mungon. Kontrollo file-in .env.");
 }
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-});
+const globalForPrisma = globalThis;
 
-export const db = new PrismaClient({
-  adapter,
-  log:
-    process.env.NODE_ENV === "development"
-      ? ["query", "error", "warn"]
-      : ["error"],
-});
+function createPrismaClient() {
+  const adapter = new PrismaPg({
+    connectionString: process.env.DATABASE_URL,
+  });
+
+  return new PrismaClient({
+    adapter,
+
+    log:
+      process.env.NODE_ENV === "development"
+        ? ["query", "error", "warn"]
+        : ["error"],
+  });
+}
+
+export const db = globalForPrisma.__autoFlowPrisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.__autoFlowPrisma = db;
+}

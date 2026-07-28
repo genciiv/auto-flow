@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 
 import { AUTH_TOKEN_CONFIG } from "./auth-token-config";
 import { AUTH_TOKEN_TYPES } from "./auth-token-types";
-import { generateToken, hashToken, addHours } from "./auth-token-utils";
+import { addHours, generateToken, hashToken } from "./auth-token-utils";
 
 class AuthTokenService {
   async create(userId, type) {
@@ -25,7 +25,6 @@ class AuthTokenService {
     });
 
     const plainToken = generateToken();
-
     const tokenHash = hashToken(plainToken);
 
     await db.authToken.create({
@@ -41,6 +40,13 @@ class AuthTokenService {
   }
 
   async verify(token, type) {
+    if (!token) {
+      return {
+        valid: false,
+        reason: "NOT_FOUND",
+      };
+    }
+
     const tokenHash = hashToken(token);
 
     const authToken = await db.authToken.findFirst({
@@ -101,58 +107,42 @@ class AuthTokenService {
       return verification;
     }
 
+    const now = new Date();
+
     const result = await db.$transaction(async (tx) => {
-      await tx.authToken.update({
+      const tokenUpdate = await tx.authToken.updateMany({
         where: {
           id: verification.token.id,
+          type,
+          usedAt: null,
+          revokedAt: null,
+          expiresAt: {
+            gt: now,
+          },
         },
         data: {
-          usedAt: new Date(),
+          usedAt: now,
         },
       });
 
+      if (tokenUpdate.count !== 1) {
+        return null;
+      }
+
       return verification.token;
     });
+
+    if (!result) {
+      return {
+        valid: false,
+        reason: "ALREADY_PROCESSED",
+      };
+    }
 
     return {
       valid: true,
       token: result,
     };
-  }
-
-  async revokeUserTokens(userId, type) {
-    return db.authToken.updateMany({
-      where: {
-        userId,
-        type,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
-  }
-
-  async cleanupExpired() {
-    return db.authToken.deleteMany({
-      where: {
-        expiresAt: {
-          lt: new Date(),
-        },
-      },
-    });
-  }
-
-  async createEmailVerificationToken(userId) {
-    return this.create(userId, AUTH_TOKEN_TYPES.EMAIL_VERIFICATION);
-  }
-
-  async createPasswordResetToken(userId) {
-    return this.create(userId, AUTH_TOKEN_TYPES.PASSWORD_RESET);
-  }
-
-  async createAccountActivationToken(userId) {
-    return this.create(userId, AUTH_TOKEN_TYPES.ACCOUNT_ACTIVATION);
   }
 
   async verifyEmailAndConsume(token) {
@@ -167,10 +157,11 @@ class AuthTokenService {
 
     const now = new Date();
 
-    const result = await db.$transaction(async (tx) => {
+    return db.$transaction(async (tx) => {
       const tokenUpdate = await tx.authToken.updateMany({
         where: {
           id: verification.token.id,
+          type: AUTH_TOKEN_TYPES.EMAIL_VERIFICATION,
           usedAt: null,
           revokedAt: null,
           expiresAt: {
@@ -203,60 +194,8 @@ class AuthTokenService {
         userId: verification.token.userId,
       };
     });
-
-    return result;
   }
 
-  async canResend(userId, type) {
-    const config = AUTH_TOKEN_CONFIG[type];
-
-    if (!config) {
-      throw new Error(`Unsupported token type: ${type}`);
-    }
-
-    const latestToken = await db.authToken.findFirst({
-      where: {
-        userId,
-        type,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        createdAt: true,
-      },
-    });
-
-    if (!latestToken) {
-      return {
-        allowed: true,
-        retryAfterSeconds: 0,
-      };
-    }
-
-    const resendAfterMilliseconds = config.resendAfterMinutes * 60 * 1000;
-
-    const nextAllowedAt =
-      latestToken.createdAt.getTime() + resendAfterMilliseconds;
-
-    const remainingMilliseconds = nextAllowedAt - Date.now();
-
-    if (remainingMilliseconds <= 0) {
-      return {
-        allowed: true,
-        retryAfterSeconds: 0,
-      };
-    }
-
-    return {
-      allowed: false,
-      retryAfterSeconds: Math.ceil(remainingMilliseconds / 1000),
-    };
-  }
-
-  async canResendEmailVerification(userId) {
-    return this.canResend(userId, AUTH_TOKEN_TYPES.EMAIL_VERIFICATION);
-  }
   async resetPasswordAndConsume(token, passwordHash) {
     const verification = await this.verify(
       token,
@@ -318,9 +257,103 @@ class AuthTokenService {
 
       return {
         valid: true,
-        userId: verification.token.userId,
+        user: {
+          id: verification.token.user.id,
+          name: verification.token.user.name,
+          email: verification.token.user.email,
+        },
       };
     });
+  }
+
+  async canResend(userId, type) {
+    const config = AUTH_TOKEN_CONFIG[type];
+
+    if (!config) {
+      throw new Error(`Unsupported token type: ${type}`);
+    }
+
+    const latestToken = await db.authToken.findFirst({
+      where: {
+        userId,
+        type,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        createdAt: true,
+      },
+    });
+
+    if (!latestToken) {
+      return {
+        allowed: true,
+        retryAfterSeconds: 0,
+      };
+    }
+
+    const resendAfterMilliseconds = config.resendAfterMinutes * 60 * 1000;
+
+    const nextAllowedAt =
+      latestToken.createdAt.getTime() + resendAfterMilliseconds;
+
+    const remainingMilliseconds = nextAllowedAt - Date.now();
+
+    if (remainingMilliseconds <= 0) {
+      return {
+        allowed: true,
+        retryAfterSeconds: 0,
+      };
+    }
+
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.ceil(remainingMilliseconds / 1000),
+    };
+  }
+
+  async canResendEmailVerification(userId) {
+    return this.canResend(userId, AUTH_TOKEN_TYPES.EMAIL_VERIFICATION);
+  }
+
+  async canResendPasswordReset(userId) {
+    return this.canResend(userId, AUTH_TOKEN_TYPES.PASSWORD_RESET);
+  }
+
+  async revokeUserTokens(userId, type) {
+    return db.authToken.updateMany({
+      where: {
+        userId,
+        type,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+  }
+
+  async cleanupExpired() {
+    return db.authToken.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+    });
+  }
+
+  async createEmailVerificationToken(userId) {
+    return this.create(userId, AUTH_TOKEN_TYPES.EMAIL_VERIFICATION);
+  }
+
+  async createPasswordResetToken(userId) {
+    return this.create(userId, AUTH_TOKEN_TYPES.PASSWORD_RESET);
+  }
+
+  async createAccountActivationToken(userId) {
+    return this.create(userId, AUTH_TOKEN_TYPES.ACCOUNT_ACTIVATION);
   }
 }
 

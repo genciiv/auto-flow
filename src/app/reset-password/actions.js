@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 
 import { authTokenService } from "@/lib/auth-tokens";
+import { EMAIL_CONFIG, passwordChangedTemplate, sendEmail } from "@/lib/email";
 
 export async function resetPasswordAction(previousState, formData) {
   const token = String(formData.get("token") ?? "").trim();
@@ -13,6 +14,7 @@ export async function resetPasswordAction(previousState, formData) {
     return {
       error: "Linku i rivendosjes nuk është i vlefshëm.",
       success: false,
+      message: null,
     };
   }
 
@@ -20,6 +22,7 @@ export async function resetPasswordAction(previousState, formData) {
     return {
       error: "Plotëso të dyja fushat e password-it.",
       success: false,
+      message: null,
     };
   }
 
@@ -27,6 +30,7 @@ export async function resetPasswordAction(previousState, formData) {
     return {
       error: "Password-i duhet të ketë të paktën 8 karaktere.",
       success: false,
+      message: null,
     };
   }
 
@@ -34,6 +38,7 @@ export async function resetPasswordAction(previousState, formData) {
     return {
       error: "Password-i është shumë i gjatë.",
       success: false,
+      message: null,
     };
   }
 
@@ -41,6 +46,7 @@ export async function resetPasswordAction(previousState, formData) {
     return {
       error: "Password-et nuk përputhen.",
       success: false,
+      message: null,
     };
   }
 
@@ -55,17 +61,43 @@ export async function resetPasswordAction(previousState, formData) {
     if (!result.valid) {
       const messages = {
         NOT_FOUND: "Linku i rivendosjes nuk është i vlefshëm.",
+
         USER_DISABLED: "Kjo llogari është çaktivizuar.",
-        REVOKED: "Ky link është anuluar.",
+
+        REVOKED: "Ky link është anuluar. Kërko një link të ri.",
+
         USED: "Ky link është përdorur më parë.",
+
         EXPIRED: "Linku ka skaduar. Kërko një link të ri.",
+
         ALREADY_PROCESSED: "Ky link është përpunuar më parë.",
       };
 
       return {
         error: messages[result.reason] ?? "Password-i nuk mund të ndryshohej.",
         success: false,
+        message: null,
       };
+    }
+
+    try {
+      const loginUrl = `${EMAIL_CONFIG.appUrl}/login`;
+
+      const html = passwordChangedTemplate({
+        name: result.user.name,
+        loginUrl,
+      });
+
+      await sendEmail({
+        to: result.user.email,
+        subject: "Password-i i llogarisë u ndryshua",
+        html,
+      });
+    } catch (emailError) {
+      console.error(
+        "Password-i u ndryshua, por email-i njoftues dështoi:",
+        emailError,
+      );
     }
 
     return {
@@ -79,6 +111,7 @@ export async function resetPasswordAction(previousState, formData) {
     return {
       error: "Password-i nuk mund të ndryshohej. Provo përsëri.",
       success: false,
+      message: null,
     };
   }
 }

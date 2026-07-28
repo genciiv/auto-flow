@@ -69,3 +69,18 @@ export function passwordResetTemplate({ name, resetPasswordUrl }) {
     buttonUrl: resetPasswordUrl,
   });
 }
+
+export function passwordChangedTemplate({ name, loginUrl }) {
+  return emailLayout({
+    name,
+    title: "Password-i u ndryshua",
+    content: `
+      Password-i i llogarisë tënde AutoFlow u ndryshua me sukses.
+      Nëse e ke bërë ti këtë ndryshim, nuk kërkohet asnjë veprim tjetër.
+      Nëse nuk e njeh këtë veprim, kontakto menjëherë mbështetjen e AutoFlow
+      dhe kërko rivendosjen e llogarisë.
+    `,
+    buttonText: "Hap AutoFlow",
+    buttonUrl: loginUrl,
+  });
+}
