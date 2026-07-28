@@ -34,7 +34,11 @@ function getUserDestination(user) {
   return null;
 }
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }) {
+  const params = await searchParams;
+
+  const passwordChanged = params?.passwordChanged === "1";
+
   const session = await auth();
 
   if (session?.user) {
@@ -151,6 +155,16 @@ export default async function LoginPage() {
                   Përdor email-in dhe password-in e llogarisë AutoFlow.
                 </p>
               </div>
+
+              {passwordChanged ? (
+                <div
+                  role="status"
+                  className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-700"
+                >
+                  Password-i u ndryshua me sukses. Hyr përsëri me password-in e
+                  ri.
+                </div>
+              ) : null}
 
               <LoginForm />
 

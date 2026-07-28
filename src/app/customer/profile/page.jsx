@@ -9,6 +9,7 @@ import {
 
 import CustomerProfileForm from "@/components/customer/CustomerProfileForm";
 import { requireCustomerContext } from "@/lib/customer-context";
+import CustomerChangePasswordForm from "@/components/customer/CustomerChangePasswordForm";
 
 export const metadata = {
   title: "Profili im | AutoFlow",
@@ -199,6 +200,24 @@ export default async function CustomerProfilePage() {
 
           <div className="p-5 sm:p-6">
             <CustomerProfileForm user={user} profile={profile} />
+
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+                <h2 className="text-lg font-bold text-slate-950">
+                  Siguria e llogarisë
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Ndrysho password-in dhe mbyll sesionet e tjera aktive.
+                </p>
+              </div>
+
+              <div className="p-5 sm:p-6">
+                <div className="max-w-xl">
+                  <CustomerChangePasswordForm />
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       </section>
