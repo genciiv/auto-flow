@@ -5,7 +5,7 @@ import { AUTH_TOKEN_TYPES } from "./auth-token-types";
 import { addHours, generateToken, hashToken } from "./auth-token-utils";
 
 class AuthTokenService {
-  async create(userId, type) {
+  async create(userId, type, metadata = null) {
     const config = AUTH_TOKEN_CONFIG[type];
 
     if (!config) {
@@ -33,6 +33,7 @@ class AuthTokenService {
         type,
         tokenHash,
         expiresAt: addHours(config.expiresInHours),
+        metadata,
       },
     });
 
@@ -359,6 +360,146 @@ class AuthTokenService {
 
   async createAccountActivationToken(userId) {
     return this.create(userId, AUTH_TOKEN_TYPES.ACCOUNT_ACTIVATION);
+  }
+
+  async createEmailChangeToken(userId, newEmail, oldEmail) {
+    return this.create(userId, AUTH_TOKEN_TYPES.EMAIL_CHANGE, {
+      newEmail,
+      oldEmail,
+    });
+  }
+
+  async canResendEmailChange(userId) {
+    return this.canResend(userId, AUTH_TOKEN_TYPES.EMAIL_CHANGE);
+  }
+
+  async changeEmailAndConsume(token) {
+    const verification = await this.verify(
+      token,
+      AUTH_TOKEN_TYPES.EMAIL_CHANGE,
+    );
+
+    if (!verification.valid) {
+      return verification;
+    }
+
+    const metadata = verification.token.metadata;
+
+    const newEmail =
+      metadata &&
+      typeof metadata === "object" &&
+      !Array.isArray(metadata) &&
+      typeof metadata.newEmail === "string"
+        ? metadata.newEmail.trim().toLowerCase()
+        : "";
+
+    const oldEmail =
+      metadata &&
+      typeof metadata === "object" &&
+      !Array.isArray(metadata) &&
+      typeof metadata.oldEmail === "string"
+        ? metadata.oldEmail.trim().toLowerCase()
+        : verification.token.user.email;
+
+    if (!newEmail) {
+      return {
+        valid: false,
+        reason: "INVALID_METADATA",
+      };
+    }
+
+    const now = new Date();
+
+    try {
+      return await db.$transaction(async (tx) => {
+        const tokenUpdate = await tx.authToken.updateMany({
+          where: {
+            id: verification.token.id,
+            type: AUTH_TOKEN_TYPES.EMAIL_CHANGE,
+            usedAt: null,
+            revokedAt: null,
+            expiresAt: {
+              gt: now,
+            },
+          },
+          data: {
+            usedAt: now,
+          },
+        });
+
+        if (tokenUpdate.count !== 1) {
+          return {
+            valid: false,
+            reason: "ALREADY_PROCESSED",
+          };
+        }
+
+        const existingUser = await tx.user.findUnique({
+          where: {
+            email: newEmail,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (existingUser && existingUser.id !== verification.token.userId) {
+          return {
+            valid: false,
+            reason: "EMAIL_TAKEN",
+          };
+        }
+
+        const updatedUser = await tx.user.update({
+          where: {
+            id: verification.token.userId,
+          },
+          data: {
+            email: newEmail,
+            emailVerified: now,
+            sessionVersion: {
+              increment: 1,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            sessionVersion: true,
+          },
+        });
+
+        await tx.authToken.updateMany({
+          where: {
+            userId: verification.token.userId,
+            id: {
+              not: verification.token.id,
+            },
+            usedAt: null,
+            revokedAt: null,
+          },
+          data: {
+            revokedAt: now,
+          },
+        });
+
+        return {
+          valid: true,
+          user: updatedUser,
+          oldEmail,
+          newEmail,
+        };
+      });
+    } catch (error) {
+      if (error?.code === "P2002") {
+        return {
+          valid: false,
+          reason: "EMAIL_TAKEN",
+        };
+      }
+
+      throw error;
+    }
   }
 }
 

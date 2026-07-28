@@ -84,3 +84,39 @@ export function passwordChangedTemplate({ name, loginUrl }) {
     buttonUrl: loginUrl,
   });
 }
+
+export function emailChangeVerificationTemplate({
+  name,
+  newEmail,
+  verificationUrl,
+}) {
+  return emailLayout({
+    name,
+    title: "Konfirmo email-in e ri",
+    content: `
+      Kemi marrë një kërkesë për ndryshimin e email-it të llogarisë
+      tënde AutoFlow në <strong>${newEmail}</strong>.
+      Kliko butonin më poshtë për ta konfirmuar.
+      Linku është i vlefshëm për 1 orë.
+      Nëse nuk e ke bërë ti këtë kërkesë, mos e hap linkun.
+    `,
+    buttonText: "Konfirmo email-in e ri",
+    buttonUrl: verificationUrl,
+  });
+}
+
+export function emailChangedSecurityTemplate({ name, newEmail, loginUrl }) {
+  return emailLayout({
+    name,
+    title: "Email-i i llogarisë u ndryshua",
+    content: `
+      Email-i i llogarisë tënde AutoFlow u ndryshua në
+      <strong>${newEmail}</strong>.
+      Të gjitha sesionet e mëparshme janë çaktivizuar.
+      Nëse nuk e njeh këtë ndryshim, kontakto menjëherë
+      mbështetjen e AutoFlow.
+    `,
+    buttonText: "Hap AutoFlow",
+    buttonUrl: loginUrl,
+  });
+}

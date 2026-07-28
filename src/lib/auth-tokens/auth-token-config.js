@@ -15,4 +15,9 @@ export const AUTH_TOKEN_CONFIG = {
     expiresInHours: 48,
     resendAfterMinutes: 5,
   },
+
+  [AUTH_TOKEN_TYPES.EMAIL_CHANGE]: {
+    expiresInHours: 1,
+    resendAfterMinutes: 5,
+  },
 };

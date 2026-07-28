@@ -10,6 +10,7 @@ import {
 import CustomerProfileForm from "@/components/customer/CustomerProfileForm";
 import { requireCustomerContext } from "@/lib/customer-context";
 import CustomerChangePasswordForm from "@/components/customer/CustomerChangePasswordForm";
+import CustomerChangeEmailForm from "@/components/customer/CustomerChangeEmailForm";
 
 export const metadata = {
   title: "Profili im | AutoFlow",
@@ -215,6 +216,24 @@ export default async function CustomerProfilePage() {
               <div className="p-5 sm:p-6">
                 <div className="max-w-xl">
                   <CustomerChangePasswordForm />
+                </div>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+                <h2 className="text-lg font-bold text-slate-950">
+                  Ndrysho email-in
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Email-i ndryshohet vetëm pasi të konfirmosh adresën e re.
+                </p>
+              </div>
+
+              <div className="p-5 sm:p-6">
+                <div className="max-w-xl">
+                  <CustomerChangeEmailForm currentEmail={user.email} />
                 </div>
               </div>
             </section>

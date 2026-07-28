@@ -168,6 +168,7 @@ enum AuthTokenType {
   EMAIL_VERIFICATION
   PASSWORD_RESET
   ACCOUNT_ACTIVATION
+  EMAIL_CHANGE
 }
 
 /**
@@ -898,6 +899,7 @@ model AuthToken {
   expiresAt DateTime
   usedAt    DateTime?
   revokedAt DateTime?
+  metadata  Json?
   createdAt DateTime      @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
