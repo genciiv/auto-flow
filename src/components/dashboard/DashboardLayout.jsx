@@ -20,7 +20,7 @@ export default async function DashboardLayout({
         badgeCounts={badgeCounts ?? {}}
       />
 
-      <div className="lg:pl-72">
+      <div className="min-h-screen lg:pl-72">
         <Topbar
           businessName={user.businessName}
           userName={user.name}
@@ -29,7 +29,9 @@ export default async function DashboardLayout({
           notificationData={notificationData}
         />
 
-        <main className="px-6 py-8">{children}</main>
+        <main className="px-5 py-8 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
       </div>
     </div>
   );

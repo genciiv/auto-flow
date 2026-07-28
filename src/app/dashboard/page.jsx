@@ -74,7 +74,25 @@ export default async function DashboardPage() {
         businessId,
       },
       orderBy: {
-        createdAt,
+        createdAt: "desc",
+      },
+    }),
+
+    db.part.findMany({
+      where: {
+        businessId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+
+    db.invoice.findMany({
+      where: {
+        businessId,
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     }),
 
