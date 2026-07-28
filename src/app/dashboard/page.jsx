@@ -74,7 +74,7 @@ export default async function DashboardPage() {
         businessId,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt,
       },
     }),
 
