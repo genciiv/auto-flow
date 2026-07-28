@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import BusinessOnboardingCard from "@/components/dashboard/BusinessOnboardingCard";
+import GettingStartedChecklist from "@/components/dashboard/GettingStartedChecklist";
 import StatsGrid from "@/components/dashboard/StatsGrid";
 import RevenueChart from "@/components/dashboard/RevenueChart";
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -12,6 +13,14 @@ import AiAssistantWidget from "@/components/dashboard/AiAssistantWidget";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
+function hasValue(value) {
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+
+  return value !== null && value !== undefined;
+}
+
 export default async function DashboardPage() {
   const { businessId } = await requireBusinessContext();
 
@@ -20,6 +29,7 @@ export default async function DashboardPage() {
     customerCount,
     vehicleCount,
     activeServiceCount,
+    totalServiceCount,
     appointmentCount,
     purchaseCount,
     recentServices,
@@ -59,6 +69,12 @@ export default async function DashboardPage() {
       where: {
         businessId,
         status: "IN_PROGRESS",
+      },
+    }),
+
+    db.serviceRecord.count({
+      where: {
+        businessId,
       },
     }),
 
@@ -130,6 +146,16 @@ export default async function DashboardPage() {
     return Number(part.stock) <= Number(part.minStock);
   });
 
+  const profileComplete = Boolean(
+    business &&
+    hasValue(business.nipt) &&
+    hasValue(business.phone) &&
+    hasValue(business.email) &&
+    hasValue(business.city) &&
+    hasValue(business.address) &&
+    hasValue(business.workingHours),
+  );
+
   const stats = {
     customers: customerCount,
     vehicles: vehicleCount,
@@ -157,6 +183,14 @@ export default async function DashboardPage() {
         </div>
 
         <BusinessOnboardingCard business={business} />
+
+        <GettingStartedChecklist
+          profileComplete={profileComplete}
+          customerCount={customerCount}
+          vehicleCount={vehicleCount}
+          serviceCount={totalServiceCount}
+          invoiceCount={invoices.length}
+        />
 
         <StatsGrid stats={stats} />
 
