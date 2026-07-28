@@ -3,6 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
+import { authTokenService } from "@/lib/auth-tokens";
+import {
+  accountActivationTemplate,
+  businessApprovedTemplate,
+  EMAIL_CONFIG,
+  sendEmail,
+} from "@/lib/email";
 import {
   approveApplication,
   rejectApplication,
@@ -29,6 +36,56 @@ export async function approveApplicationAction(applicationId) {
     reviewedById: getAdminUserId(admin),
   });
 
+  let activationEmailSent = false;
+  let emailError = null;
+
+  try {
+    if (result.activationRequired) {
+      const token = await authTokenService.createAccountActivationToken(
+        result.ownerUser.id,
+      );
+
+      const activationUrl =
+        `${EMAIL_CONFIG.appUrl}/activate-account?token=` +
+        encodeURIComponent(token);
+
+      const html = accountActivationTemplate({
+        name: result.ownerUser.name,
+        businessName: result.business.name,
+        activationUrl,
+      });
+
+      await sendEmail({
+        to: result.ownerUser.email,
+        subject: "Aktivizo llogarinë tënde",
+        html,
+      });
+    } else {
+      const dashboardUrl = `${EMAIL_CONFIG.appUrl}/dashboard`;
+
+      const html = businessApprovedTemplate({
+        name: result.ownerUser.name,
+        businessName: result.business.name,
+        dashboardUrl,
+      });
+
+      await sendEmail({
+        to: result.ownerUser.email,
+        subject: "Biznesi yt u aprovua",
+        html,
+      });
+    }
+
+    activationEmailSent = true;
+  } catch (error) {
+    console.error(
+      "Biznesi u krijua, por email-i i pronarit nuk u dërgua:",
+      error,
+    );
+
+    emailError = "Biznesi u krijua, por email-i nuk u dërgua.";
+  }
+
   revalidatePath("/admin");
   revalidatePath("/admin/applications");
   revalidatePath(`/admin/applications/${applicationId}`);
@@ -38,7 +95,9 @@ export async function approveApplicationAction(applicationId) {
     success: true,
     businessId: result.business.id,
     ownerEmail: result.ownerUser.email,
-    temporaryPassword: result.temporaryPassword,
+    activationRequired: result.activationRequired,
+    activationEmailSent,
+    emailError,
   };
 }
 

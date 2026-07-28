@@ -1,6 +1,3 @@
-import { randomBytes } from "crypto";
-import bcrypt from "bcryptjs";
-
 import { db } from "@/lib/db";
 
 const PAGE_SIZE = 10;
@@ -19,10 +16,6 @@ function normalizeStatus(status) {
   const validStatuses = ["all", "PENDING", "APPROVED", "REJECTED"];
 
   return validStatuses.includes(status) ? status : "all";
-}
-
-function generateTemporaryPassword() {
-  return `AF-${randomBytes(6).toString("hex")}`;
 }
 
 export async function getApplications({
@@ -160,20 +153,21 @@ export async function approveApplication({ applicationId, reviewedById }) {
     throw new Error("Vetëm aplikimet në pritje mund të aprovohen.");
   }
 
+  const normalizedEmail = application.email.trim().toLowerCase();
+
   const existingUser = await db.user.findUnique({
     where: {
-      email: application.email,
+      email: normalizedEmail,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      passwordHash: true,
+      emailVerified: true,
+      isActive: true,
     },
   });
-
-  let temporaryPassword = null;
-  let passwordHash = existingUser?.passwordHash;
-
-  if (!passwordHash) {
-    temporaryPassword = generateTemporaryPassword();
-
-    passwordHash = await bcrypt.hash(temporaryPassword, 12);
-  }
 
   const result = await db.$transaction(async (transaction) => {
     let ownerUser;
@@ -185,18 +179,32 @@ export async function approveApplication({ applicationId, reviewedById }) {
         },
         data: {
           name: existingUser.name || application.ownerName,
-          passwordHash,
           isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          passwordHash: true,
+          emailVerified: true,
         },
       });
     } else {
       ownerUser = await transaction.user.create({
         data: {
           name: application.ownerName,
-          email: application.email,
-          passwordHash,
+          email: normalizedEmail,
+          passwordHash: null,
+          emailVerified: null,
           globalRole: null,
           isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          passwordHash: true,
+          emailVerified: true,
         },
       });
     }
@@ -207,7 +215,7 @@ export async function approveApplication({ applicationId, reviewedById }) {
         city: application.city,
         address: application.address,
         phone: application.phone,
-        email: application.email,
+        email: normalizedEmail,
         isActive: true,
       },
     });
@@ -240,9 +248,12 @@ export async function approveApplication({ applicationId, reviewedById }) {
     };
   });
 
+  const activationRequired =
+    !result.ownerUser.passwordHash || !result.ownerUser.emailVerified;
+
   return {
     ...result,
-    temporaryPassword,
+    activationRequired,
   };
 }
 

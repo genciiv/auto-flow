@@ -34,12 +34,30 @@ export async function requirePlatformAdmin() {
 export async function requireBusinessUser(allowedRoles = []) {
   const user = await requireUser();
 
-  if (user.globalRole === "PLATFORM_ADMIN" && !user.businessId) {
+  /*
+   * Platform admin pa një biznes aktiv
+   * kthehet te paneli i administrimit.
+   */
+  if (
+    user.globalRole === "PLATFORM_ADMIN" &&
+    (!user.businessId || !user.businessRole)
+  ) {
     redirect("/admin");
   }
 
-  if (user.globalRole === "CUSTOMER") {
-    redirect("/customer/dashboard");
+  /*
+   * Një CUSTOMER mund të jetë njëkohësisht edhe
+   * OWNER, MANAGER ose staf i një biznesi.
+   *
+   * Prandaj nuk e ridrejtojmë vetëm nga globalRole.
+   * Fillimisht kontrollojmë nëse ka akses biznesi.
+   */
+  if (!user.businessId || !user.businessRole) {
+    if (user.globalRole === "CUSTOMER") {
+      redirect("/customer/dashboard");
+    }
+
+    redirect("/login");
   }
 
   const context = await requireBusinessContext(allowedRoles);
@@ -59,6 +77,10 @@ export async function requireBusinessUser(allowedRoles = []) {
 export async function requireCustomer() {
   const user = await requireUser();
 
+  /*
+   * Një përdorues CUSTOMER mund të ketë edhe biznes,
+   * por përsëri lejohet të përdorë portalin e klientit.
+   */
   if (user.globalRole !== "CUSTOMER") {
     if (user.globalRole === "PLATFORM_ADMIN") {
       redirect("/admin");

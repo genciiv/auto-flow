@@ -7,12 +7,16 @@ function getDestination(user) {
     return "/admin";
   }
 
-  if (user?.globalRole === "CUSTOMER") {
-    return "/customer/dashboard";
-  }
-
+  /*
+   * Aksesi në biznes ka përparësi ndaj portalit
+   * të klientit.
+   */
   if (user?.businessId && user?.businessRole) {
     return "/dashboard";
+  }
+
+  if (user?.globalRole === "CUSTOMER") {
+    return "/customer/dashboard";
   }
 
   return "/login?error=no-access";

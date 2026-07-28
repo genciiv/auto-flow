@@ -120,3 +120,40 @@ export function emailChangedSecurityTemplate({ name, newEmail, loginUrl }) {
     buttonUrl: loginUrl,
   });
 }
+
+export function accountActivationTemplate({
+  name,
+  businessName,
+  activationUrl,
+}) {
+  return emailLayout({
+    name,
+    title: "Aktivizo llogarinë tënde AutoFlow",
+    content: `
+      Aplikimi për biznesin <strong>${businessName}</strong>
+      u aprovua me sukses.
+
+      Kliko butonin më poshtë për të vendosur password-in dhe
+      për të aktivizuar llogarinë e pronarit.
+
+      Linku është i vlefshëm për 48 orë.
+    `,
+    buttonText: "Aktivizo llogarinë",
+    buttonUrl: activationUrl,
+  });
+}
+
+export function businessApprovedTemplate({ name, businessName, dashboardUrl }) {
+  return emailLayout({
+    name,
+    title: "Biznesi yt u aprovua",
+    content: `
+      Aplikimi për biznesin <strong>${businessName}</strong>
+      u aprovua dhe biznesi u lidh me llogarinë tënde ekzistuese.
+
+      Mund të hysh në AutoFlow me email-in dhe password-in aktual.
+    `,
+    buttonText: "Hap AutoFlow",
+    buttonUrl: dashboardUrl,
+  });
+}

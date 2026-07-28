@@ -8,6 +8,15 @@ class EmailNotVerifiedError extends CredentialsSignin {
   code = "email_not_verified";
 }
 
+function mapMemberships(memberships = []) {
+  return memberships.map((membership) => ({
+    id: membership.id,
+    businessId: membership.businessId,
+    businessName: membership.business.name,
+    role: membership.role,
+  }));
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
 
@@ -95,14 +104,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         /*
-         * Statusi i verifikimit kontrollohet vetëm pasi password-i
-         * është konfirmuar si i saktë.
+         * Email-i kontrollohet vetëm pasi password-i
+         * është verifikuar si i saktë.
          */
         if (!user.emailVerified) {
           throw new EmailNotVerifiedError();
         }
-
-        const primaryMembership = user.businesses[0] ?? null;
 
         const isPlatformAdmin = user.globalRole === "PLATFORM_ADMIN";
 
@@ -124,26 +131,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
+        const memberships = mapMemberships(user.businesses);
+
+        const primaryMembership = memberships[0] ?? null;
+
         return {
           id: user.id,
           name: user.name,
           email: user.email,
 
           globalRole: user.globalRole,
+
           sessionVersion: user.sessionVersion,
 
           businessId: primaryMembership?.businessId ?? null,
 
-          businessName: primaryMembership?.business?.name ?? null,
+          businessName: primaryMembership?.businessName ?? null,
 
           businessRole: primaryMembership?.role ?? null,
 
-          memberships: user.businesses.map((membership) => ({
-            id: membership.id,
-            businessId: membership.businessId,
-            businessName: membership.business.name,
-            role: membership.role,
-          })),
+          memberships,
         };
       },
     }),
@@ -152,10 +159,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       /*
-       * Ekzekutohet gjatë hyrjes së re.
+       * Ekzekutohet menjëherë pas login-it.
        */
       if (user) {
         token.userId = user.id;
+
         token.globalRole = user.globalRole ?? null;
 
         token.sessionVersion = user.sessionVersion ?? 0;
@@ -168,22 +176,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         token.businessRole = user.businessRole ?? null;
 
-        token.memberships = user.memberships ?? [];
+        token.memberships = Array.isArray(user.memberships)
+          ? user.memberships
+          : [];
+
+        return token;
+      }
+
+      const userId = token.userId ?? token.sub;
+
+      if (!userId) {
+        token.sessionInvalid = true;
 
         return token;
       }
 
       /*
-       * Për çdo sesion ekzistues kontrollojmë nëse përdoruesi
-       * është ende aktiv dhe nëse versioni i sesionit përputhet.
+       * Në çdo kontroll të sesionit rilexojmë:
+       * - statusin e përdoruesit
+       * - sessionVersion
+       * - globalRole
+       * - bizneset aktive
+       *
+       * Kjo bën që një biznes i aprovuar nga admini
+       * të shfaqet edhe te sesioni i përdoruesit.
        */
-      const userId = token.userId ?? token.sub;
-
-      if (!userId) {
-        token.sessionInvalid = true;
-        return token;
-      }
-
       const currentUser = await db.user.findUnique({
         where: {
           id: userId,
@@ -192,6 +209,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         select: {
           isActive: true,
           sessionVersion: true,
+          globalRole: true,
+
+          businesses: {
+            where: {
+              isActive: true,
+
+              business: {
+                isActive: true,
+              },
+            },
+
+            orderBy: {
+              createdAt: "asc",
+            },
+
+            select: {
+              id: true,
+              businessId: true,
+              role: true,
+
+              business: {
+                select: {
+                  id: true,
+                  name: true,
+                  isActive: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -207,14 +253,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       token.sessionInvalid = false;
 
+      token.globalRole = currentUser.globalRole ?? null;
+
+      const memberships = mapMemberships(currentUser.businesses);
+
+      token.memberships = memberships;
+
       /*
-       * Ndryshimi i biznesit aktiv nga dashboard-i.
+       * Ruajmë biznesin aktual nëse përdoruesi
+       * vazhdon të ketë akses në të.
+       */
+      const currentMembership = memberships.find(
+        (membership) => membership.businessId === token.businessId,
+      );
+
+      const primaryMembership = currentMembership ?? memberships[0] ?? null;
+
+      token.businessId = primaryMembership?.businessId ?? null;
+
+      token.businessName = primaryMembership?.businessName ?? null;
+
+      token.businessRole = primaryMembership?.role ?? null;
+
+      /*
+       * Përdoret kur përdoruesi zgjedh një biznes
+       * tjetër nga workspace switcher.
        */
       if (trigger === "update" && session?.activeBusinessId) {
-        const memberships = Array.isArray(token.memberships)
-          ? token.memberships
-          : [];
-
         const selectedMembership = memberships.find(
           (membership) => membership.businessId === session.activeBusinessId,
         );
@@ -232,10 +297,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async session({ session, token }) {
-      /*
-       * Nëse sessionVersion nuk përputhet, përdoruesi nuk
-       * konsiderohet më i identifikuar.
-       */
       if (token.sessionInvalid) {
         session.user = null;
 
@@ -253,7 +314,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         session.user.businessRole = token.businessRole ?? null;
 
-        session.user.memberships = token.memberships ?? [];
+        session.user.memberships = Array.isArray(token.memberships)
+          ? token.memberships
+          : [];
       }
 
       return session;
