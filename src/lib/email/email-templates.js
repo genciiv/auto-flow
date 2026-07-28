@@ -29,7 +29,7 @@ ${buttonText}
 Nëse nuk funksionon butoni, kopjo këtë link:
 </p>
 
-<p>${buttonUrl}</p>
+<p style="word-break:break-all">${buttonUrl}</p>
 
 <hr>
 
@@ -39,4 +39,18 @@ AutoFlow
 
 </div>
 `;
+}
+
+export function emailVerificationTemplate({ name, verificationUrl }) {
+  return emailLayout({
+    name,
+    title: "Verifiko adresën tënde të email-it",
+    content: `
+      Faleminderit që u regjistrove në AutoFlow.
+      Kliko butonin më poshtë për të verifikuar adresën tënde të email-it.
+      Linku është i vlefshëm për 24 orë.
+    `,
+    buttonText: "Verifiko email-in",
+    buttonUrl: verificationUrl,
+  });
 }

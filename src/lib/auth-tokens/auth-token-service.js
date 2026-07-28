@@ -154,6 +154,58 @@ class AuthTokenService {
   async createAccountActivationToken(userId) {
     return this.create(userId, AUTH_TOKEN_TYPES.ACCOUNT_ACTIVATION);
   }
+
+  async verifyEmailAndConsume(token) {
+    const verification = await this.verify(
+      token,
+      AUTH_TOKEN_TYPES.EMAIL_VERIFICATION,
+    );
+
+    if (!verification.valid) {
+      return verification;
+    }
+
+    const now = new Date();
+
+    const result = await db.$transaction(async (tx) => {
+      const tokenUpdate = await tx.authToken.updateMany({
+        where: {
+          id: verification.token.id,
+          usedAt: null,
+          revokedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          usedAt: now,
+        },
+      });
+
+      if (tokenUpdate.count !== 1) {
+        return {
+          valid: false,
+          reason: "ALREADY_PROCESSED",
+        };
+      }
+
+      await tx.user.update({
+        where: {
+          id: verification.token.userId,
+        },
+        data: {
+          emailVerified: now,
+        },
+      });
+
+      return {
+        valid: true,
+        userId: verification.token.userId,
+      };
+    });
+
+    return result;
+  }
 }
 
 export const authTokenService = new AuthTokenService();
