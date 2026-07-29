@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 
+import { createPlatformAuditLog } from "@/services/admin/activity-log-service";
+
 const DEFAULT_SETTINGS = {
   platformName: "AutoFlow",
   supportEmail: "",
@@ -31,6 +33,33 @@ function normalizeNullableString(value) {
   return normalizedValue || null;
 }
 
+function getComparableSettings(settings) {
+  return {
+    platformName: settings.platformName,
+    supportEmail: settings.supportEmail,
+    supportPhone: settings.supportPhone,
+    companyAddress: settings.companyAddress,
+    defaultCurrency: settings.defaultCurrency,
+    defaultTimezone: settings.defaultTimezone,
+
+    trialEnabled: settings.trialEnabled,
+    trialDurationDays: settings.trialDurationDays,
+
+    cashPaymentsEnabled: settings.cashPaymentsEnabled,
+    bankPaymentsEnabled: settings.bankPaymentsEnabled,
+    cardPaymentsEnabled: settings.cardPaymentsEnabled,
+
+    bankName: settings.bankName,
+    bankAccountName: settings.bankAccountName,
+    bankAccountNumber: settings.bankAccountNumber,
+    bankIban: settings.bankIban,
+    bankSwiftCode: settings.bankSwiftCode,
+
+    maintenanceMode: settings.maintenanceMode,
+    allowRegistrations: settings.allowRegistrations,
+  };
+}
+
 export async function getPlatformSettings() {
   const settings = await db.platformSetting.findFirst({
     orderBy: {
@@ -47,7 +76,7 @@ export async function getPlatformSettings() {
   });
 }
 
-export async function updatePlatformSettings(data) {
+export async function updatePlatformSettings(data, { userId = null } = {}) {
   const currentSettings = await getPlatformSettings();
 
   const trialDurationDays = Number(data.trialDurationDays);
@@ -72,19 +101,30 @@ export async function updatePlatformSettings(data) {
     .trim()
     .toUpperCase();
 
+  if (!defaultCurrency) {
+    throw new Error("Monedha e platformës është e detyrueshme.");
+  }
+
   const defaultTimezone = String(
     data.defaultTimezone ?? "Europe/Tirane",
   ).trim();
 
-  return db.platformSetting.update({
+  if (!defaultTimezone) {
+    throw new Error("Zona kohore është e detyrueshme.");
+  }
+
+  const updatedSettings = await db.platformSetting.update({
     where: {
       id: currentSettings.id,
     },
 
     data: {
       platformName,
+
       supportEmail: normalizeNullableString(data.supportEmail),
+
       supportPhone: normalizeNullableString(data.supportPhone),
+
       companyAddress: normalizeNullableString(data.companyAddress),
 
       defaultCurrency,
@@ -110,7 +150,21 @@ export async function updatePlatformSettings(data) {
       bankSwiftCode: normalizeNullableString(data.bankSwiftCode),
 
       maintenanceMode: Boolean(data.maintenanceMode),
+
       allowRegistrations: Boolean(data.allowRegistrations),
     },
   });
+
+  await createPlatformAuditLog({
+    userId,
+    action: "UPDATE",
+    entityType: "PLATFORM_SETTING",
+    entityId: updatedSettings.id,
+    title: "Konfigurimet e platformës u përditësuan",
+    description: "Platform Admin ndryshoi konfigurimet e platformës AutoFlow.",
+    oldValues: getComparableSettings(currentSettings),
+    newValues: getComparableSettings(updatedSettings),
+  });
+
+  return updatedSettings;
 }

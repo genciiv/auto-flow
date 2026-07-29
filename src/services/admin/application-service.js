@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 
+import { createPlatformAuditLog } from "@/services/admin/activity-log-service";
 import { getPlatformSettings } from "@/services/admin/settings-service";
 
 const PAGE_SIZE = 10;
@@ -218,6 +219,10 @@ export async function getApplicationActivationDetails(applicationId) {
 }
 
 export async function approveApplication({ applicationId, reviewedById }) {
+  if (!applicationId) {
+    throw new Error("ID-ja e aplikimit mungon.");
+  }
+
   const application = await db.businessApplication.findUnique({
     where: {
       id: applicationId,
@@ -250,7 +255,7 @@ export async function approveApplication({ applicationId, reviewedById }) {
 
   const platformSettings = await getPlatformSettings();
 
-  const trialEnabled = platformSettings.trialEnabled;
+  const trialEnabled = Boolean(platformSettings.trialEnabled);
 
   const trialDurationDays = Math.max(
     1,
@@ -276,16 +281,6 @@ export async function approveApplication({ applicationId, reviewedById }) {
       if (!trialPlan.isActive) {
         throw new Error("Plani Free Trial është i çaktivizuar.");
       }
-    }
-
-    if (!trialPlan) {
-      throw new Error(
-        "Plani Free Trial nuk u gjet. Krijoje fillimisht te tabela Plan.",
-      );
-    }
-
-    if (!trialPlan.isActive) {
-      throw new Error("Plani Free Trial është i çaktivizuar.");
     }
 
     let ownerUser;
@@ -394,6 +389,30 @@ export async function approveApplication({ applicationId, reviewedById }) {
   const activationRequired =
     !result.ownerUser.passwordHash || !result.ownerUser.emailVerified;
 
+  await createPlatformAuditLog({
+    userId: reviewedById || null,
+    businessId: result.business.id,
+    action: "STATUS_CHANGE",
+    entityType: "BUSINESS_APPLICATION",
+    entityId: application.id,
+    title: "Aplikimi u aprovua",
+    description: `${application.businessName} u aprovua dhe biznesi u krijua.`,
+    oldValues: {
+      status: application.status,
+    },
+    newValues: {
+      status: "APPROVED",
+      approvedBusinessId: result.business.id,
+      subscriptionId: result.subscription?.id || null,
+      activationRequired,
+    },
+    metadata: {
+      ownerEmail: normalizedEmail,
+      trialEnabled,
+      trialDurationDays: trialEnabled ? trialDurationDays : null,
+    },
+  });
+
   return {
     ...result,
     activationRequired,
@@ -405,6 +424,10 @@ export async function rejectApplication({
   reviewedById,
   rejectionReason,
 }) {
+  if (!applicationId) {
+    throw new Error("ID-ja e aplikimit mungon.");
+  }
+
   const application = await db.businessApplication.findUnique({
     where: {
       id: applicationId,
@@ -419,16 +442,43 @@ export async function rejectApplication({
     throw new Error("Vetëm aplikimet në pritje mund të refuzohen.");
   }
 
-  return db.businessApplication.update({
+  const normalizedReason = String(rejectionReason ?? "").trim();
+
+  if (!normalizedReason) {
+    throw new Error("Arsyeja e refuzimit është e detyrueshme.");
+  }
+
+  const rejectedApplication = await db.businessApplication.update({
     where: {
       id: applicationId,
     },
     data: {
       status: "REJECTED",
-      rejectionReason: rejectionReason.trim(),
+      rejectionReason: normalizedReason,
       reviewedAt: new Date(),
       reviewedById: reviewedById || null,
       approvedBusinessId: null,
     },
   });
+
+  await createPlatformAuditLog({
+    userId: reviewedById || null,
+    action: "STATUS_CHANGE",
+    entityType: "BUSINESS_APPLICATION",
+    entityId: application.id,
+    title: "Aplikimi u refuzua",
+    description: `${application.businessName} u refuzua.`,
+    oldValues: {
+      status: application.status,
+    },
+    newValues: {
+      status: rejectedApplication.status,
+      rejectionReason: normalizedReason,
+    },
+    metadata: {
+      applicantEmail: application.email,
+    },
+  });
+
+  return rejectedApplication;
 }

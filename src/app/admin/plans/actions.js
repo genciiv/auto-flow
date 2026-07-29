@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
+import { createPlatformAuditLog } from "@/services/admin/activity-log-service";
 import {
   createPlan,
   getPlanById,
@@ -22,6 +23,10 @@ function normalizeSlug(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function getAdminUserId(admin) {
+  return admin?.user?.id ?? admin?.id ?? null;
 }
 
 function parseRequiredNumber(value, fieldLabel) {
@@ -148,6 +153,23 @@ function getPlanData(formData) {
   };
 }
 
+function getPlanAuditValues(plan) {
+  return {
+    name: plan.name,
+    slug: plan.slug,
+    description: plan.description,
+    monthlyPrice: plan.monthlyPrice,
+    yearlyPrice: plan.yearlyPrice,
+    maxUsers: plan.maxUsers,
+    maxCustomers: plan.maxCustomers,
+    maxVehicles: plan.maxVehicles,
+    features: plan.features,
+    isActive: plan.isActive,
+    isRecommended: plan.isRecommended,
+    sortOrder: plan.sortOrder,
+  };
+}
+
 function handlePlanError(error) {
   if (error?.code === "P2002") {
     throw new Error("Ekziston një plan tjetër me këtë slug.");
@@ -164,6 +186,7 @@ function revalidatePlanPages(planId = null) {
   revalidatePath("/admin");
   revalidatePath("/admin/plans");
   revalidatePath("/admin/subscriptions");
+  revalidatePath("/admin/activity-logs");
 
   if (planId) {
     revalidatePath(`/admin/plans/${planId}`);
@@ -172,12 +195,23 @@ function revalidatePlanPages(planId = null) {
 }
 
 export async function createPlanAction(formData) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   try {
     const data = getPlanData(formData);
 
     const plan = await createPlan(data);
+
+    await createPlatformAuditLog({
+      userId: adminUserId,
+      action: "CREATE",
+      entityType: "PLAN",
+      entityId: plan.id,
+      title: "Plani u krijua",
+      description: `U krijua plani ${plan.name}.`,
+      newValues: getPlanAuditValues(plan),
+    });
 
     revalidatePlanPages(plan.id);
 
@@ -192,7 +226,8 @@ export async function createPlanAction(formData) {
 }
 
 export async function updatePlanAction(planId, formData) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   if (!planId) {
     throw new Error("ID-ja e planit mungon.");
@@ -220,6 +255,17 @@ export async function updatePlanAction(planId, formData) {
       ...data,
     });
 
+    await createPlatformAuditLog({
+      userId: adminUserId,
+      action: "UPDATE",
+      entityType: "PLAN",
+      entityId: plan.id,
+      title: "Plani u përditësua",
+      description: `Plani ${plan.name} u përditësua.`,
+      oldValues: getPlanAuditValues(existingPlan),
+      newValues: getPlanAuditValues(plan),
+    });
+
     revalidatePlanPages(plan.id);
 
     return {
@@ -233,14 +279,36 @@ export async function updatePlanAction(planId, formData) {
 }
 
 export async function togglePlanStatusAction(planId) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   if (!planId) {
     throw new Error("ID-ja e planit mungon.");
   }
 
   try {
+    const existingPlan = await getPlanById(planId);
+
+    if (!existingPlan) {
+      throw new Error("Plani nuk u gjet.");
+    }
+
     const plan = await togglePlanStatus(planId);
+
+    await createPlatformAuditLog({
+      userId: adminUserId,
+      action: "STATUS_CHANGE",
+      entityType: "PLAN",
+      entityId: plan.id,
+      title: plan.isActive ? "Plani u aktivizua" : "Plani u çaktivizua",
+      description: `Statusi i planit ${plan.name} u ndryshua.`,
+      oldValues: {
+        isActive: existingPlan.isActive,
+      },
+      newValues: {
+        isActive: plan.isActive,
+      },
+    });
 
     revalidatePlanPages(plan.id);
 
@@ -257,7 +325,8 @@ export async function togglePlanStatusAction(planId) {
 }
 
 export async function toggleRecommendedPlanAction(planId) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   if (!planId) {
     throw new Error("ID-ja e planit mungon.");
@@ -281,6 +350,21 @@ export async function toggleRecommendedPlanAction(planId) {
     }
 
     const plan = await toggleRecommendedPlan(planId);
+
+    await createPlatformAuditLog({
+      userId: adminUserId,
+      action: "UPDATE",
+      entityType: "PLAN",
+      entityId: plan.id,
+      title: "Rekomandimi i planit u ndryshua",
+      description: `Statusi i rekomandimit për ${plan.name} u ndryshua.`,
+      oldValues: {
+        isRecommended: existingPlan.isRecommended,
+      },
+      newValues: {
+        isRecommended: plan.isRecommended,
+      },
+    });
 
     revalidatePlanPages(plan.id);
 

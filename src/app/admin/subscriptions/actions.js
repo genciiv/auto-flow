@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
+import { createPlatformAuditLog } from "@/services/admin/activity-log-service";
 import {
   createPaidSubscription,
   getSubscriptionById,
@@ -12,6 +13,7 @@ import {
 } from "@/services/admin/subscription-service";
 
 const VALID_INTERVALS = ["MONTHLY", "YEARLY"];
+
 const VALID_STATUSES = [
   "TRIALING",
   "ACTIVE",
@@ -22,6 +24,24 @@ const VALID_STATUSES = [
 
 function normalizeText(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function getAdminUserId(admin) {
+  return admin?.user?.id ?? admin?.id ?? null;
+}
+
+function serializeDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString();
 }
 
 function parsePositiveNumber(value, fieldLabel) {
@@ -73,6 +93,7 @@ function revalidateSubscriptionPages(subscriptionId = null) {
   revalidatePath("/admin/subscriptions");
   revalidatePath("/admin/payments");
   revalidatePath("/admin/businesses");
+  revalidatePath("/admin/activity-logs");
 
   if (subscriptionId) {
     revalidatePath(`/admin/subscriptions/${subscriptionId}`);
@@ -80,7 +101,8 @@ function revalidateSubscriptionPages(subscriptionId = null) {
 }
 
 export async function createSubscriptionAction(formData) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   const businessId = normalizeText(formData.get("businessId"));
   const planId = normalizeText(formData.get("planId"));
@@ -105,6 +127,7 @@ export async function createSubscriptionAction(formData) {
       },
       select: {
         id: true,
+        name: true,
         isActive: true,
       },
     }),
@@ -115,6 +138,7 @@ export async function createSubscriptionAction(formData) {
       },
       select: {
         id: true,
+        name: true,
         slug: true,
         isActive: true,
         monthlyPrice: true,
@@ -146,6 +170,7 @@ export async function createSubscriptionAction(formData) {
   }
 
   const periodStartInput = normalizeText(formData.get("periodStart"));
+
   const periodStart = periodStartInput
     ? parseDate(periodStartInput, "Data e fillimit")
     : new Date();
@@ -169,6 +194,26 @@ export async function createSubscriptionAction(formData) {
     periodEnd,
   });
 
+  await createPlatformAuditLog({
+    userId: adminUserId,
+    businessId,
+    action: "CREATE",
+    entityType: "SUBSCRIPTION",
+    entityId: subscription.id,
+    title: "Abonimi u krijua",
+    description: `U aktivizua plani ${plan.name} për biznesin ${business.name}.`,
+    newValues: {
+      businessId,
+      planId,
+      planName: plan.name,
+      status: subscription.status,
+      billingInterval,
+      price,
+      currentPeriodStart: serializeDate(periodStart),
+      currentPeriodEnd: serializeDate(periodEnd),
+    },
+  });
+
   revalidateSubscriptionPages(subscription.id);
 
   return {
@@ -179,7 +224,8 @@ export async function createSubscriptionAction(formData) {
 }
 
 export async function renewSubscriptionAction(subscriptionId, formData) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   if (!subscriptionId) {
     throw new Error("ID-ja e abonimit mungon.");
@@ -221,6 +267,32 @@ export async function renewSubscriptionAction(subscriptionId, formData) {
     periodEnd,
   });
 
+  await createPlatformAuditLog({
+    userId: adminUserId,
+    businessId: existingSubscription.businessId,
+    action: "UPDATE",
+    entityType: "SUBSCRIPTION",
+    entityId: subscription.id,
+    title: "Abonimi u rinovua",
+    description: "Periudha e abonimit u rinovua.",
+    oldValues: {
+      status: existingSubscription.status,
+      billingInterval: existingSubscription.billingInterval,
+      price: existingSubscription.price,
+      currentPeriodStart: serializeDate(
+        existingSubscription.currentPeriodStart,
+      ),
+      currentPeriodEnd: serializeDate(existingSubscription.currentPeriodEnd),
+    },
+    newValues: {
+      status: subscription.status,
+      billingInterval,
+      price,
+      currentPeriodStart: serializeDate(periodStart),
+      currentPeriodEnd: serializeDate(periodEnd),
+    },
+  });
+
   revalidateSubscriptionPages(subscription.id);
 
   return {
@@ -231,7 +303,8 @@ export async function renewSubscriptionAction(subscriptionId, formData) {
 }
 
 export async function updateSubscriptionStatusAction(subscriptionId, status) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   if (!subscriptionId) {
     throw new Error("ID-ja e abonimit mungon.");
@@ -241,9 +314,31 @@ export async function updateSubscriptionStatusAction(subscriptionId, status) {
     throw new Error("Statusi i abonimit nuk është i vlefshëm.");
   }
 
+  const existingSubscription = await getSubscriptionById(subscriptionId);
+
+  if (!existingSubscription) {
+    throw new Error("Abonimi nuk u gjet.");
+  }
+
   const subscription = await updateSubscriptionStatus({
     subscriptionId,
     status,
+  });
+
+  await createPlatformAuditLog({
+    userId: adminUserId,
+    businessId: existingSubscription.businessId,
+    action: "STATUS_CHANGE",
+    entityType: "SUBSCRIPTION",
+    entityId: subscription.id,
+    title: "Statusi i abonimit u ndryshua",
+    description: `Statusi kaloi nga ${existingSubscription.status} në ${subscription.status}.`,
+    oldValues: {
+      status: existingSubscription.status,
+    },
+    newValues: {
+      status: subscription.status,
+    },
   });
 
   revalidateSubscriptionPages(subscription.id);

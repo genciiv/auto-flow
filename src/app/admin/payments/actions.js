@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
+import { createPlatformAuditLog } from "@/services/admin/activity-log-service";
 import {
   getPaymentById,
   refundPayment,
@@ -11,10 +12,29 @@ import {
 import { getPlatformSettings } from "@/services/admin/settings-service";
 
 const VALID_STATUSES = ["PENDING", "PAID", "FAILED", "REFUNDED"];
+
 const VALID_METHODS = ["CASH", "BANK_TRANSFER", "CARD", "OTHER"];
 
 function normalizeText(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function getAdminUserId(admin) {
+  return admin?.user?.id ?? admin?.id ?? null;
+}
+
+function serializeDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString();
 }
 
 function parsePositiveNumber(value, fieldLabel) {
@@ -55,6 +75,7 @@ function revalidatePaymentPages(paymentId = null, subscriptionId = null) {
   revalidatePath("/admin/subscriptions");
   revalidatePath("/admin/reports");
   revalidatePath("/admin/analytics");
+  revalidatePath("/admin/activity-logs");
 
   if (paymentId) {
     revalidatePath(`/admin/payments/${paymentId}`);
@@ -113,9 +134,11 @@ async function validateEnabledPaymentMethod(method) {
 }
 
 export async function createPaymentAction(formData) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   const subscriptionId = normalizeText(formData.get("subscriptionId"));
+
   const status = normalizeText(formData.get("status"));
   const method = normalizeText(formData.get("method"));
   const reference = normalizeText(formData.get("reference"));
@@ -151,12 +174,14 @@ export async function createPaymentAction(formData) {
       business: {
         select: {
           id: true,
+          name: true,
           isActive: true,
         },
       },
       plan: {
         select: {
           id: true,
+          name: true,
           slug: true,
           monthlyPrice: true,
           yearlyPrice: true,
@@ -222,6 +247,29 @@ export async function createPaymentAction(formData) {
     return createdPayment;
   });
 
+  await createPlatformAuditLog({
+    userId: adminUserId,
+    businessId: subscription.businessId,
+    action: "PAYMENT",
+    entityType: "PAYMENT",
+    entityId: payment.id,
+    title: "Pagesa u regjistrua",
+    description: `U regjistrua një pagesë për biznesin ${subscription.business.name}.`,
+    newValues: {
+      subscriptionId: subscription.id,
+      planId: subscription.plan.id,
+      planName: subscription.plan.name,
+      amount: payment.amount,
+      currency: payment.currency,
+      status: payment.status,
+      method: payment.method,
+      reference: payment.reference,
+      paidAt: serializeDate(payment.paidAt),
+      periodStart: serializeDate(payment.periodStart),
+      periodEnd: serializeDate(payment.periodEnd),
+    },
+  });
+
   revalidatePaymentPages(payment.id, subscription.id);
 
   return {
@@ -236,7 +284,8 @@ export async function createPaymentAction(formData) {
 }
 
 export async function updatePaymentStatusAction(paymentId, status) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   if (!paymentId) {
     throw new Error("ID-ja e pagesës mungon.");
@@ -263,6 +312,7 @@ export async function updatePaymentStatusAction(paymentId, status) {
       },
       data: {
         status,
+
         paidAt:
           status === "PAID"
             ? existingPayment.paidAt || new Date()
@@ -290,6 +340,24 @@ export async function updatePaymentStatusAction(paymentId, status) {
     return updatedPayment;
   });
 
+  await createPlatformAuditLog({
+    userId: adminUserId,
+    businessId: existingPayment.businessId,
+    action: "STATUS_CHANGE",
+    entityType: "PAYMENT",
+    entityId: payment.id,
+    title: "Statusi i pagesës u ndryshua",
+    description: `Statusi kaloi nga ${existingPayment.status} në ${payment.status}.`,
+    oldValues: {
+      status: existingPayment.status,
+      paidAt: serializeDate(existingPayment.paidAt),
+    },
+    newValues: {
+      status: payment.status,
+      paidAt: serializeDate(payment.paidAt),
+    },
+  });
+
   revalidatePaymentPages(payment.id, existingPayment.subscriptionId);
 
   const messages = {
@@ -306,7 +374,8 @@ export async function updatePaymentStatusAction(paymentId, status) {
 }
 
 export async function refundPaymentAction(paymentId) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   if (!paymentId) {
     throw new Error("ID-ja e pagesës mungon.");
@@ -319,6 +388,22 @@ export async function refundPaymentAction(paymentId) {
   }
 
   const payment = await refundPayment(paymentId);
+
+  await createPlatformAuditLog({
+    userId: adminUserId,
+    businessId: existingPayment.businessId,
+    action: "PAYMENT",
+    entityType: "PAYMENT",
+    entityId: payment.id,
+    title: "Pagesa u rimbursua",
+    description: "Pagesa u shënua si e rimbursuar.",
+    oldValues: {
+      status: existingPayment.status,
+    },
+    newValues: {
+      status: payment.status,
+    },
+  });
 
   revalidatePaymentPages(payment.id, existingPayment.subscriptionId);
 
