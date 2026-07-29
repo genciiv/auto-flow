@@ -7,6 +7,7 @@ import {
   ClipboardList,
   CreditCard,
   FileBarChart,
+  History,
   Home,
   Landmark,
   Settings,
@@ -75,6 +76,11 @@ const sidebarGroups = [
   {
     title: "SISTEMI",
     items: [
+      {
+        name: "Aktiviteti",
+        icon: History,
+        href: "/admin/activity-logs",
+      },
       {
         name: "Cilësimet",
         icon: Settings,
