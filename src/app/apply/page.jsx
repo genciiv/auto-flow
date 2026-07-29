@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import BusinessApplicationForm from "@/components/applications/BusinessApplicationForm";
+import { getPlatformSettings } from "@/services/admin/settings-service";
 
 const benefits = [
   {
@@ -33,7 +34,9 @@ export const metadata = {
   description: "Apliko për të përdorur platformën AutoFlow në servisin tënd.",
 };
 
-export default function ApplyPage() {
+export default async function ApplyPage() {
+  const settings = await getPlatformSettings();
+  const registrationsOpen = settings.allowRegistrations;
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-6 py-8">
@@ -101,7 +104,31 @@ export default function ApplyPage() {
             </div>
           </section>
 
-          <BusinessApplicationForm />
+          {registrationsOpen ? (
+            <BusinessApplicationForm />
+          ) : (
+            <section className="rounded-[1.75rem] border border-amber-200 bg-white p-8 shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                <ShieldCheck size={26} />
+              </div>
+
+              <h2 className="mt-6 text-2xl font-bold text-slate-950">
+                Aplikimet janë mbyllur përkohësisht
+              </h2>
+
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                AutoFlow nuk po pranon aplikime të reja për momentin. Provo
+                përsëri më vonë ose kontakto administratorin e platformës.
+              </p>
+
+              <a
+                href="mailto:vaqogenci@gmail.com"
+                className="mt-6 inline-flex h-12 items-center justify-center rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                Kontakto administratorin
+              </a>
+            </section>
+          )}
         </div>
       </div>
     </main>

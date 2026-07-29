@@ -2,6 +2,8 @@
 
 import { createBusinessApplication } from "@/services/application-service";
 
+import { getPlatformSettings } from "@/services/admin/settings-service";
+
 const initialErrorState = {
   success: false,
   message: "",
@@ -45,18 +47,22 @@ function validateApplication({ businessName, ownerName, email, phone, city }) {
 }
 
 export async function submitBusinessApplicationAction(previousState, formData) {
+  const settings = await getPlatformSettings();
+
+  if (!settings.allowRegistrations) {
+    return {
+      ...initialErrorState,
+      message:
+        "Aplikimet e reja janë mbyllur përkohësisht. Kontakto administratorin e AutoFlow.",
+    };
+  }
+
   const businessName = readRequiredString(formData, "businessName");
-
   const ownerName = readRequiredString(formData, "ownerName");
-
   const email = readRequiredString(formData, "email").toLowerCase();
-
   const phone = readRequiredString(formData, "phone");
-
   const city = readRequiredString(formData, "city");
-
   const address = readRequiredString(formData, "address");
-
   const notes = readRequiredString(formData, "notes");
 
   const fieldErrors = validateApplication({
