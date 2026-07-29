@@ -22,17 +22,17 @@ async function createOrUpdatePlatformAdmin() {
 
   const platformAdmin = await db.user.upsert({
     where: {
-      email: "admin@autoflow.al",
+      email: "vaqogenci@gmail.com",
     },
     update: {
-      name: "AutoFlow Admin",
+      name: "Genci Vaqo",
       passwordHash: adminPasswordHash,
       globalRole: "PLATFORM_ADMIN",
       isActive: true,
     },
     create: {
-      name: "AutoFlow Admin",
-      email: "admin@autoflow.al",
+      name: "Genci Vaqo",
+      email: "vaqogenci@gmail.com",
       passwordHash: adminPasswordHash,
       globalRole: "PLATFORM_ADMIN",
       isActive: true,

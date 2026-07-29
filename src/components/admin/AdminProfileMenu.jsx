@@ -92,7 +92,7 @@ export default function AdminProfileMenu({
 
             <div className="mt-2 space-y-1">
               <Link
-                href="/admin/settings"
+                href="/admin/profile"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
               >
