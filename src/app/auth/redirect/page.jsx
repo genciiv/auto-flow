@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 
@@ -22,22 +22,12 @@ function getDestination(user) {
   return "/login?error=no-access";
 }
 
-async function redirectUser(request) {
+export default async function AuthRedirectPage() {
   const session = await auth();
 
   if (!session?.user) {
-    return NextResponse.redirect(new URL("/login", request.url), 303);
+    redirect("/login");
   }
 
-  const destination = getDestination(session.user);
-
-  return NextResponse.redirect(new URL(destination, request.url), 303);
-}
-
-export async function GET(request) {
-  return redirectUser(request);
-}
-
-export async function POST(request) {
-  return redirectUser(request);
+  redirect(getDestination(session.user));
 }
