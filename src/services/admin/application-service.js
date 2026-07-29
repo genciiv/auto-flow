@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 
+import { getPlatformSettings } from "@/services/admin/settings-service";
+
 const PAGE_SIZE = 10;
 
 function normalizePage(page) {
@@ -246,12 +248,35 @@ export async function approveApplication({ applicationId, reviewedById }) {
     },
   });
 
+  const platformSettings = await getPlatformSettings();
+
+  const trialEnabled = platformSettings.trialEnabled;
+
+  const trialDurationDays = Math.max(
+    1,
+    Number(platformSettings.trialDurationDays) || 7,
+  );
+
   const result = await db.$transaction(async (transaction) => {
-    const trialPlan = await transaction.plan.findUnique({
-      where: {
-        slug: "free-trial",
-      },
-    });
+    let trialPlan = null;
+
+    if (trialEnabled) {
+      trialPlan = await transaction.plan.findUnique({
+        where: {
+          slug: "free-trial",
+        },
+      });
+
+      if (!trialPlan) {
+        throw new Error(
+          "Plani Free Trial nuk u gjet. Krijoje fillimisht te tabela Plan.",
+        );
+      }
+
+      if (!trialPlan.isActive) {
+        throw new Error("Plani Free Trial është i çaktivizuar.");
+      }
+    }
 
     if (!trialPlan) {
       throw new Error(
@@ -322,25 +347,29 @@ export async function approveApplication({ applicationId, reviewedById }) {
       },
     });
 
-    const trialStartsAt = new Date();
-    const trialEndsAt = new Date(trialStartsAt);
+    let subscription = null;
 
-    trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+    if (trialEnabled && trialPlan) {
+      const trialStartsAt = new Date();
+      const trialEndsAt = new Date(trialStartsAt);
 
-    const subscription = await transaction.subscription.create({
-      data: {
-        businessId: business.id,
-        planId: trialPlan.id,
-        status: "TRIALING",
-        billingInterval: "MONTHLY",
-        price: 0,
-        trialStartsAt,
-        trialEndsAt,
-        currentPeriodStart: trialStartsAt,
-        currentPeriodEnd: trialEndsAt,
-        cancelAtPeriodEnd: false,
-      },
-    });
+      trialEndsAt.setDate(trialEndsAt.getDate() + trialDurationDays);
+
+      subscription = await transaction.subscription.create({
+        data: {
+          businessId: business.id,
+          planId: trialPlan.id,
+          status: "TRIALING",
+          billingInterval: "MONTHLY",
+          price: 0,
+          trialStartsAt,
+          trialEndsAt,
+          currentPeriodStart: trialStartsAt,
+          currentPeriodEnd: trialEndsAt,
+          cancelAtPeriodEnd: false,
+        },
+      });
+    }
 
     await transaction.businessApplication.update({
       where: {
