@@ -1,4 +1,7 @@
 import Link from "next/link";
+
+import ActivityLogDetailsButton from "@/components/admin/ActivityLogDetailsButton";
+
 import {
   Activity,
   ChevronLeft,
@@ -126,18 +129,6 @@ function getEntityLabel(entityType) {
   return ENTITY_LABELS[entityType] || entityType;
 }
 
-function stringifyJson(value) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
 function createPageUrl({ search, action, entityType, page }) {
   const params = new URLSearchParams();
 
@@ -175,62 +166,6 @@ function SummaryCard({ title, value, description, icon: Icon }) {
 
       <p className="mt-1 text-xs text-slate-500">{description}</p>
     </div>
-  );
-}
-
-function JsonDetails({ oldValues, newValues, metadata }) {
-  const oldValuesText = stringifyJson(oldValues);
-  const newValuesText = stringifyJson(newValues);
-  const metadataText = stringifyJson(metadata);
-
-  if (!oldValuesText && !newValuesText && !metadataText) {
-    return <span className="text-xs text-slate-400">Pa detaje</span>;
-  }
-
-  return (
-    <details className="group">
-      <summary className="cursor-pointer list-none text-xs font-semibold text-blue-600 hover:text-blue-700">
-        Shiko detajet
-      </summary>
-
-      <div className="mt-3 w-[340px] max-w-[70vw] space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left shadow-lg">
-        {oldValuesText ? (
-          <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-              Vlerat e mëparshme
-            </p>
-
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-3 text-[11px] leading-5 text-slate-700 ring-1 ring-slate-200">
-              {oldValuesText}
-            </pre>
-          </div>
-        ) : null}
-
-        {newValuesText ? (
-          <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-              Vlerat e reja
-            </p>
-
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-3 text-[11px] leading-5 text-slate-700 ring-1 ring-slate-200">
-              {newValuesText}
-            </pre>
-          </div>
-        ) : null}
-
-        {metadataText ? (
-          <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-              Metadata
-            </p>
-
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-3 text-[11px] leading-5 text-slate-700 ring-1 ring-slate-200">
-              {metadataText}
-            </pre>
-          </div>
-        ) : null}
-      </div>
-    </details>
   );
 }
 
@@ -543,11 +478,18 @@ export default async function ActivityLogsPage({ searchParams }) {
                           </div>
                         </td>
 
-                        <td className="relative px-6 py-5 text-right">
-                          <JsonDetails
-                            oldValues={log.oldValues}
-                            newValues={log.newValues}
-                            metadata={log.metadata}
+                        <td className="px-6 py-5 text-right">
+                          <ActivityLogDetailsButton
+                            log={{
+                              id: log.id,
+                              title: log.title,
+                              description: log.description,
+                              entityType: log.entityType,
+                              entityId: log.entityId,
+                              oldValues: log.oldValues,
+                              newValues: log.newValues,
+                              metadata: log.metadata,
+                            }}
                           />
                         </td>
                       </tr>
