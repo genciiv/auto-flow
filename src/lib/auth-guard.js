@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { requireBusinessContext } from "@/lib/business-context";
+import { getMaintenanceStatus } from "@/services/maintenance-service";
 
 export async function requireUser() {
   const session = await auth();
@@ -76,6 +77,12 @@ export async function requireBusinessUser(allowedRoles = []) {
 
 export async function requireCustomer() {
   const user = await requireUser();
+
+  const maintenance = await getMaintenanceStatus();
+
+  if (maintenance.maintenanceMode) {
+    redirect("/maintenance");
+  }
 
   /*
    * Një përdorues CUSTOMER mund të ketë edhe biznes,

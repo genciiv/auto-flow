@@ -8,12 +8,25 @@ import {
   hasPermission,
 } from "@/lib/permissions";
 import { getBusinessSubscriptionAccess } from "@/services/subscription-access-service";
+import { getMaintenanceStatus } from "@/services/maintenance-service";
 
 export async function requireBusinessContext(allowedRoles = []) {
   const session = await auth();
 
   if (!session?.user?.id) {
     redirect("/login");
+  }
+
+  /*
+   * Platform Admin vazhdon të ketë akses gjatë mirëmbajtjes.
+   * Përdoruesit e biznesit ridrejtohen te faqja e maintenance.
+   */
+  if (session.user.globalRole !== "PLATFORM_ADMIN") {
+    const maintenance = await getMaintenanceStatus();
+
+    if (maintenance.maintenanceMode) {
+      redirect("/maintenance");
+    }
   }
 
   const userId = session.user.id;
