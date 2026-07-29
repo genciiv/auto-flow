@@ -1,11 +1,7 @@
 import Link from "next/link";
-import {
-  AlertTriangle,
-  Clock3,
-  CreditCard,
-  LogOut,
-  ShieldAlert,
-} from "lucide-react";
+import { AlertTriangle, Clock3, CreditCard, ShieldAlert } from "lucide-react";
+
+import SubscriptionLogoutButton from "@/components/subscription/SubscriptionLogoutButton";
 
 import { requireUser } from "@/lib/auth-guard";
 
@@ -103,13 +99,7 @@ export default async function SubscriptionRequiredPage({ searchParams }) {
             Kontakto administratorin
           </Link>
 
-          <Link
-            href="/api/auth/signout"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            <LogOut size={17} />
-            Dil nga llogaria
-          </Link>
+          <SubscriptionLogoutButton />
         </div>
       </section>
     </main>
