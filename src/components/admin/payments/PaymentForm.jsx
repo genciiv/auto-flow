@@ -48,7 +48,10 @@ function getStatusLabel(status) {
   return labels[status] || status;
 }
 
-export default function PaymentForm({ subscriptions = [] }) {
+export default function PaymentForm({
+  subscriptions = [],
+  paymentMethods = [],
+}) {
   const router = useRouter();
 
   const [isPending, startTransition] = useTransition();
@@ -56,7 +59,7 @@ export default function PaymentForm({ subscriptions = [] }) {
 
   const [subscriptionId, setSubscriptionId] = useState("");
   const [status, setStatus] = useState("PAID");
-  const [method, setMethod] = useState("CASH");
+  const [method, setMethod] = useState(paymentMethods[0]?.value || "OTHER");
   const [customAmount, setCustomAmount] = useState("");
 
   const selectedSubscription = useMemo(
@@ -293,10 +296,11 @@ export default function PaymentForm({ subscriptions = [] }) {
               onChange={(event) => setMethod(event.target.value)}
               className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
             >
-              <option value="CASH">Cash</option>
-              <option value="BANK_TRANSFER">Transfertë bankare</option>
-              <option value="CARD">Kartë</option>
-              <option value="OTHER">Tjetër</option>
+              {paymentMethods.map((paymentMethod) => (
+                <option key={paymentMethod.value} value={paymentMethod.value}>
+                  {paymentMethod.label}
+                </option>
+              ))}
             </select>
           </label>
 

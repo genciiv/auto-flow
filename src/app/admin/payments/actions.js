@@ -8,6 +8,7 @@ import {
   getPaymentById,
   refundPayment,
 } from "@/services/admin/payment-service";
+import { getPlatformSettings } from "@/services/admin/settings-service";
 
 const VALID_STATUSES = ["PENDING", "PAID", "FAILED", "REFUNDED"];
 const VALID_METHODS = ["CASH", "BANK_TRANSFER", "CARD", "OTHER"];
@@ -87,6 +88,30 @@ async function activateSubscriptionFromPayment({
   });
 }
 
+async function validateEnabledPaymentMethod(method) {
+  const settings = await getPlatformSettings();
+
+  const enabledMethods = ["OTHER"];
+
+  if (settings.cashPaymentsEnabled) {
+    enabledMethods.push("CASH");
+  }
+
+  if (settings.bankPaymentsEnabled) {
+    enabledMethods.push("BANK_TRANSFER");
+  }
+
+  if (settings.cardPaymentsEnabled) {
+    enabledMethods.push("CARD");
+  }
+
+  if (!enabledMethods.includes(method)) {
+    throw new Error(
+      "Kjo metodë pagese është çaktivizuar te konfigurimet e platformës.",
+    );
+  }
+}
+
 export async function createPaymentAction(formData) {
   await requirePlatformAdmin();
 
@@ -107,6 +132,8 @@ export async function createPaymentAction(formData) {
   if (!VALID_METHODS.includes(method)) {
     throw new Error("Metoda e pagesës nuk është e vlefshme.");
   }
+
+  await validateEnabledPaymentMethod(method);
 
   if (method === "BANK_TRANSFER" && !reference) {
     throw new Error("Vendos referencën e transfertës bankare.");

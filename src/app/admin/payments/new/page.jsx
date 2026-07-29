@@ -5,7 +5,7 @@ import PaymentForm from "@/components/admin/payments/PaymentForm";
 import { getPaymentFormData } from "@/services/admin/payment-service";
 
 export default async function NewPaymentPage() {
-  const { subscriptions } = await getPaymentFormData();
+  const { subscriptions, paymentMethods } = await getPaymentFormData();
 
   return (
     <div className="space-y-7">
@@ -59,7 +59,10 @@ export default async function NewPaymentPage() {
           </Link>
         </section>
       ) : (
-        <PaymentForm subscriptions={subscriptions} />
+        <PaymentForm
+          subscriptions={subscriptions}
+          paymentMethods={paymentMethods}
+        />
       )}
     </div>
   );

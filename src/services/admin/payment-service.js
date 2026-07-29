@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 
+import { getPlatformSettings } from "@/services/admin/settings-service";
+
 const PAGE_SIZE = 10;
 
 const VALID_STATUSES = ["all", "PENDING", "PAID", "FAILED", "REFUNDED"];
@@ -249,55 +251,100 @@ export async function getPaymentById(paymentId) {
 }
 
 export async function getPaymentFormData() {
-  const subscriptions = await db.subscription.findMany({
-    where: {
-      status: {
-        in: ["TRIALING", "ACTIVE", "PAST_DUE", "EXPIRED"],
-      },
-      business: {
-        isActive: true,
-      },
-    },
-    select: {
-      id: true,
-      businessId: true,
-      status: true,
-      billingInterval: true,
-      price: true,
-      currentPeriodStart: true,
-      currentPeriodEnd: true,
-      business: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          city: true,
+  const [subscriptions, settings] = await Promise.all([
+    db.subscription.findMany({
+      where: {
+        status: {
+          in: ["TRIALING", "ACTIVE", "PAST_DUE", "EXPIRED"],
         },
-      },
-      plan: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          monthlyPrice: true,
-          yearlyPrice: true,
-        },
-      },
-    },
-    orderBy: [
-      {
+
         business: {
-          name: "asc",
+          isActive: true,
+        },
+
+        plan: {
+          slug: {
+            not: "free-trial",
+          },
+          isActive: true,
         },
       },
-      {
-        createdAt: "desc",
+
+      select: {
+        id: true,
+        businessId: true,
+        status: true,
+        billingInterval: true,
+        price: true,
+        currentPeriodStart: true,
+        currentPeriodEnd: true,
+
+        business: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            city: true,
+          },
+        },
+
+        plan: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            monthlyPrice: true,
+            yearlyPrice: true,
+          },
+        },
       },
-    ],
+
+      orderBy: [
+        {
+          business: {
+            name: "asc",
+          },
+        },
+        {
+          createdAt: "desc",
+        },
+      ],
+    }),
+
+    getPlatformSettings(),
+  ]);
+
+  const paymentMethods = [];
+
+  if (settings.cashPaymentsEnabled) {
+    paymentMethods.push({
+      value: "CASH",
+      label: "Cash",
+    });
+  }
+
+  if (settings.bankPaymentsEnabled) {
+    paymentMethods.push({
+      value: "BANK_TRANSFER",
+      label: "Transfertë bankare",
+    });
+  }
+
+  if (settings.cardPaymentsEnabled) {
+    paymentMethods.push({
+      value: "CARD",
+      label: "Kartë",
+    });
+  }
+
+  paymentMethods.push({
+    value: "OTHER",
+    label: "Tjetër",
   });
 
   return {
     subscriptions,
+    paymentMethods,
   };
 }
 
