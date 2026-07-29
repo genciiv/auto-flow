@@ -171,6 +171,34 @@ enum AuthTokenType {
   EMAIL_CHANGE
 }
 
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  PAYPAL
+  OTHER
+}
+
 /**
  * |--------------------------------------------------------------------------
  * | User
@@ -195,9 +223,9 @@ model User {
 
   customerProfile CustomerProfile?
 
-  marketplaceListings  MarketplaceListing[] @relation("MarketplaceUserListings")
+  marketplaceListings  MarketplaceListing[]  @relation("MarketplaceUserListings")
   marketplaceFavorites MarketplaceFavorite[]
-  marketplaceInquiries MarketplaceInquiry[] @relation("MarketplaceInquirySender")
+  marketplaceInquiries MarketplaceInquiry[]  @relation("MarketplaceInquirySender")
   notifications        Notification[]
   auditLogs            AuditLog[]
   authTokens           AuthToken[]
@@ -266,6 +294,8 @@ model Business {
   marketplaceListings MarketplaceListing[] @relation("MarketplaceBusinessListings")
   notifications       Notification[]
   auditLogs           AuditLog[]
+  subscriptions       Subscription[]
+  payments            Payment[]
 
   @@index([name])
   @@index([city])
@@ -701,6 +731,103 @@ model BusinessApplication {
   @@index([email])
   @@index([city])
   @@index([createdAt])
+}
+
+model Plan {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String?
+
+  monthlyPrice Float @default(0)
+  yearlyPrice  Float @default(0)
+
+  maxUsers     Int?
+  maxCustomers Int?
+  maxVehicles  Int?
+
+  features Json?
+
+  isActive      Boolean @default(true)
+  isRecommended Boolean @default(false)
+  sortOrder     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@index([name])
+  @@index([isActive])
+  @@index([isRecommended])
+  @@index([sortOrder])
+}
+
+model Subscription {
+  id         String @id @default(cuid())
+  businessId String
+  planId     String
+
+  status          SubscriptionStatus @default(TRIALING)
+  billingInterval BillingInterval    @default(MONTHLY)
+
+  price Float @default(0)
+
+  trialStartsAt DateTime?
+  trialEndsAt   DateTime?
+
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+
+  cancelledAt       DateTime?
+  cancelAtPeriodEnd Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan     Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  payments Payment[]
+
+  @@index([businessId])
+  @@index([planId])
+  @@index([status])
+  @@index([trialEndsAt])
+  @@index([currentPeriodEnd])
+  @@index([businessId, status])
+}
+
+model Payment {
+  id             String  @id @default(cuid())
+  businessId     String
+  subscriptionId String?
+
+  amount   Float
+  currency String @default("ALL")
+
+  status PaymentStatus @default(PENDING)
+  method PaymentMethod @default(OTHER)
+
+  reference   String?
+  description String?
+  paidAt      DateTime?
+
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([paidAt])
+  @@index([createdAt])
+  @@index([businessId, status])
 }
 
 /**
