@@ -7,6 +7,7 @@ import {
   hasAnyPermission,
   hasPermission,
 } from "@/lib/permissions";
+import { getBusinessSubscriptionAccess } from "@/services/subscription-access-service";
 
 export async function requireBusinessContext(allowedRoles = []) {
   const session = await auth();
@@ -69,6 +70,24 @@ export async function requireBusinessContext(allowedRoles = []) {
 
   if (!membership?.business) {
     redirect("/login");
+  }
+
+  /*
+   * Platform Admin nuk bllokohet nga kontrolli i abonimit.
+   * Ky kontroll aplikohet vetëm për përdoruesit e biznesit.
+   */
+  if (session.user.globalRole !== "PLATFORM_ADMIN") {
+    const subscriptionAccess = await getBusinessSubscriptionAccess(
+      membership.businessId,
+    );
+
+    if (!subscriptionAccess.hasAccess) {
+      redirect(
+        `/subscription-required?reason=${encodeURIComponent(
+          subscriptionAccess.reason,
+        )}`,
+      );
+    }
   }
 
   if (
