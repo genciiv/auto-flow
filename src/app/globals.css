@@ -3,6 +3,12 @@
 :root {
   --background: #ffffff;
   --foreground: #020617;
+
+  --landing-primary: #2563eb;
+  --landing-primary-hover: #1d4ed8;
+  --landing-surface: #f8fafc;
+  --landing-border: #e2e8f0;
+  --landing-muted: #64748b;
 }
 
 * {
@@ -14,8 +20,37 @@ html {
 }
 
 body {
+  min-width: 320px;
   background: var(--background);
   color: var(--foreground);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.18);
+  color: #0f172a;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media print {

@@ -1,111 +1,139 @@
-import { ArrowRight } from "lucide-react";
+"use client";
+
+import Link from "next/link";
+import { ArrowRight, Check, Play, Sparkles } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+
+import HeroProductVisual from "@/components/landing/HeroProductVisual";
+
+const benefits = [
+  "Pa kartë bankare",
+  "Konfigurim i asistuar",
+  "Të dhëna të sigurta",
+];
 
 export default function HeroSection() {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
-    <section className="relative overflow-hidden">
-      <div className="mx-auto grid max-w-7xl items-center gap-16 px-6 py-24 lg:grid-cols-2 lg:py-32">
-        <div>
-          <div className="mb-6 inline-flex rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
-            Platformë SaaS për industrinë automotive
+    <section className="relative isolate overflow-hidden bg-white">
+      <div className="pointer-events-none absolute inset-0 -z-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,rgba(37,99,235,0.10),transparent_31%),radial-gradient(circle_at_83%_20%,rgba(14,165,233,0.09),transparent_28%),linear-gradient(to_bottom,#ffffff,#f8fafc_76%,#ffffff)]" />
+
+        <div className="absolute inset-0 opacity-[0.38] [background-image:linear-gradient(rgba(148,163,184,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.12)_1px,transparent_1px)] [background-size:52px_52px] [mask-image:linear-gradient(to_bottom,black,transparent_82%)]" />
+      </div>
+
+      <div className="pointer-events-none absolute left-1/2 top-[-140px] -z-10 h-[440px] w-[720px] -translate-x-1/2 rounded-full bg-blue-100/50 blur-[120px]" />
+
+      <div className="mx-auto grid min-h-[720px] max-w-[1380px] items-center gap-14 px-5 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1fr_0.9fr] lg:px-8 lg:py-24 xl:gap-16">
+        <motion.div
+          className="relative z-10"
+          initial={
+            shouldReduceMotion
+              ? false
+              : {
+                  opacity: 0,
+                  y: 24,
+                }
+          }
+          animate={{
+            opacity: 1,
+            y: 0,
+          }}
+          transition={{
+            duration: 0.8,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+        >
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200/80 bg-blue-50/80 px-4 py-2 text-xs font-bold text-blue-700 shadow-[0_8px_30px_rgba(37,99,235,0.08)] backdrop-blur-sm sm:text-sm">
+            <Sparkles size={15} />
+            Platforma e re për bizneset automotive
           </div>
 
-          <h1 className="max-w-3xl text-5xl font-bold tracking-tight text-slate-950 md:text-7xl">
-            Menaxho servisin dhe biznesin tënd nga një platformë e vetme.
+          <h1 className="mt-7 max-w-3xl text-[3rem] font-black leading-[1.01] tracking-[-0.052em] text-slate-950 sm:text-6xl lg:text-[4.25rem] xl:text-[4.7rem]">
+            Çdo pjesë e biznesit tënd,{" "}
+            <span className="relative inline-block text-blue-600">
+              në një rrjedhë.
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 360 18"
+                className="absolute -bottom-2 left-0 w-full overflow-visible"
+              >
+                <motion.path
+                  d="M4 12C82 3 168 17 356 7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  className="text-blue-200"
+                  initial={
+                    shouldReduceMotion
+                      ? false
+                      : {
+                          pathLength: 0,
+                          opacity: 0,
+                        }
+                  }
+                  animate={{
+                    pathLength: 1,
+                    opacity: 1,
+                  }}
+                  transition={{
+                    duration: 1.1,
+                    delay: 0.75,
+                    ease: "easeInOut",
+                  }}
+                />
+              </svg>
+            </span>
           </h1>
 
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-            AutoFlow ndihmon serviset, gomisteritë, autoelektrikët dhe dyqanet e
-            pjesëve të menaxhojnë klientët, automjetet, shërbimet, magazinën,
-            faturat dhe marketplace-in.
+          <p className="mt-8 max-w-xl text-base leading-8 text-slate-600 sm:text-lg sm:leading-9">
+            AutoFlow lidh klientët, automjetet, serviset, rezervimet, magazinën,
+            faturat, pagesat dhe marketplace-in në një platformë të vetme
+            profesionale.
           </p>
 
-          <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-            <button className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-7 py-4 text-sm font-bold text-white shadow-xl shadow-blue-600/20 hover:bg-blue-700">
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/apply"
+              className="group inline-flex h-14 items-center justify-center gap-2 rounded-full bg-blue-600 px-7 text-sm font-black text-white shadow-[0_18px_45px_rgba(37,99,235,0.26)] transition duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-[0_22px_55px_rgba(37,99,235,0.34)]"
+            >
               Fillo falas
-              <ArrowRight size={18} />
-            </button>
+              <ArrowRight
+                size={18}
+                className="transition-transform group-hover:translate-x-1"
+              />
+            </Link>
 
-            <button className="rounded-full border border-slate-200 bg-white px-7 py-4 text-sm font-bold text-slate-800 shadow-sm hover:bg-slate-50">
-              Shiko demo
-            </button>
+            <Link
+              href="/#industries"
+              className="group inline-flex h-14 items-center justify-center gap-3 rounded-full border border-slate-200 bg-white/90 px-7 text-sm font-black text-slate-800 shadow-[0_12px_35px_rgba(15,23,42,0.05)] backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:border-slate-300 hover:bg-white"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-white">
+                <Play size={13} fill="currentColor" />
+              </span>
+              Eksploro AutoFlow
+            </Link>
           </div>
-        </div>
 
-        <div className="relative">
-          <div className="absolute -inset-6 rounded-[2.5rem] bg-blue-100/60 blur-3xl" />
+          <div className="mt-7 flex flex-wrap gap-x-5 gap-y-3">
+            {benefits.map((benefit) => (
+              <div
+                key={benefit}
+                className="flex items-center gap-2 text-xs font-semibold text-slate-500 sm:text-sm"
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                  <Check size={12} strokeWidth={3} />
+                </span>
 
-          <div className="relative rounded-[2rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10">
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">
-                    Dashboard
-                  </p>
-                  <h3 className="text-2xl font-bold text-slate-950">
-                    Servisi AutoFlow
-                  </h3>
-                </div>
-
-                <div className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
-                  Online
-                </div>
+                {benefit}
               </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                {[
-                  ["Klientë", "1,248"],
-                  ["Automjete", "2,410"],
-                  ["Shërbime", "486"],
-                  ["Të ardhura", "€18,920"],
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="rounded-3xl border border-slate-200 bg-white p-5"
-                  >
-                    <p className="text-sm font-medium text-slate-500">
-                      {label}
-                    </p>
-                    <p className="mt-2 text-3xl font-bold text-slate-950">
-                      {value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <h4 className="font-bold text-slate-950">
-                    Shërbimet e sotme
-                  </h4>
-                  <span className="text-sm font-semibold text-blue-600">
-                    12 termine
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {[
-                    ["BMW X5", "Ndërrim vaji", "09:30"],
-                    ["Audi A4", "Diagnostikim", "11:00"],
-                    ["VW Golf 7", "Frena", "13:45"],
-                  ].map(([car, service, time]) => (
-                    <div
-                      key={car}
-                      className="flex items-center justify-between rounded-2xl bg-slate-50 p-4"
-                    >
-                      <div>
-                        <p className="font-bold text-slate-950">{car}</p>
-                        <p className="text-sm text-slate-500">{service}</p>
-                      </div>
-                      <span className="text-sm font-bold text-slate-700">
-                        {time}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
-        </div>
+        </motion.div>
+
+        <HeroProductVisual />
       </div>
     </section>
   );
