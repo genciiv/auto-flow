@@ -1037,3 +1037,33 @@ model AuthToken {
   @@index([userId, type])
   @@index([userId, type, usedAt])
 }
+
+model PlatformSetting {
+  id String @id @default(cuid())
+
+  platformName    String  @default("AutoFlow")
+  supportEmail    String?
+  supportPhone    String?
+  companyAddress  String?
+  defaultCurrency String  @default("ALL")
+  defaultTimezone String  @default("Europe/Tirane")
+
+  trialEnabled      Boolean @default(true)
+  trialDurationDays Int     @default(7)
+
+  cashPaymentsEnabled Boolean @default(true)
+  bankPaymentsEnabled Boolean @default(true)
+  cardPaymentsEnabled Boolean @default(false)
+
+  bankName          String?
+  bankAccountName   String?
+  bankAccountNumber String?
+  bankIban          String?
+  bankSwiftCode     String?
+
+  maintenanceMode    Boolean @default(false)
+  allowRegistrations Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
