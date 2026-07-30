@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   emailFormatRegex,
+  normalizeTrimmedString,
   normalizedEmailStringSchema,
   optionalPhoneSchema,
   requiredStringSchema,
@@ -10,6 +11,10 @@ import {
 const requiredLoginMessage = "Plotëso email-in dhe password-in.";
 
 const requiredRegisterMessage = "Plotëso të gjitha fushat e detyrueshme.";
+
+const requiredPasswordFieldsMessage = "Plotëso të dyja fushat e password-it.";
+
+const passwordMismatchMessage = "Password-et nuk përputhen.";
 
 const accountEmailSchema = normalizedEmailStringSchema.pipe(
   z
@@ -22,6 +27,76 @@ const accountEmailSchema = normalizedEmailStringSchema.pipe(
     }),
 );
 
+/**
+ * Krijon një token të normalizuar me trim().
+ */
+function createRequiredTokenSchema(message) {
+  return z.preprocess(
+    normalizeTrimmedString,
+    z.string().min(1, {
+      message,
+    }),
+  );
+}
+
+/**
+ * Password për krijim, rivendosje ose aktivizim llogarie.
+ *
+ * Password-i nuk trim-ohet, në mënyrë që të ruhet
+ * sjellja ekzistuese e aplikacionit.
+ */
+function createNewPasswordSchema(requiredMessage) {
+  return z
+    .string()
+    .min(1, {
+      message: requiredMessage,
+    })
+    .min(8, {
+      message: "Password-i duhet të ketë të paktën 8 karaktere.",
+    })
+    .max(100, {
+      message: "Password-i është shumë i gjatë.",
+    });
+}
+
+/**
+ * Shton kontrollin që password-et të përputhen.
+ */
+function addPasswordConfirmationValidation(schema) {
+  return schema.superRefine((data, context) => {
+    if (data.password !== data.confirmPassword) {
+      context.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: passwordMismatchMessage,
+      });
+    }
+  });
+}
+
+/**
+ * Krijon schema-n e përbashkët për rrjedhat që përdorin:
+ * - token
+ * - password
+ * - confirmPassword
+ */
+function createTokenPasswordSchema({
+  tokenMessage,
+  passwordRequiredMessage = requiredPasswordFieldsMessage,
+}) {
+  return addPasswordConfirmationValidation(
+    z.object({
+      token: createRequiredTokenSchema(tokenMessage),
+
+      password: createNewPasswordSchema(passwordRequiredMessage),
+
+      confirmPassword: z.string().min(1, {
+        message: passwordRequiredMessage,
+      }),
+    }),
+  );
+}
+
 export const loginSchema = z.object({
   email: normalizedEmailStringSchema.pipe(
     z.string().min(1, {
@@ -31,17 +106,14 @@ export const loginSchema = z.object({
 
   /**
    * Password-i nuk trim-ohet.
-   *
-   * Kjo ruan sjelljen aktuale dhe lejon që një
-   * password ekzistues të përmbajë hapësira.
    */
   password: z.string().min(1, {
     message: requiredLoginMessage,
   }),
 });
 
-export const registerSchema = z
-  .object({
+export const registerSchema = addPasswordConfirmationValidation(
+  z.object({
     name: requiredStringSchema(requiredRegisterMessage).pipe(
       z
         .string()
@@ -67,36 +139,15 @@ export const registerSchema = z
     phone: optionalPhoneSchema("Numri i telefonit nuk është i vlefshëm."),
 
     /**
-     * Password-et nuk trim-ohen.
-     *
-     * Kjo ruan sjelljen që kishte register action
-     * përpara integrimit me Zod.
+     * Password-i nuk trim-ohet.
      */
-    password: z
-      .string()
-      .min(1, {
-        message: requiredRegisterMessage,
-      })
-      .min(8, {
-        message: "Password-i duhet të ketë të paktën 8 karaktere.",
-      })
-      .max(100, {
-        message: "Password-i është shumë i gjatë.",
-      }),
+    password: createNewPasswordSchema(requiredRegisterMessage),
 
     confirmPassword: z.string().min(1, {
       message: requiredRegisterMessage,
     }),
-  })
-  .superRefine((data, context) => {
-    if (data.password !== data.confirmPassword) {
-      context.addIssue({
-        code: "custom",
-        path: ["confirmPassword"],
-        message: "Password-et nuk përputhen.",
-      });
-    }
-  });
+  }),
+);
 
 export const forgotPasswordSchema = z.object({
   email: accountEmailSchema,
@@ -106,115 +157,24 @@ export const resendVerificationSchema = z.object({
   email: accountEmailSchema,
 });
 
-export const resetPasswordSchema = z
-  .object({
-    token: z.preprocess(
-      (value) => {
-        if (typeof value !== "string") {
-          return "";
-        }
+export const resetPasswordSchema = createTokenPasswordSchema({
+  tokenMessage: "Linku i rivendosjes nuk është i vlefshëm.",
+});
 
-        return value.trim();
-      },
-      z.string().min(1, {
-        message: "Linku i rivendosjes nuk është i vlefshëm.",
-      }),
-    ),
-
-    /**
-     * Password-et nuk trim-ohen.
-     *
-     * Kjo ruan sjelljen ekzistuese.
-     */
-    password: z
-      .string()
-      .min(1, {
-        message: "Plotëso të dyja fushat e password-it.",
-      })
-      .min(8, {
-        message: "Password-i duhet të ketë të paktën 8 karaktere.",
-      })
-      .max(100, {
-        message: "Password-i është shumë i gjatë.",
-      }),
-
-    confirmPassword: z.string().min(1, {
-      message: "Plotëso të dyja fushat e password-it.",
-    }),
-  })
-  .superRefine((data, context) => {
-    if (data.password !== data.confirmPassword) {
-      context.addIssue({
-        code: "custom",
-        path: ["confirmPassword"],
-        message: "Password-et nuk përputhen.",
-      });
-    }
-  });
-
-export const activateAccountSchema = z
-  .object({
-    token: z.preprocess(
-      (value) => {
-        if (typeof value !== "string") {
-          return "";
-        }
-
-        return value.trim();
-      },
-      z.string().min(1, {
-        message: "Linku i aktivizimit nuk është i vlefshëm.",
-      }),
-    ),
-
-    /**
-     * Password-et nuk trim-ohen.
-     *
-     * Kjo ruan sjelljen ekzistuese.
-     */
-    password: z
-      .string()
-      .min(1, {
-        message: "Plotëso të dyja fushat e password-it.",
-      })
-      .min(8, {
-        message: "Password-i duhet të ketë të paktën 8 karaktere.",
-      })
-      .max(100, {
-        message: "Password-i është shumë i gjatë.",
-      }),
-
-    confirmPassword: z.string().min(1, {
-      message: "Plotëso të dyja fushat e password-it.",
-    }),
-  })
-  .superRefine((data, context) => {
-    if (data.password !== data.confirmPassword) {
-      context.addIssue({
-        code: "custom",
-        path: ["confirmPassword"],
-        message: "Password-et nuk përputhen.",
-      });
-    }
-  });
+export const activateAccountSchema = createTokenPasswordSchema({
+  tokenMessage: "Linku i aktivizimit nuk është i vlefshëm.",
+});
 
 export const verifyEmailTokenSchema = z.object({
+  /**
+   * Nuk bëjmë trim(), sepse faqja ekzistuese
+   * e verify-email nuk e normalizonte token-in.
+   */
   token: z.string().min(1, {
     message: "Token-i i verifikimit mungon.",
   }),
 });
 
 export const verifyEmailChangeTokenSchema = z.object({
-  token: z.preprocess(
-    (value) => {
-      if (typeof value !== "string") {
-        return "";
-      }
-
-      return value.trim();
-    },
-    z.string().min(1, {
-      message: "Token-i i ndryshimit të email-it mungon.",
-    }),
-  ),
+  token: createRequiredTokenSchema("Token-i i ndryshimit të email-it mungon."),
 });
