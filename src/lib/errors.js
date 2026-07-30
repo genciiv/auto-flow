@@ -18,6 +18,7 @@ export const ERROR_CODES = Object.freeze({
   REGISTRATION_FAILED: "REGISTRATION_FAILED",
   EMAIL_ALREADY_EXISTS: "EMAIL_ALREADY_EXISTS",
   EMAIL_VERIFICATION_SEND_FAILED: "EMAIL_VERIFICATION_SEND_FAILED",
+  ACCOUNT_INACTIVE: "ACCOUNT_INACTIVE",
 
   // Burime dhe konflikte
   NOT_FOUND: "NOT_FOUND",
@@ -30,6 +31,17 @@ export const ERROR_CODES = Object.freeze({
   EXTERNAL_SERVICE_ERROR: "EXTERNAL_SERVICE_ERROR",
   EMAIL_SEND_FAILED: "EMAIL_SEND_FAILED",
   STORAGE_ERROR: "STORAGE_ERROR",
+
+  // Aplikimet
+  APPLICATION_NOT_FOUND: "APPLICATION_NOT_FOUND",
+  APPLICATION_ALREADY_PROCESSED: "APPLICATION_ALREADY_PROCESSED",
+  APPLICATION_APPROVAL_FAILED: "APPLICATION_APPROVAL_FAILED",
+  APPLICATION_REJECTION_FAILED: "APPLICATION_REJECTION_FAILED",
+
+  // Aktivizimi i llogarisë
+  ACTIVATION_NOT_REQUIRED: "ACTIVATION_NOT_REQUIRED",
+  ACTIVATION_EMAIL_SEND_FAILED: "ACTIVATION_EMAIL_SEND_FAILED",
+  ACTIVATION_EMAIL_RATE_LIMITED: "ACTIVATION_EMAIL_RATE_LIMITED",
 
   // Biznesi
   BUSINESS_NOT_FOUND: "BUSINESS_NOT_FOUND",
@@ -67,7 +79,8 @@ export class AppError extends Error {
     this.name = "AppError";
     this.code = code;
     this.status = status;
-    this.fieldErrors = fieldErrors;
+    this.fieldErrors =
+      fieldErrors && typeof fieldErrors === "object" ? fieldErrors : {};
     this.cause = cause;
     this.metadata = metadata;
 
@@ -213,7 +226,9 @@ export function normalizeError(
   error,
   {
     fallbackCode = ERROR_CODES.INTERNAL_ERROR,
+
     fallbackMessage = "Ndodhi një gabim i papritur. Provo përsëri.",
+
     fallbackStatus = 500,
   } = {},
 ) {
@@ -227,11 +242,6 @@ export function normalizeError(
     return prismaError;
   }
 
-  /*
-   * Për gabime të panjohura nuk i dërgojmë klientit
-   * mesazhin origjinal, sepse mund të përmbajë detaje
-   * të databazës ose informacione të brendshme.
-   */
   return new AppError({
     code: fallbackCode,
     message: fallbackMessage,
@@ -243,20 +253,21 @@ export function normalizeError(
 export function logServerError(context, error, metadata = null) {
   const normalizedError = normalizeError(error);
 
+  const originalError = error instanceof Error ? error : null;
+
   console.error(`[${context}]`, {
-    name: error instanceof Error ? error.name : normalizedError.name,
+    name: originalError?.name || normalizedError.name,
 
     code: error?.code || normalizedError.code,
 
-    message: error instanceof Error ? error.message : normalizedError.message,
+    message: originalError?.message || normalizedError.message,
 
     status: normalizedError.status,
+
     metadata,
 
     stack:
-      process.env.NODE_ENV === "development" && error instanceof Error
-        ? error.stack
-        : undefined,
+      process.env.NODE_ENV === "development" ? originalError?.stack : undefined,
 
     cause:
       process.env.NODE_ENV === "development"
@@ -285,4 +296,27 @@ export function isNextNotFoundError(error) {
     error?.digest === "NEXT_HTTP_ERROR_FALLBACK;404" ||
     error?.message === "NEXT_NOT_FOUND"
   );
+}
+
+export function getErrorStatus(error) {
+  const normalizedError = normalizeError(error);
+
+  return normalizedError.status;
+}
+
+export function getErrorCode(error) {
+  const normalizedError = normalizeError(error);
+
+  return normalizedError.code;
+}
+
+export function getErrorMessage(
+  error,
+  fallbackMessage = "Ndodhi një gabim i papritur. Provo përsëri.",
+) {
+  if (isAppError(error)) {
+    return error.message;
+  }
+
+  return fallbackMessage;
 }

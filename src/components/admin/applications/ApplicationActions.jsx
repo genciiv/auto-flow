@@ -19,6 +19,14 @@ import {
   resendActivationEmailAction,
 } from "@/app/admin/applications/actions";
 
+function getResultData(result) {
+  return result?.data || result || {};
+}
+
+function getResultError(result, fallbackMessage) {
+  return result?.message || result?.error || fallbackMessage;
+}
+
 export default function ApplicationActions({
   applicationId,
   status,
@@ -32,8 +40,10 @@ export default function ApplicationActions({
   const [successMessage, setSuccessMessage] = useState("");
   const [approvalResult, setApprovalResult] = useState(null);
 
-  function getActionErrorMessage(actionError, fallbackMessage) {
-    return actionError instanceof Error ? actionError.message : fallbackMessage;
+  function clearMessages() {
+    setError("");
+    setSuccessMessage("");
+    setApprovalResult(null);
   }
 
   function handleApprove() {
@@ -41,31 +51,60 @@ export default function ApplicationActions({
       "Dëshiron ta aprovosh këtë aplikim? Do të krijohet biznesi dhe llogaria e pronarit.",
     );
 
-    if (!confirmed) {
+    if (!confirmed || isPending) {
       return;
     }
 
-    setError("");
-    setSuccessMessage("");
-    setApprovalResult(null);
+    clearMessages();
 
     startTransition(async () => {
       try {
         const result = await approveApplicationAction(applicationId);
 
-        setApprovalResult(result);
+        if (!result?.success) {
+          setError(getResultError(result, "Aplikimi nuk mund të aprovohej."));
+
+          return;
+        }
+
+        const resultData = getResultData(result);
+
+        setApprovalResult({
+          businessId: resultData.businessId || result.businessId,
+
+          ownerEmail: resultData.ownerEmail || result.ownerEmail || ownerEmail,
+
+          activationRequired:
+            resultData.activationRequired ?? result.activationRequired ?? false,
+
+          activationEmailSent:
+            resultData.activationEmailSent ??
+            result.activationEmailSent ??
+            false,
+
+          emailError: resultData.emailError || result.emailError || null,
+
+          message: result.message || "Aplikimi u aprovua me sukses.",
+        });
+
         router.refresh();
       } catch (actionError) {
-        console.error(actionError);
+        console.error("Gabim gjatë aprovimit të aplikimit:", actionError);
 
         setError(
-          getActionErrorMessage(actionError, "Aplikimi nuk mund të aprovohej."),
+          actionError instanceof Error
+            ? actionError.message
+            : "Aplikimi nuk mund të aprovohej.",
         );
       }
     });
   }
 
   function handleReject() {
+    if (isPending) {
+      return;
+    }
+
     const reason = window.prompt("Vendos arsyen e refuzimit:");
 
     if (reason === null) {
@@ -76,6 +115,7 @@ export default function ApplicationActions({
 
     if (normalizedReason.length < 3) {
       setError("Arsyeja duhet të ketë të paktën 3 karaktere.");
+
       setSuccessMessage("");
 
       return;
@@ -85,14 +125,13 @@ export default function ApplicationActions({
       setError(
         "Arsyeja e refuzimit nuk mund të ketë më shumë se 1000 karaktere.",
       );
+
       setSuccessMessage("");
 
       return;
     }
 
-    setError("");
-    setSuccessMessage("");
-    setApprovalResult(null);
+    clearMessages();
 
     startTransition(async () => {
       try {
@@ -101,20 +140,32 @@ export default function ApplicationActions({
           normalizedReason,
         );
 
-        setSuccessMessage(result?.message || "Aplikimi u refuzua me sukses.");
+        if (!result?.success) {
+          setError(getResultError(result, "Aplikimi nuk mund të refuzohej."));
+
+          return;
+        }
+
+        setSuccessMessage(result.message || "Aplikimi u refuzua me sukses.");
 
         router.refresh();
       } catch (actionError) {
-        console.error(actionError);
+        console.error("Gabim gjatë refuzimit të aplikimit:", actionError);
 
         setError(
-          getActionErrorMessage(actionError, "Aplikimi nuk mund të refuzohej."),
+          actionError instanceof Error
+            ? actionError.message
+            : "Aplikimi nuk mund të refuzohej.",
         );
       }
     });
   }
 
   function handleResendActivation() {
+    if (isPending) {
+      return;
+    }
+
     const confirmed = window.confirm(
       `Dëshiron ta ridërgosh email-in e aktivizimit te ${
         ownerEmail || "pronari"
@@ -125,27 +176,46 @@ export default function ApplicationActions({
       return;
     }
 
-    setError("");
-    setSuccessMessage("");
-    setApprovalResult(null);
+    clearMessages();
 
     startTransition(async () => {
       try {
         const result = await resendActivationEmailAction(applicationId);
 
+        if (!result?.success) {
+          setError(
+            getResultError(
+              result,
+              "Email-i i aktivizimit nuk mund të ridërgohej.",
+            ),
+          );
+
+          return;
+        }
+
+        const resultData = getResultData(result);
+
+        const destinationEmail =
+          resultData.ownerEmail || result.ownerEmail || ownerEmail;
+
         setSuccessMessage(
-          `Email-i i aktivizimit u dërgua te ${result.ownerEmail}.`,
+          result.message ||
+            `Email-i i aktivizimit u dërgua te ${
+              destinationEmail || "pronari"
+            }.`,
         );
 
         router.refresh();
       } catch (actionError) {
-        console.error(actionError);
+        console.error(
+          "Gabim gjatë ridërgimit të email-it të aktivizimit:",
+          actionError,
+        );
 
         setError(
-          getActionErrorMessage(
-            actionError,
-            "Email-i i aktivizimit nuk mund të ridërgohej.",
-          ),
+          actionError instanceof Error
+            ? actionError.message
+            : "Email-i i aktivizimit nuk mund të ridërgohej.",
         );
       }
     });
@@ -166,7 +236,7 @@ export default function ApplicationActions({
         <div className="mt-4 space-y-3 text-sm text-emerald-800">
           <p>
             <span className="font-semibold">Pronari:</span>{" "}
-            {approvalResult.ownerEmail}
+            {approvalResult.ownerEmail || "Email i paspecifikuar"}
           </p>
 
           {emailWasSent ? (
@@ -194,13 +264,15 @@ export default function ApplicationActions({
           )}
         </div>
 
-        <Link
-          href={`/admin/businesses/${approvalResult.businessId}`}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800"
-        >
-          Shiko biznesin
-          <ExternalLink size={15} />
-        </Link>
+        {approvalResult.businessId ? (
+          <Link
+            href={`/admin/businesses/${approvalResult.businessId}`}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800"
+          >
+            Shiko biznesin
+            <ExternalLink size={15} />
+          </Link>
+        ) : null}
       </div>
     );
   }
