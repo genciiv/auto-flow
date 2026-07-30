@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { addPartToServiceSchema } from "@/schemas/inventory-schema";
 
 function refreshServicePartPages(serviceId = null) {
   revalidatePath("/dashboard/services");
@@ -16,49 +18,25 @@ function refreshServicePartPages(serviceId = null) {
   }
 }
 
-function getRequiredString(formData, fieldName) {
-  const value = formData.get(fieldName);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function parsePositiveInteger(value, fieldName) {
-  const number = Number(value);
-
-  if (!Number.isInteger(number) || number < 1) {
-    throw new Error(
-      `${fieldName} duhet të jetë numër i plotë më i madh se zero.`,
-    );
-  }
-
-  return number;
-}
-
 export async function addPartToService(formData) {
   try {
     const { businessId } = await requireBusinessActionPermission(
       PERMISSIONS.SERVICES_MANAGE_PARTS,
     );
 
-    const serviceId = getRequiredString(formData, "serviceId");
+    const validationResult = validateFormData(addPartToServiceSchema, formData);
 
-    const partId = getRequiredString(formData, "partId");
-
-    const quantity = parsePositiveInteger(
-      formData.get("quantity") || 1,
-      "Sasia",
-    );
-
-    if (!serviceId || !partId) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Shërbimi, pjesa dhe sasia janë të detyrueshme.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Shërbimi, pjesa dhe sasia janë të detyrueshme.",
+        ),
       };
     }
+
+    const { serviceId, partId, quantity } = validationResult.data;
 
     await db.$transaction(async (transaction) => {
       const service = await transaction.serviceRecord.findFirst({
@@ -66,6 +44,7 @@ export async function addPartToService(formData) {
           id: serviceId,
           businessId,
         },
+
         select: {
           id: true,
           status: true,
@@ -91,6 +70,7 @@ export async function addPartToService(formData) {
           id: partId,
           businessId,
         },
+
         select: {
           id: true,
           name: true,
@@ -121,10 +101,12 @@ export async function addPartToService(formData) {
         where: {
           id: part.id,
           businessId,
+
           stock: {
             gte: quantity,
           },
         },
+
         data: {
           stock: {
             decrement: quantity,
@@ -150,6 +132,7 @@ export async function addPartToService(formData) {
         where: {
           id: service.id,
         },
+
         data: {
           total: {
             increment: total,
