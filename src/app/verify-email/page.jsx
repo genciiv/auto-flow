@@ -1,21 +1,31 @@
 import Link from "next/link";
 
 import { authTokenService } from "@/lib/auth-tokens";
+import { validateObject } from "@/lib/validation";
+import { verifyEmailTokenSchema } from "@/schemas/auth-schema";
 
 const ERROR_MESSAGES = {
   NOT_FOUND: "Linku i verifikimit nuk është i vlefshëm.",
+
   USER_DISABLED: "Kjo llogari është çaktivizuar.",
+
   REVOKED: "Ky link verifikimi është anuluar.",
+
   USED: "Ky link verifikimi është përdorur më parë.",
+
   EXPIRED: "Linku i verifikimit ka skaduar.",
+
   ALREADY_PROCESSED: "Ky link është përpunuar më parë.",
 };
 
 export default async function VerifyEmailPage({ searchParams }) {
   const params = await searchParams;
-  const token = typeof params?.token === "string" ? params.token : "";
 
-  if (!token) {
+  const validationResult = validateObject(verifyEmailTokenSchema, {
+    token: typeof params?.token === "string" ? params.token : "",
+  });
+
+  if (!validationResult.success) {
     return (
       <main className="flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl border bg-white p-8 text-center shadow-sm">
@@ -33,6 +43,8 @@ export default async function VerifyEmailPage({ searchParams }) {
       </main>
     );
   }
+
+  const { token } = validationResult.data;
 
   const result = await authTokenService.verifyEmailAndConsume(token);
 

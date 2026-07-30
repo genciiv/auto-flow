@@ -7,15 +7,24 @@ import {
   emailChangedSecurityTemplate,
   sendEmail,
 } from "@/lib/email";
+import { validateObject } from "@/lib/validation";
+import { verifyEmailChangeTokenSchema } from "@/schemas/auth-schema";
 
 const ERROR_MESSAGES = {
   NOT_FOUND: "Linku nuk është i vlefshëm.",
+
   USER_DISABLED: "Kjo llogari është çaktivizuar.",
+
   REVOKED: "Ky link është anuluar.",
+
   USED: "Ky link është përdorur më parë.",
+
   EXPIRED: "Linku ka skaduar.",
+
   ALREADY_PROCESSED: "Ky link është përpunuar më parë.",
+
   INVALID_METADATA: "Të dhënat e linkut nuk janë të vlefshme.",
+
   EMAIL_TAKEN: "Email-i i ri po përdoret tashmë nga një llogari tjetër.",
 };
 
@@ -26,9 +35,11 @@ export const metadata = {
 export default async function VerifyEmailChangePage({ searchParams }) {
   const params = await searchParams;
 
-  const token = typeof params?.token === "string" ? params.token.trim() : "";
+  const validationResult = validateObject(verifyEmailChangeTokenSchema, {
+    token: typeof params?.token === "string" ? params.token : "",
+  });
 
-  if (!token) {
+  if (!validationResult.success) {
     return (
       <ResultCard
         success={false}
@@ -36,6 +47,8 @@ export default async function VerifyEmailChangePage({ searchParams }) {
       />
     );
   }
+
+  const { token } = validationResult.data;
 
   const result = await authTokenService.changeEmailAndConsume(token);
 
@@ -65,7 +78,7 @@ export default async function VerifyEmailChangePage({ searchParams }) {
   } catch (error) {
     console.warn(
       "Email-i u ndryshua, por njoftimi te email-i i vjetër nuk u dërgua:",
-      error?.message,
+      error instanceof Error ? error.message : error,
     );
   }
 

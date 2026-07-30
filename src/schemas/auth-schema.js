@@ -197,3 +197,24 @@ export const activateAccountSchema = z
       });
     }
   });
+
+export const verifyEmailTokenSchema = z.object({
+  token: z.string().min(1, {
+    message: "Token-i i verifikimit mungon.",
+  }),
+});
+
+export const verifyEmailChangeTokenSchema = z.object({
+  token: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return "";
+      }
+
+      return value.trim();
+    },
+    z.string().min(1, {
+      message: "Token-i i ndryshimit të email-it mungon.",
+    }),
+  ),
+});
