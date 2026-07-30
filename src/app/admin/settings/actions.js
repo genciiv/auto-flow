@@ -3,53 +3,45 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
-import {
-  getPlatformSettings,
-  updatePlatformSettings,
-} from "@/services/admin/settings-service";
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { platformSettingsSchema } from "@/schemas/platform-settings-schema";
+import { updatePlatformSettings } from "@/services/admin/settings-service";
 
-function getBoolean(formData, fieldName) {
-  return formData.get(fieldName) === "on";
+function getAdminUserId(admin) {
+  return admin?.user?.id ?? admin?.id ?? null;
+}
+
+function revalidateSettingsPages() {
+  revalidatePath("/admin");
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/payments");
+  revalidatePath("/admin/subscriptions");
+  revalidatePath("/admin/activity-logs");
 }
 
 export async function updateSettingsAction(formData) {
-  await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin();
+  const adminUserId = getAdminUserId(admin);
 
   try {
-    const currentSettings = await getPlatformSettings();
+    const validationResult = validateFormData(platformSettingsSchema, formData);
 
-    const settings = await updatePlatformSettings({
-      platformName: formData.get("platformName"),
-      supportEmail: formData.get("supportEmail"),
-      supportPhone: formData.get("supportPhone"),
-      companyAddress: formData.get("companyAddress"),
+    if (!validationResult.success) {
+      return {
+        success: false,
 
-      defaultCurrency: formData.get("defaultCurrency"),
-      defaultTimezone: formData.get("defaultTimezone"),
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Konfigurimet nuk janë të vlefshme.",
+        ),
+      };
+    }
 
-      trialEnabled: getBoolean(formData, "trialEnabled"),
-
-      trialDurationDays: formData.get("trialDurationDays"),
-
-      cashPaymentsEnabled: getBoolean(formData, "cashPaymentsEnabled"),
-
-      bankPaymentsEnabled: getBoolean(formData, "bankPaymentsEnabled"),
-
-      cardPaymentsEnabled: getBoolean(formData, "cardPaymentsEnabled"),
-
-      bankName: formData.get("bankName"),
-      bankAccountName: formData.get("bankAccountName"),
-      bankAccountNumber: formData.get("bankAccountNumber"),
-
-      bankIban: formData.get("bankIban"),
-      bankSwiftCode: formData.get("bankSwiftCode"),
-
-      maintenanceMode: getBoolean(formData, "maintenanceMode"),
-
-      allowRegistrations: getBoolean(formData, "allowRegistrations"),
+    const settings = await updatePlatformSettings(validationResult.data, {
+      userId: adminUserId,
     });
 
-    revalidatePath("/admin/settings");
+    revalidateSettingsPages();
 
     return {
       success: true,
@@ -61,6 +53,7 @@ export async function updateSettingsAction(formData) {
 
     return {
       success: false,
+
       message:
         error instanceof Error
           ? error.message

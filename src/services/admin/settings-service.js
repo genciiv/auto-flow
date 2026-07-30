@@ -33,6 +33,15 @@ function normalizeNullableString(value) {
   return normalizedValue || null;
 }
 
+function normalizeUppercaseCompactString(value) {
+  const normalizedValue = String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toUpperCase();
+
+  return normalizedValue || null;
+}
+
 function getComparableSettings(settings) {
   return {
     platformName: settings.platformName,
@@ -145,9 +154,9 @@ export async function updatePlatformSettings(data, { userId = null } = {}) {
 
       bankAccountNumber: normalizeNullableString(data.bankAccountNumber),
 
-      bankIban: normalizeNullableString(data.bankIban),
+      bankIban: normalizeUppercaseCompactString(data.bankIban),
 
-      bankSwiftCode: normalizeNullableString(data.bankSwiftCode),
+      bankSwiftCode: normalizeUppercaseCompactString(data.bankSwiftCode),
 
       maintenanceMode: Boolean(data.maintenanceMode),
 
