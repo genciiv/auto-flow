@@ -2,26 +2,46 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
-import { requireBusinessActionPermission } from "@/lib/business-context";
+import { getFirstValidationMessage, validateObject } from "@/lib/validation";
+import { marketplaceInquiryIdSchema } from "@/schemas/marketplace-schema";
+
+function refreshMarketplaceInquiryPages() {
+  revalidatePath("/dashboard/marketplace");
+  revalidatePath("/dashboard/marketplace/inquiries");
+}
+
+function getInquiryValidationResult(inquiryId) {
+  return validateObject(marketplaceInquiryIdSchema, {
+    inquiryId,
+  });
+}
 
 export async function markMarketplaceInquiryAsReadAction(inquiryId) {
   const { businessId } = await requireBusinessActionPermission(
     PERMISSIONS.MARKETPLACE_MANAGE,
   );
 
-  if (!inquiryId || typeof inquiryId !== "string") {
+  const validationResult = getInquiryValidationResult(inquiryId);
+
+  if (!validationResult.success) {
     return {
       success: false,
-      error: "Kërkesa nuk është e vlefshme.",
+      error: getFirstValidationMessage(
+        validationResult.error,
+        "Kërkesa nuk është e vlefshme.",
+      ),
     };
   }
+
+  const validatedInquiryId = validationResult.data.inquiryId;
 
   try {
     const inquiry = await db.marketplaceInquiry.findFirst({
       where: {
-        id: inquiryId,
+        id: validatedInquiryId,
 
         listing: {
           businessId,
@@ -53,8 +73,7 @@ export async function markMarketplaceInquiryAsReadAction(inquiryId) {
       });
     }
 
-    revalidatePath("/dashboard/marketplace");
-    revalidatePath("/dashboard/marketplace/inquiries");
+    refreshMarketplaceInquiryPages();
 
     return {
       success: true,
@@ -75,17 +94,24 @@ export async function markMarketplaceInquiryAsUnreadAction(inquiryId) {
     PERMISSIONS.MARKETPLACE_MANAGE,
   );
 
-  if (!inquiryId || typeof inquiryId !== "string") {
+  const validationResult = getInquiryValidationResult(inquiryId);
+
+  if (!validationResult.success) {
     return {
       success: false,
-      error: "Kërkesa nuk është e vlefshme.",
+      error: getFirstValidationMessage(
+        validationResult.error,
+        "Kërkesa nuk është e vlefshme.",
+      ),
     };
   }
+
+  const validatedInquiryId = validationResult.data.inquiryId;
 
   try {
     const inquiry = await db.marketplaceInquiry.findFirst({
       where: {
-        id: inquiryId,
+        id: validatedInquiryId,
 
         listing: {
           businessId,
@@ -94,6 +120,7 @@ export async function markMarketplaceInquiryAsUnreadAction(inquiryId) {
 
       select: {
         id: true,
+        isRead: true,
       },
     });
 
@@ -104,18 +131,19 @@ export async function markMarketplaceInquiryAsUnreadAction(inquiryId) {
       };
     }
 
-    await db.marketplaceInquiry.update({
-      where: {
-        id: inquiry.id,
-      },
+    if (inquiry.isRead) {
+      await db.marketplaceInquiry.update({
+        where: {
+          id: inquiry.id,
+        },
 
-      data: {
-        isRead: false,
-      },
-    });
+        data: {
+          isRead: false,
+        },
+      });
+    }
 
-    revalidatePath("/dashboard/marketplace");
-    revalidatePath("/dashboard/marketplace/inquiries");
+    refreshMarketplaceInquiryPages();
 
     return {
       success: true,
