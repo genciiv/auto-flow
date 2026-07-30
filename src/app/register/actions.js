@@ -2,93 +2,41 @@
 
 import bcrypt from "bcryptjs";
 
-import { db } from "@/lib/db";
 import { authTokenService } from "@/lib/auth-tokens";
+import { db } from "@/lib/db";
 import {
   EMAIL_CONFIG,
   emailVerificationTemplate,
   sendEmail,
 } from "@/lib/email";
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { registerSchema } from "@/schemas/auth-schema";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function normalizePhone(value) {
-  return String(value ?? "")
-    .trim()
-    .replace(/\s+/g, " ");
-}
+const initialRegisterState = {
+  error: null,
+  success: false,
+};
 
 export async function registerAction(previousState, formData) {
-  const name = String(formData.get("name") ?? "").trim();
+  const validationResult = validateFormData(registerSchema, formData);
 
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
-
-  const phone = normalizePhone(formData.get("phone"));
-  const password = String(formData.get("password") ?? "");
-  const confirmPassword = String(formData.get("confirmPassword") ?? "");
-
-  if (!name || !email || !password || !confirmPassword) {
+  if (!validationResult.success) {
     return {
-      error: "Plotëso të gjitha fushat e detyrueshme.",
-      success: false,
+      ...initialRegisterState,
+      error: getFirstValidationMessage(
+        validationResult.error,
+        "Të dhënat e regjistrimit nuk janë të vlefshme.",
+      ),
     };
   }
 
-  if (name.length < 2) {
-    return {
-      error: "Emri duhet të ketë të paktën 2 karaktere.",
-      success: false,
-    };
-  }
-
-  if (name.length > 100) {
-    return {
-      error: "Emri është shumë i gjatë.",
-      success: false,
-    };
-  }
-
-  if (!EMAIL_PATTERN.test(email)) {
-    return {
-      error: "Vendos një adresë email-i të vlefshme.",
-      success: false,
-    };
-  }
-
-  if (phone && phone.length < 6) {
-    return {
-      error: "Numri i telefonit nuk është i vlefshëm.",
-      success: false,
-    };
-  }
-
-  if (password.length < 8) {
-    return {
-      error: "Password-i duhet të ketë të paktën 8 karaktere.",
-      success: false,
-    };
-  }
-
-  if (password.length > 100) {
-    return {
-      error: "Password-i është shumë i gjatë.",
-      success: false,
-    };
-  }
-
-  if (password !== confirmPassword) {
-    return {
-      error: "Password-et nuk përputhen.",
-      success: false,
-    };
-  }
+  const { name, email, phone, password } = validationResult.data;
 
   const existingUser = await db.user.findUnique({
     where: {
       email,
     },
+
     select: {
       id: true,
       emailVerified: true,
@@ -119,6 +67,7 @@ export async function registerAction(previousState, formData) {
         isActive: true,
         emailVerified: null,
       },
+
       select: {
         id: true,
         name: true,

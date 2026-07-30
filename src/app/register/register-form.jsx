@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 
 import {
   ArrowRight,
+  CheckCircle2,
   Eye,
   EyeOff,
   LoaderCircle,
@@ -20,6 +21,7 @@ import { registerAction } from "./actions";
 const initialState = {
   error: null,
   success: false,
+  message: "",
 };
 
 function SubmitButton() {
@@ -110,6 +112,19 @@ export default function RegisterForm() {
         </div>
       ) : null}
 
+      {state?.success && state?.message ? (
+        <div
+          role="status"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-700"
+        >
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
+
+            <p>{state.message}</p>
+          </div>
+        </div>
+      ) : null}
+
       <div>
         <label
           htmlFor="name"
@@ -192,7 +207,7 @@ export default function RegisterForm() {
         placeholder="Të paktën 8 karaktere"
         autoComplete="new-password"
         visible={passwordVisible}
-        onToggle={() => setPasswordVisible((previous) => !previous)}
+        onToggle={() => setPasswordVisible((previousValue) => !previousValue)}
       />
 
       <PasswordField
@@ -202,7 +217,9 @@ export default function RegisterForm() {
         placeholder="Shkruaj përsëri password-in"
         autoComplete="new-password"
         visible={confirmPasswordVisible}
-        onToggle={() => setConfirmPasswordVisible((previous) => !previous)}
+        onToggle={() =>
+          setConfirmPasswordVisible((previousValue) => !previousValue)
+        }
       />
 
       <div className="rounded-xl bg-slate-50 px-4 py-3">
