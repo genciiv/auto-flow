@@ -37,13 +37,8 @@ export const testEmailSchema = z.object({
 export const globalSearchSchema = z.object({
   query: z.preprocess(
     normalizeTrimmedString,
-    z
-      .string()
-      .min(2, {
-        message: "Kërkimi duhet të ketë të paktën 2 karaktere.",
-      })
-      .max(100, {
-        message: "Kërkimi nuk mund të ketë më shumë se 100 karaktere.",
-      }),
+    z.string().max(100, {
+      message: "Kërkimi nuk mund të ketë më shumë se 100 karaktere.",
+    }),
   ),
 });

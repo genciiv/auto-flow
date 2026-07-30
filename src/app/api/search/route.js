@@ -1,12 +1,74 @@
 import { NextResponse } from "next/server";
 
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { getFirstValidationMessage, validateObject } from "@/lib/validation";
+import { globalSearchSchema } from "@/schemas/api-schema";
+
+function unauthorizedResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      message: "Duhet të identifikohesh.",
+      results: [],
+    },
+    {
+      status: 401,
+    },
+  );
+}
+
+function forbiddenResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      message: "Nuk ke akses në kërkimin e biznesit.",
+      results: [],
+    },
+    {
+      status: 403,
+    },
+  );
+}
 
 export async function GET(request) {
   try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return unauthorizedResponse();
+    }
+
+    const businessId = session.user.businessId;
+    const businessRole = session.user.businessRole;
+
+    if (!businessId || !businessRole) {
+      return forbiddenResponse();
+    }
+
     const { searchParams } = new URL(request.url);
 
-    const query = String(searchParams.get("q") || "").trim();
+    const validationResult = validateObject(globalSearchSchema, {
+      query: searchParams.get("q"),
+    });
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: getFirstValidationMessage(
+            validationResult.error,
+            "Kërkimi nuk është i vlefshëm.",
+          ),
+          results: [],
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const { query } = validationResult.data;
 
     if (query.length < 2) {
       return NextResponse.json({
@@ -18,6 +80,8 @@ export async function GET(request) {
     const [customers, vehicles, invoices, services, parts] = await Promise.all([
       db.customer.findMany({
         where: {
+          businessId,
+
           OR: [
             {
               name: {
@@ -46,6 +110,8 @@ export async function GET(request) {
             {
               vehicles: {
                 some: {
+                  businessId,
+
                   OR: [
                     {
                       plate: {
@@ -71,22 +137,32 @@ export async function GET(request) {
             },
           ],
         },
+
         orderBy: {
           createdAt: "desc",
         },
+
         include: {
           vehicles: {
+            where: {
+              businessId,
+            },
+
             orderBy: {
               createdAt: "desc",
             },
+
             take: 2,
           },
         },
+
         take: 5,
       }),
 
       db.vehicle.findMany({
         where: {
+          businessId,
+
           OR: [
             {
               plate: {
@@ -115,6 +191,8 @@ export async function GET(request) {
             {
               customer: {
                 is: {
+                  businessId,
+
                   name: {
                     contains: query,
                     mode: "insensitive",
@@ -124,17 +202,22 @@ export async function GET(request) {
             },
           ],
         },
+
         orderBy: {
           createdAt: "desc",
         },
+
         include: {
           customer: true,
         },
+
         take: 5,
       }),
 
       db.invoice.findMany({
         where: {
+          businessId,
+
           OR: [
             {
               number: {
@@ -145,6 +228,8 @@ export async function GET(request) {
             {
               customer: {
                 is: {
+                  businessId,
+
                   name: {
                     contains: query,
                     mode: "insensitive",
@@ -155,6 +240,8 @@ export async function GET(request) {
             {
               vehicle: {
                 is: {
+                  businessId,
+
                   OR: [
                     {
                       plate: {
@@ -181,6 +268,8 @@ export async function GET(request) {
             {
               service: {
                 is: {
+                  businessId,
+
                   title: {
                     contains: query,
                     mode: "insensitive",
@@ -190,19 +279,24 @@ export async function GET(request) {
             },
           ],
         },
+
         orderBy: {
           createdAt: "desc",
         },
+
         include: {
           customer: true,
           vehicle: true,
           service: true,
         },
+
         take: 5,
       }),
 
       db.serviceRecord.findMany({
         where: {
+          businessId,
+
           OR: [
             {
               title: {
@@ -218,63 +312,76 @@ export async function GET(request) {
             },
             {
               vehicle: {
-                OR: [
-                  {
-                    plate: {
-                      contains: query,
-                      mode: "insensitive",
+                is: {
+                  businessId,
+
+                  OR: [
+                    {
+                      plate: {
+                        contains: query,
+                        mode: "insensitive",
+                      },
                     },
-                  },
-                  {
-                    brand: {
-                      contains: query,
-                      mode: "insensitive",
+                    {
+                      brand: {
+                        contains: query,
+                        mode: "insensitive",
+                      },
                     },
-                  },
-                  {
-                    model: {
-                      contains: query,
-                      mode: "insensitive",
+                    {
+                      model: {
+                        contains: query,
+                        mode: "insensitive",
+                      },
                     },
-                  },
-                ],
+                  ],
+                },
               },
             },
             {
               partsUsed: {
                 some: {
                   part: {
-                    OR: [
-                      {
-                        name: {
-                          contains: query,
-                          mode: "insensitive",
+                    is: {
+                      businessId,
+
+                      OR: [
+                        {
+                          name: {
+                            contains: query,
+                            mode: "insensitive",
+                          },
                         },
-                      },
-                      {
-                        code: {
-                          contains: query,
-                          mode: "insensitive",
+                        {
+                          code: {
+                            contains: query,
+                            mode: "insensitive",
+                          },
                         },
-                      },
-                    ],
+                      ],
+                    },
                   },
                 },
               },
             },
           ],
         },
+
         orderBy: {
           createdAt: "desc",
         },
+
         include: {
           vehicle: true,
         },
+
         take: 5,
       }),
 
       db.part.findMany({
         where: {
+          businessId,
+
           OR: [
             {
               name: {
@@ -302,9 +409,11 @@ export async function GET(request) {
             },
           ],
         },
+
         orderBy: {
           createdAt: "desc",
         },
+
         take: 5,
       }),
     ]);
@@ -325,10 +434,12 @@ export async function GET(request) {
           type: "Klient",
           category: "customer",
           title: customer.name,
+
           subtitle:
             [customer.phone, customer.city, vehicleText]
               .filter(Boolean)
               .join(" • ") || "Pa të dhëna shtesë",
+
           href: "/dashboard/customers",
         };
       }),
@@ -344,6 +455,7 @@ export async function GET(request) {
           type: "Automjet",
           category: "vehicle",
           title: vehicleName || vehicle.plate,
+
           subtitle: [
             vehicle.plate,
             vehicle.customer?.name,
@@ -351,6 +463,7 @@ export async function GET(request) {
           ]
             .filter(Boolean)
             .join(" • "),
+
           href: "/dashboard/vehicles",
         };
       }),
@@ -362,6 +475,7 @@ export async function GET(request) {
           type: "Faturë",
           category: "invoice",
           title: `Fatura ${invoice.number}`,
+
           subtitle: [
             invoice.customer?.name,
             invoice.vehicle?.plate,
@@ -369,6 +483,7 @@ export async function GET(request) {
           ]
             .filter(Boolean)
             .join(" • "),
+
           amount: Number(invoice.total || 0),
           href: `/dashboard/invoices/${invoice.id}`,
         };
@@ -391,7 +506,9 @@ export async function GET(request) {
           type: "Shërbim",
           category: "service",
           title: service.title,
+
           subtitle: [vehicleText, service.status].filter(Boolean).join(" • "),
+
           amount: Number(service.total || 0),
           href: "/dashboard/services",
         };
@@ -404,9 +521,11 @@ export async function GET(request) {
           type: "Pjesë",
           category: "part",
           title: part.name,
+
           subtitle: [part.code, `${part.stock} copë në stok`, part.category]
             .filter(Boolean)
             .join(" • "),
+
           amount: Number(part.sellPrice || 0),
           href: "/dashboard/inventory",
         };
