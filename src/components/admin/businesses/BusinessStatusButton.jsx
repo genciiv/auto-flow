@@ -32,13 +32,17 @@ export default function BusinessStatusButton({
 
     startTransition(async () => {
       try {
-        await changeBusinessStatusAction(businessId, nextStatus);
+        const result = await changeBusinessStatusAction(businessId, nextStatus);
 
-        setCurrentStatus(nextStatus);
+        setCurrentStatus(result?.isActive ?? nextStatus);
       } catch (actionError) {
         console.error(actionError);
 
-        setError("Statusi nuk mund të ndryshohej. Provo përsëri.");
+        setError(
+          actionError instanceof Error
+            ? actionError.message
+            : "Statusi nuk mund të ndryshohej. Provo përsëri.",
+        );
       }
     });
   }
