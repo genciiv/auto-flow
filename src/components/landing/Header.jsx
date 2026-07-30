@@ -3,6 +3,7 @@ import { ArrowRight, CarFront, LayoutDashboard, LogOut } from "lucide-react";
 
 import { auth } from "@/auth";
 import { logoutAction } from "@/app/actions/auth-actions";
+import LandingNavigationLinks from "@/components/landing/LandingNavigationLinks";
 import MobileNavigation from "@/components/landing/MobileNavigation";
 
 function getDashboardDestination(user) {
@@ -30,40 +31,18 @@ function getDashboardDestination(user) {
   return null;
 }
 
-const navigationItems = [
-  {
-    label: "Platforma",
-    href: "/#platform",
-  },
-  {
-    label: "Si funksionon",
-    href: "/#how-it-works",
-  },
-  {
-    label: "Marketplace",
-    href: "/marketplace",
-  },
-  {
-    label: "Çmimet",
-    href: "/#pricing",
-  },
-  {
-    label: "Pyetje",
-    href: "/#faq",
-  },
-];
-
 export default async function Header() {
   const session = await auth();
+
   const destination = getDashboardDestination(session?.user);
 
   return (
-    <header className="sticky top-0 z-[70] w-full border-b border-slate-200/70 bg-white/90 backdrop-blur-2xl">
+    <header className="sticky top-0 z-[70] w-full border-b border-slate-200/70 bg-white/90 shadow-[0_1px_0_rgba(15,23,42,0.03)] backdrop-blur-2xl">
       <div className="mx-auto flex h-[76px] w-full max-w-[1440px] items-center justify-between px-5 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-3"
           aria-label="AutoFlow - Faqja kryesore"
+          className="group flex shrink-0 items-center gap-3"
         >
           <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 transition-transform duration-300 group-hover:scale-110" />
@@ -86,15 +65,7 @@ export default async function Header() {
           aria-label="Navigimi kryesor"
           className="hidden items-center gap-1 rounded-full border border-slate-200/80 bg-slate-50/80 p-1.5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] lg:flex"
         >
-          {navigationItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-full px-4 py-2.5 text-sm font-semibold text-slate-600 transition duration-200 hover:bg-white hover:text-slate-950 hover:shadow-sm"
-            >
-              {item.label}
-            </Link>
-          ))}
+          <LandingNavigationLinks />
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">

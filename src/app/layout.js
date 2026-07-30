@@ -1,6 +1,7 @@
 import "./globals.css";
 
 import AuthSessionProvider from "@/providers/AuthSessionProvider";
+import CookieConsent from "@/components/legal/CookieConsent";
 
 export const metadata = {
   title: {
@@ -15,7 +16,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="sq">
       <body>
-        <AuthSessionProvider>{children}</AuthSessionProvider>
+        <AuthSessionProvider>
+          {children}
+          <CookieConsent />
+        </AuthSessionProvider>
       </body>
     </html>
   );

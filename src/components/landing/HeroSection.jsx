@@ -45,12 +45,7 @@ export default function HeroSection() {
             ease: [0.22, 1, 0.36, 1],
           }}
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200/80 bg-blue-50/80 px-4 py-2 text-xs font-bold text-blue-700 shadow-[0_8px_30px_rgba(37,99,235,0.08)] backdrop-blur-sm sm:text-sm">
-            <Sparkles size={15} />
-            Platforma e re për bizneset automotive
-          </div>
-
-          <h1 className="mt-7 max-w-3xl text-[3rem] font-black leading-[1.01] tracking-[-0.052em] text-slate-950 sm:text-6xl lg:text-[4.25rem] xl:text-[4.7rem]">
+          <h1 className="mt-7 max-w-3xl text-[2.65rem] font-black leading-[1.04] tracking-[-0.045em] text-slate-950 sm:text-5xl lg:text-[3.8rem] xl:text-[4.15rem]">
             Çdo pjesë e biznesit tënd,{" "}
             <span className="relative inline-block text-blue-600">
               në një rrjedhë.
