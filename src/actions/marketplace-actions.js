@@ -20,6 +20,7 @@ import {
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { logDelete, logStatusChange, logUpdate } from "@/services/audit-events";
 
+import { createActionError } from "@/lib/errors";
 const MAX_IMAGE_COUNT = 10;
 
 function createSlug(title) {
@@ -170,7 +171,7 @@ async function getManagedListing({
   includeImages = false,
 }) {
   if (!listingId) {
-    throw new Error("Publikimi nuk u gjet.");
+    throw createActionError("Publikimi nuk u gjet.");
   }
 
   const listing = await db.marketplaceListing.findFirst({
@@ -193,7 +194,7 @@ async function getManagedListing({
   });
 
   if (!listing) {
-    throw new Error("Publikimi nuk ekziston ose nuk i përket biznesit aktiv.");
+    throw createActionError("Publikimi nuk ekziston ose nuk i përket biznesit aktiv.");
   }
 
   return listing;
@@ -219,7 +220,7 @@ export async function createMarketplaceListing(formData) {
   );
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Të dhënat e publikimit nuk janë të vlefshme.",
@@ -261,7 +262,7 @@ export async function createMarketplaceListing(formData) {
   validateMarketplaceImages(files);
 
   if (files.length > MAX_IMAGE_COUNT) {
-    throw new Error(
+    throw createActionError(
       `Publikimi mund të ketë maksimumi ${MAX_IMAGE_COUNT} fotografi.`,
     );
   }
@@ -293,7 +294,7 @@ export async function createMarketplaceListing(formData) {
         });
 
       if (uploadError) {
-        throw new Error(
+        throw createActionError(
           `Ngarkimi i fotografisë "${file.name}" dështoi: ${uploadError.message}`,
         );
       }
@@ -303,7 +304,7 @@ export async function createMarketplaceListing(formData) {
         .getPublicUrl(storagePath);
 
       if (!publicUrlData?.publicUrl) {
-        throw new Error(
+        throw createActionError(
           `Nuk u krijua URL-ja publike për fotografinë "${file.name}".`,
         );
       }
@@ -402,7 +403,7 @@ export async function updateMarketplaceListing(formData) {
   );
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Të dhënat e publikimit nuk janë të vlefshme.",
@@ -465,7 +466,7 @@ export async function updateMarketplaceListing(formData) {
   validateMarketplaceImages(newFiles);
 
   if (retainedImages.length + newFiles.length > MAX_IMAGE_COUNT) {
-    throw new Error(
+    throw createActionError(
       `Publikimi mund të ketë maksimumi ${MAX_IMAGE_COUNT} fotografi.`,
     );
   }
@@ -497,7 +498,7 @@ export async function updateMarketplaceListing(formData) {
         });
 
       if (uploadError) {
-        throw new Error(
+        throw createActionError(
           `Ngarkimi i fotografisë "${file.name}" dështoi: ${uploadError.message}`,
         );
       }
@@ -507,7 +508,7 @@ export async function updateMarketplaceListing(formData) {
         .getPublicUrl(storagePath);
 
       if (!publicUrlData?.publicUrl) {
-        throw new Error(
+        throw createActionError(
           `Nuk u krijua URL-ja publike për fotografinë "${file.name}".`,
         );
       }
@@ -710,7 +711,7 @@ export async function changeMarketplaceListingStatus(formData) {
   );
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Statusi i publikimit nuk është i vlefshëm.",
@@ -796,7 +797,7 @@ export async function deleteMarketplaceListing(formData) {
   );
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Publikimi nuk u gjet.",

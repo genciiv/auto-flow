@@ -22,6 +22,7 @@ import {
   updatePlan,
 } from "@/services/admin/plan-service";
 
+import { createActionError } from "@/lib/errors";
 function getAdminUserId(admin) {
   return admin?.user?.id ?? admin?.id ?? null;
 }
@@ -45,14 +46,14 @@ function getPlanAuditValues(plan) {
 
 function handlePlanError(error) {
   if (error?.code === "P2002") {
-    throw new Error("Ekziston një plan tjetër me këtë slug.");
+    throw createActionError("Ekziston një plan tjetër me këtë slug.");
   }
 
   if (error instanceof Error) {
     throw error;
   }
 
-  throw new Error("Veprimi nuk mund të përfundohej.");
+  throw createActionError("Veprimi nuk mund të përfundohej.");
 }
 
 function revalidatePlanPages(planId = null) {
@@ -73,7 +74,7 @@ function validatePlanId(planId) {
   });
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "ID-ja e planit mungon.",
@@ -92,7 +93,7 @@ export async function createPlanAction(formData) {
     const validationResult = validateFormData(createPlanSchema, formData);
 
     if (!validationResult.success) {
-      throw new Error(
+      throw createActionError(
         getFirstValidationMessage(
           validationResult.error,
           "Të dhënat e planit nuk janë të vlefshme.",
@@ -134,13 +135,13 @@ export async function updatePlanAction(planId, formData) {
     const existingPlan = await getPlanById(validatedPlanId);
 
     if (!existingPlan) {
-      throw new Error("Plani nuk u gjet.");
+      throw createActionError("Plani nuk u gjet.");
     }
 
     const validationResult = validateFormData(updatePlanSchema, formData);
 
     if (!validationResult.success) {
-      throw new Error(
+      throw createActionError(
         getFirstValidationMessage(
           validationResult.error,
           "Të dhënat e planit nuk janë të vlefshme.",
@@ -198,11 +199,11 @@ export async function togglePlanStatusAction(planId) {
     const existingPlan = await getPlanById(validatedPlanId);
 
     if (!existingPlan) {
-      throw new Error("Plani nuk u gjet.");
+      throw createActionError("Plani nuk u gjet.");
     }
 
     if (existingPlan.slug === "free-trial") {
-      throw new Error("Free Trial duhet të mbetet gjithmonë aktiv.");
+      throw createActionError("Free Trial duhet të mbetet gjithmonë aktiv.");
     }
 
     const plan = await togglePlanStatus(validatedPlanId);
@@ -246,15 +247,15 @@ export async function toggleRecommendedPlanAction(planId) {
     const existingPlan = await getPlanById(validatedPlanId);
 
     if (!existingPlan) {
-      throw new Error("Plani nuk u gjet.");
+      throw createActionError("Plani nuk u gjet.");
     }
 
     if (existingPlan.slug === "free-trial") {
-      throw new Error("Free Trial nuk mund të shënohet si plan i rekomanduar.");
+      throw createActionError("Free Trial nuk mund të shënohet si plan i rekomanduar.");
     }
 
     if (!existingPlan.isActive && !existingPlan.isRecommended) {
-      throw new Error(
+      throw createActionError(
         "Aktivizoje planin para se ta shënosh si të rekomanduar.",
       );
     }

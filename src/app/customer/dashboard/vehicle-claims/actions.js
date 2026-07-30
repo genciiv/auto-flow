@@ -10,6 +10,7 @@ import {
   rejectBusinessVehicleClaimSchema,
 } from "@/schemas/business-vehicle-claim-schema";
 
+import { createActionError } from "@/lib/errors";
 async function getBusinessClaim(claimId, businessId) {
   return db.vehicleClaim.findFirst({
     where: {
@@ -104,7 +105,7 @@ export async function approveVehicleClaim(claimId) {
       });
 
       if (updatedClaim.count !== 1) {
-        throw new Error(
+        throw createActionError(
           "Kërkesa është përpunuar ndërkohë nga një përdorues tjetër.",
         );
       }
@@ -216,7 +217,7 @@ export async function rejectVehicleClaim(claimId, formData) {
       });
 
       if (updatedClaim.count !== 1) {
-        throw new Error(
+        throw createActionError(
           "Kërkesa është përpunuar ndërkohë nga një përdorues tjetër.",
         );
       }

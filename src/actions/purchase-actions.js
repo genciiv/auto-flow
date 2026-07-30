@@ -17,6 +17,7 @@ import {
   updatePurchaseStatusSchema,
 } from "@/schemas/purchase-schema";
 
+import { createActionError } from "@/lib/errors";
 function refreshPurchasePages() {
   revalidatePath("/dashboard/purchases");
   revalidatePath("/dashboard/inventory");
@@ -310,7 +311,7 @@ export async function deletePurchaseOrder(purchaseId) {
       });
 
       if (deletedPurchase.count !== 1) {
-        throw new Error(
+        throw createActionError(
           "Porosia është ndryshuar ose është marrë ndërkohë në magazinë.",
         );
       }

@@ -10,6 +10,7 @@ import {
   updateBusinessStatus,
 } from "@/services/admin/business-service";
 
+import { createActionError } from "@/lib/errors";
 function revalidateBusinessPages(businessId) {
   revalidatePath("/admin");
   revalidatePath("/admin/businesses");
@@ -27,7 +28,7 @@ export async function changeBusinessStatusAction(businessId, isActive) {
   });
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Të dhënat për ndryshimin e statusit janë të pavlefshme.",
@@ -41,7 +42,7 @@ export async function changeBusinessStatusAction(businessId, isActive) {
   const existingBusiness = await getBusinessById(validatedBusinessId);
 
   if (!existingBusiness) {
-    throw new Error("Biznesi nuk u gjet.");
+    throw createActionError("Biznesi nuk u gjet.");
   }
 
   if (existingBusiness.isActive === validatedStatus) {

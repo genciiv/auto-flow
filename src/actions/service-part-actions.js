@@ -8,6 +8,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
 import { addPartToServiceSchema } from "@/schemas/inventory-schema";
 
+import { createActionError } from "@/lib/errors";
 function refreshServicePartPages(serviceId = null) {
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard/inventory");
@@ -52,17 +53,17 @@ export async function addPartToService(formData) {
       });
 
       if (!service) {
-        throw new Error("Shërbimi nuk u gjet.");
+        throw createActionError("Shërbimi nuk u gjet.");
       }
 
       if (service.status === "COMPLETED") {
-        throw new Error(
+        throw createActionError(
           "Nuk mund të shtohen pjesë në një shërbim të përfunduar.",
         );
       }
 
       if (service.status === "CANCELLED") {
-        throw new Error("Nuk mund të shtohen pjesë në një shërbim të anuluar.");
+        throw createActionError("Nuk mund të shtohen pjesë në një shërbim të anuluar.");
       }
 
       const part = await transaction.part.findFirst({
@@ -80,11 +81,11 @@ export async function addPartToService(formData) {
       });
 
       if (!part) {
-        throw new Error("Pjesa nuk u gjet.");
+        throw createActionError("Pjesa nuk u gjet.");
       }
 
       if (Number(part.stock) < quantity) {
-        throw new Error(
+        throw createActionError(
           `Nuk ka stok të mjaftueshëm për pjesën "${part.name}".`,
         );
       }
@@ -92,7 +93,7 @@ export async function addPartToService(formData) {
       const unitPrice = Number(part.sellPrice || 0);
 
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-        throw new Error("Çmimi i shitjes së pjesës nuk është i vlefshëm.");
+        throw createActionError("Çmimi i shitjes së pjesës nuk është i vlefshëm.");
       }
 
       const total = quantity * unitPrice;
@@ -115,7 +116,7 @@ export async function addPartToService(formData) {
       });
 
       if (stockUpdate.count !== 1) {
-        throw new Error("Stoku ka ndryshuar. Nuk ka më sasi të mjaftueshme.");
+        throw createActionError("Stoku ka ndryshuar. Nuk ka më sasi të mjaftueshme.");
       }
 
       await transaction.servicePartUsage.create({

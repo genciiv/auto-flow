@@ -23,6 +23,7 @@ import {
   updateSubscriptionStatus,
 } from "@/services/admin/subscription-service";
 
+import { createActionError } from "@/lib/errors";
 function getAdminUserId(admin) {
   return admin?.user?.id ?? admin?.id ?? null;
 }
@@ -49,7 +50,7 @@ function parsePeriodStart(value) {
   const date = new Date(`${value}T00:00:00`);
 
   if (Number.isNaN(date.getTime())) {
-    throw new Error("Data e fillimit nuk është e vlefshme.");
+    throw createActionError("Data e fillimit nuk është e vlefshme.");
   }
 
   return date;
@@ -74,7 +75,7 @@ function getDefaultPlanPrice(plan, billingInterval) {
   const price = Number(value);
 
   if (!Number.isFinite(price) || price < 0) {
-    throw new Error("Çmimi i planit nuk është i vlefshëm.");
+    throw createActionError("Çmimi i planit nuk është i vlefshëm.");
   }
 
   return price;
@@ -86,7 +87,7 @@ function validateSubscriptionId(subscriptionId) {
   });
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "ID-ja e abonimit mungon.",
@@ -116,7 +117,7 @@ export async function createSubscriptionAction(formData) {
   const validationResult = validateFormData(createSubscriptionSchema, formData);
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Të dhënat e abonimit nuk janë të vlefshme.",
@@ -162,23 +163,23 @@ export async function createSubscriptionAction(formData) {
   ]);
 
   if (!business) {
-    throw new Error("Biznesi nuk u gjet.");
+    throw createActionError("Biznesi nuk u gjet.");
   }
 
   if (!business.isActive) {
-    throw new Error("Biznesi është i çaktivizuar.");
+    throw createActionError("Biznesi është i çaktivizuar.");
   }
 
   if (!plan) {
-    throw new Error("Plani nuk u gjet.");
+    throw createActionError("Plani nuk u gjet.");
   }
 
   if (!plan.isActive) {
-    throw new Error("Plani është i çaktivizuar.");
+    throw createActionError("Plani është i çaktivizuar.");
   }
 
   if (plan.slug === "free-trial") {
-    throw new Error(
+    throw createActionError(
       "Free Trial krijohet automatikisht gjatë aprovimit të biznesit.",
     );
   }
@@ -241,7 +242,7 @@ export async function renewSubscriptionAction(subscriptionId, formData) {
   const validationResult = validateFormData(renewSubscriptionSchema, formData);
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Të dhënat e rinovimit nuk janë të vlefshme.",
@@ -260,15 +261,15 @@ export async function renewSubscriptionAction(subscriptionId, formData) {
   );
 
   if (!existingSubscription) {
-    throw new Error("Abonimi nuk u gjet.");
+    throw createActionError("Abonimi nuk u gjet.");
   }
 
   if (!existingSubscription.plan) {
-    throw new Error("Plani i abonimit nuk u gjet.");
+    throw createActionError("Plani i abonimit nuk u gjet.");
   }
 
   if (existingSubscription.plan.slug === "free-trial") {
-    throw new Error("Free Trial nuk mund të rinovohet si abonim me pagesë.");
+    throw createActionError("Free Trial nuk mund të rinovohet si abonim me pagesë.");
   }
 
   const periodStart = parsePeriodStart(periodStartInput);
@@ -341,7 +342,7 @@ export async function updateSubscriptionStatusAction(subscriptionId, status) {
   });
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Statusi i abonimit nuk është i vlefshëm.",
@@ -357,7 +358,7 @@ export async function updateSubscriptionStatusAction(subscriptionId, status) {
   );
 
   if (!existingSubscription) {
-    throw new Error("Abonimi nuk u gjet.");
+    throw createActionError("Abonimi nuk u gjet.");
   }
 
   if (existingSubscription.status === validatedStatus) {

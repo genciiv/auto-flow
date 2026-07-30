@@ -21,6 +21,7 @@ import {
 } from "@/services/admin/payment-service";
 import { getPlatformSettings } from "@/services/admin/settings-service";
 
+import { createActionError } from "@/lib/errors";
 function getAdminUserId(admin) {
   return admin?.user?.id ?? admin?.id ?? null;
 }
@@ -47,7 +48,7 @@ function parsePaidAt(value) {
   const date = new Date(`${value}T00:00:00`);
 
   if (Number.isNaN(date.getTime())) {
-    throw new Error("Data e pagesës nuk është e vlefshme.");
+    throw createActionError("Data e pagesës nuk është e vlefshme.");
   }
 
   return date;
@@ -112,7 +113,7 @@ async function validateEnabledPaymentMethod(method) {
   }
 
   if (!enabledMethods.includes(method)) {
-    throw new Error(
+    throw createActionError(
       "Kjo metodë pagese është çaktivizuar te konfigurimet e platformës.",
     );
   }
@@ -124,7 +125,7 @@ function validatePaymentId(paymentId) {
   });
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "ID-ja e pagesës mungon.",
@@ -139,7 +140,7 @@ function getDefaultSubscriptionAmount(subscription) {
   const amount = Number(subscription.price);
 
   if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error("Shuma e pagesës nuk është e vlefshme.");
+    throw createActionError("Shuma e pagesës nuk është e vlefshme.");
   }
 
   return amount;
@@ -152,7 +153,7 @@ export async function createPaymentAction(formData) {
   const validationResult = validateFormData(createPaymentSchema, formData);
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Të dhënat e pagesës nuk janë të vlefshme.",
@@ -199,15 +200,15 @@ export async function createPaymentAction(formData) {
   });
 
   if (!subscription) {
-    throw new Error("Abonimi nuk u gjet.");
+    throw createActionError("Abonimi nuk u gjet.");
   }
 
   if (!subscription.business.isActive) {
-    throw new Error("Biznesi është i çaktivizuar.");
+    throw createActionError("Biznesi është i çaktivizuar.");
   }
 
   if (subscription.plan.slug === "free-trial") {
-    throw new Error(
+    throw createActionError(
       "Nuk mund të regjistrohet pagesë për planin Free Trial. Aktivizo fillimisht një plan me pagesë.",
     );
   }
@@ -302,7 +303,7 @@ export async function updatePaymentStatusAction(paymentId, status) {
   });
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Statusi i pagesës nuk është i vlefshëm.",
@@ -314,17 +315,17 @@ export async function updatePaymentStatusAction(paymentId, status) {
     validationResult.data;
 
   if (validatedStatus === "REFUNDED") {
-    throw new Error("Përdor veprimin Rimburso për të rimbursuar pagesën.");
+    throw createActionError("Përdor veprimin Rimburso për të rimbursuar pagesën.");
   }
 
   const existingPayment = await getPaymentById(validatedPaymentId);
 
   if (!existingPayment) {
-    throw new Error("Pagesa nuk u gjet.");
+    throw createActionError("Pagesa nuk u gjet.");
   }
 
   if (existingPayment.status === "REFUNDED") {
-    throw new Error(
+    throw createActionError(
       "Statusi i një pagese të rimbursuar nuk mund të ndryshohet.",
     );
   }
@@ -424,7 +425,7 @@ export async function refundPaymentAction(paymentId) {
   const existingPayment = await getPaymentById(validatedPaymentId);
 
   if (!existingPayment) {
-    throw new Error("Pagesa nuk u gjet.");
+    throw createActionError("Pagesa nuk u gjet.");
   }
 
   if (existingPayment.status === "REFUNDED") {
@@ -436,7 +437,7 @@ export async function refundPaymentAction(paymentId) {
   }
 
   if (existingPayment.status !== "PAID") {
-    throw new Error("Vetëm një pagesë e paguar mund të rimbursohet.");
+    throw createActionError("Vetëm një pagesë e paguar mund të rimbursohet.");
   }
 
   const payment = await refundPayment(validatedPaymentId);

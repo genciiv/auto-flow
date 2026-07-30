@@ -1,17 +1,13 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import path from "node:path";
 
 const srcRoot = path.resolve("src");
 const findings = [];
 
 function walk(directory) {
-  if (!fs.existsSync(directory)) {
-    return;
-  }
+  if (!fs.existsSync(directory)) return;
 
-  for (const entry of fs.readdirSync(directory, {
-    withFileTypes: true,
-  })) {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const fullPath = path.join(directory, entry.name);
 
     if (entry.isDirectory()) {
@@ -19,40 +15,29 @@ function walk(directory) {
       continue;
     }
 
-    if (
-      entry.name.endsWith(".js") ||
-      entry.name.endsWith(".jsx")
-    ) {
+    if (entry.name.endsWith(".js") || entry.name.endsWith(".jsx")) {
       inspectFile(fullPath);
     }
   }
 }
 
+function normalizePath(filePath) {
+  return filePath.replaceAll("\\", "/");
+}
+
 function isServerActionFile(filePath, source) {
-  const normalizedPath = filePath.replaceAll("\\", "/");
-
-  const hasUseServer =
-    /^\s*["']use server["'];/m.test(source);
-
-  const hasExportedAsyncFunction =
-    /export\s+async\s+function\s+[A-Za-z0-9_]+/g.test(
-      source,
-    );
-
+  const normalizedPath = normalizePath(filePath);
+  const hasUseServer = /^\s*["']use server["'];/m.test(source);
   const isKnownActionPath =
     normalizedPath.includes("/actions/") ||
     normalizedPath.endsWith("/actions.js") ||
     normalizedPath.endsWith("-actions.js");
 
-  return (
-    hasUseServer &&
-    hasExportedAsyncFunction &&
-    isKnownActionPath
-  );
+  return hasUseServer && isKnownActionPath;
 }
 
 function isApiRoute(filePath) {
-  const normalizedPath = filePath.replaceAll("\\", "/");
+  const normalizedPath = normalizePath(filePath);
 
   return (
     normalizedPath.includes("/src/app/api/") &&
@@ -62,11 +47,7 @@ function isApiRoute(filePath) {
 
 function inspectFile(filePath) {
   const source = fs.readFileSync(filePath, "utf8");
-
-  const relativePath = path.relative(
-    process.cwd(),
-    filePath,
-  );
+  const relativePath = path.relative(process.cwd(), filePath);
 
   if (isServerActionFile(filePath, source)) {
     inspectServerActions(relativePath, source);
@@ -78,11 +59,11 @@ function inspectFile(filePath) {
 }
 
 function inspectServerActions(relativePath, source) {
-  const exportedActions = [
-    ...source.matchAll(
-      /export\s+async\s+function\s+([A-Za-z0-9_]+)/g,
-    ),
-  ].map((match) => match[1]);
+  const hasExportedAction =
+    /export\s+async\s+function\s+[A-Za-z0-9_]+/.test(source) ||
+    /export\s+const\s+[A-Za-z0-9_]+\s*=\s*async/.test(source);
+
+  if (!hasExportedAction) return;
 
   const hasStandardResultHelper =
     source.includes('from "@/lib/action-result"') ||
@@ -93,25 +74,26 @@ function inspectServerActions(relativePath, source) {
     source.includes("errorFailure(");
 
   const hasLegacyControlledResult =
-    /return\s*\{\s*success\s*:/m.test(source) ||
-    /return\s*\{\s*error\s*:/m.test(source);
+    /return\s*\{[\s\S]{0,700}\bsuccess\s*:/.test(source) ||
+    /return\s*\{[\s\S]{0,700}\berror\s*:/.test(source);
 
-  const hasUncontrolledExpectedThrow =
-    /throw\s+new\s+Error\s*\(/.test(source);
+  const hasFrameworkRedirectFlow =
+    /\bredirect\s*\(/.test(source) ||
+    /\bsignOut\s*\(\s*\{[\s\S]{0,200}\bredirectTo\s*:/.test(source);
 
   if (
-    exportedActions.length > 0 &&
     !hasStandardResultHelper &&
-    !hasLegacyControlledResult
+    !hasLegacyControlledResult &&
+    !hasFrameworkRedirectFlow
   ) {
     findings.push(
-      `${relativePath}: action-et nuk përdorin rezultat standard ose rezultat të kontrolluar`,
+      `${relativePath}: action-et nuk përdorin rezultat standard, rezultat të kontrolluar ose redirect të framework-ut`,
     );
   }
 
-  if (hasUncontrolledExpectedThrow) {
+  if (/throw\s+new\s+Error\s*\(/.test(source)) {
     findings.push(
-      `${relativePath}: përmban throw new Error(); kontrollo nëse është gabim biznesi i pritshëm`,
+      `${relativePath}: përmban throw new Error(); përdor AppError/createActionError`,
     );
   }
 
@@ -138,9 +120,7 @@ function inspectApiRoute(relativePath, source) {
     /searchParams\.get\(/.test(source) ||
     /request\.nextUrl\.searchParams/.test(source);
 
-  if (!readsRequestInput) {
-    return;
-  }
+  if (!readsRequestInput) return;
 
   const usesValidation =
     source.includes("validateFormData") ||
@@ -149,9 +129,7 @@ function inspectApiRoute(relativePath, source) {
     source.includes(".parse(");
 
   if (!usesValidation) {
-    findings.push(
-      `${relativePath}: merr input nga request pa validim`,
-    );
+    findings.push(`${relativePath}: merr input nga request pa validim`);
   }
 
   const hasControlledResponse =
@@ -160,9 +138,7 @@ function inspectApiRoute(relativePath, source) {
     source.includes("apiFailure");
 
   if (!hasControlledResponse) {
-    findings.push(
-      `${relativePath}: nuk përdor përgjigje API të kontrolluar`,
-    );
+    findings.push(`${relativePath}: nuk përdor përgjigje API të kontrolluar`);
   }
 }
 

@@ -94,6 +94,27 @@ export function isAppError(error) {
   return error instanceof AppError;
 }
 
+
+export function createActionError(
+  message = "Veprimi nuk mund të përfundohej.",
+  {
+    code = ERROR_CODES.INVALID_INPUT,
+    status = 400,
+    fieldErrors = {},
+    cause = null,
+    metadata = null,
+  } = {},
+) {
+  return new AppError({
+    code,
+    message,
+    status,
+    fieldErrors,
+    cause,
+    metadata,
+  });
+}
+
 export function createValidationError({
   message = "Kontrollo të dhënat e formularit.",
   fieldErrors = {},

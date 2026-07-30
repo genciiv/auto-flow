@@ -17,6 +17,7 @@ import {
 } from "@/schemas/customer-schema";
 import { logCreate, logDelete, logUpdate } from "@/services/audit-events";
 
+import { createActionError } from "@/lib/errors";
 function getCustomerAuditValues(customer) {
   if (!customer) {
     return null;
@@ -41,7 +42,7 @@ export async function createCustomer(formData) {
   const validationResult = validateFormData(createCustomerSchema, formData);
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Të dhënat e klientit nuk janë të vlefshme.",
@@ -101,7 +102,7 @@ export async function updateCustomer(formData) {
   const validationResult = validateFormData(updateCustomerSchema, formData);
 
   if (!validationResult.success) {
-    throw new Error(
+    throw createActionError(
       getFirstValidationMessage(
         validationResult.error,
         "Të dhënat e klientit nuk janë të vlefshme.",
@@ -127,7 +128,7 @@ export async function updateCustomer(formData) {
   });
 
   if (!existingCustomer) {
-    throw new Error("Klienti nuk u gjet.");
+    throw createActionError("Klienti nuk u gjet.");
   }
 
   await db.$transaction(async (transaction) => {

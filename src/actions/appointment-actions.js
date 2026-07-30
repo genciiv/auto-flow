@@ -18,6 +18,7 @@ import {
   updateAppointmentSchema,
 } from "@/schemas/appointment-schema";
 
+import { createActionError } from "@/lib/errors";
 function revalidateAppointmentPages() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/appointments");
@@ -422,25 +423,25 @@ export async function startServiceFromAppointment(appointmentId) {
       });
 
       if (!appointment) {
-        throw new Error("Termini nuk u gjet.");
+        throw createActionError("Termini nuk u gjet.");
       }
 
       if (!appointment.vehicleId) {
-        throw new Error(
+        throw createActionError(
           "Termini duhet të ketë një automjet për të filluar servisin.",
         );
       }
 
       if (appointment.status === "COMPLETED") {
-        throw new Error("Ky termin është përfunduar.");
+        throw createActionError("Ky termin është përfunduar.");
       }
 
       if (appointment.status === "CANCELLED") {
-        throw new Error("Një termin i anuluar nuk mund të fillojë servis.");
+        throw createActionError("Një termin i anuluar nuk mund të fillojë servis.");
       }
 
       if (appointment.status === "IN_PROGRESS") {
-        throw new Error("Servisi për këtë termin është nisur tashmë.");
+        throw createActionError("Servisi për këtë termin është nisur tashmë.");
       }
 
       const vehicle = await transaction.vehicle.findFirst({
@@ -456,7 +457,7 @@ export async function startServiceFromAppointment(appointmentId) {
       });
 
       if (!vehicle) {
-        throw new Error("Automjeti i terminit nuk u gjet.");
+        throw createActionError("Automjeti i terminit nuk u gjet.");
       }
 
       if (appointment.customerId) {
@@ -472,14 +473,14 @@ export async function startServiceFromAppointment(appointmentId) {
         });
 
         if (!customer) {
-          throw new Error("Klienti i terminit nuk u gjet.");
+          throw createActionError("Klienti i terminit nuk u gjet.");
         }
 
         if (
           vehicle.customerId &&
           vehicle.customerId !== appointment.customerId
         ) {
-          throw new Error("Automjeti nuk i përket klientit të terminit.");
+          throw createActionError("Automjeti nuk i përket klientit të terminit.");
         }
       }
 
@@ -496,7 +497,7 @@ export async function startServiceFromAppointment(appointmentId) {
       });
 
       if (updatedAppointment.count !== 1) {
-        throw new Error(
+        throw createActionError(
           "Termini është ndryshuar ose servisi është nisur më parë.",
         );
       }

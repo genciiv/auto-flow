@@ -18,6 +18,7 @@ import {
   updateCustomerMarketplaceListingSchema,
 } from "@/schemas/customer-marketplace-schema";
 
+import { createActionError } from "@/lib/errors";
 const MAX_IMAGES = 10;
 
 function getString(formData, key) {
@@ -106,7 +107,7 @@ function throwValidationError(validationResult, fallbackMessage) {
     return validationResult.data;
   }
 
-  throw new Error(
+  throw createActionError(
     getFirstValidationMessage(validationResult.error, fallbackMessage),
   );
 }
@@ -133,7 +134,7 @@ async function getCustomerProfile(profileId) {
   });
 
   if (!profile?.userId || !profile.user?.isActive) {
-    throw new Error(
+    throw createActionError(
       "Profili i klientit nuk u gjet ose llogaria është çaktivizuar.",
     );
   }
@@ -167,7 +168,7 @@ async function getOwnedListing(
   });
 
   if (!listing) {
-    throw new Error("Publikimi nuk ekziston ose nuk të përket ty.");
+    throw createActionError("Publikimi nuk ekziston ose nuk të përket ty.");
   }
 
   return listing;
@@ -229,7 +230,7 @@ async function uploadMarketplaceImages(
         });
 
       if (uploadError) {
-        throw new Error(
+        throw createActionError(
           `Ngarkimi i fotografisë "${file.name}" dështoi: ${uploadError.message}`,
         );
       }
@@ -241,7 +242,7 @@ async function uploadMarketplaceImages(
         .getPublicUrl(path);
 
       if (!publicUrlData?.publicUrl) {
-        throw new Error("Nuk u krijua URL-ja publike e fotografisë.");
+        throw createActionError("Nuk u krijua URL-ja publike e fotografisë.");
       }
 
       imageRows.push({
@@ -289,7 +290,7 @@ export async function createCustomerMarketplaceListing(formData) {
   validateMarketplaceImages(files);
 
   if (files.length > MAX_IMAGES) {
-    throw new Error(`Maksimumi është ${MAX_IMAGES} fotografi.`);
+    throw createActionError(`Maksimumi është ${MAX_IMAGES} fotografi.`);
   }
 
   const listingId = crypto.randomUUID();
@@ -406,7 +407,7 @@ export async function updateCustomerMarketplaceListing(formData) {
   validateMarketplaceImages(files);
 
   if (keptImages.length + files.length > MAX_IMAGES) {
-    throw new Error(`Maksimumi është ${MAX_IMAGES} fotografi.`);
+    throw createActionError(`Maksimumi është ${MAX_IMAGES} fotografi.`);
   }
 
   const uploaded = await uploadMarketplaceImages(files, {

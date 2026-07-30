@@ -23,6 +23,7 @@ import {
   logUpdate,
 } from "@/services/audit-events";
 
+import { createActionError } from "@/lib/errors";
 function getStatusLabel(status) {
   const labels = {
     DRAFT: "Draft",
@@ -116,7 +117,7 @@ async function getServiceData(serviceId, businessId) {
   });
 
   if (!service) {
-    throw new Error("Shërbimi i zgjedhur nuk u gjet.");
+    throw createActionError("Shërbimi i zgjedhur nuk u gjet.");
   }
 
   return service;
@@ -139,7 +140,7 @@ async function validateCustomer(customerId, businessId) {
   });
 
   if (!customer) {
-    throw new Error("Klienti i zgjedhur nuk u gjet.");
+    throw createActionError("Klienti i zgjedhur nuk u gjet.");
   }
 
   return customer.id;
@@ -163,7 +164,7 @@ async function validateVehicle(vehicleId, businessId) {
   });
 
   if (!vehicle) {
-    throw new Error("Automjeti i zgjedhur nuk u gjet.");
+    throw createActionError("Automjeti i zgjedhur nuk u gjet.");
   }
 
   return vehicle;
@@ -173,11 +174,11 @@ function validateServiceTotal(value) {
   const total = Number(value);
 
   if (!Number.isFinite(total)) {
-    throw new Error("Totali i faturës nuk është i vlefshëm.");
+    throw createActionError("Totali i faturës nuk është i vlefshëm.");
   }
 
   if (total < 0) {
-    throw new Error("Totali i faturës nuk mund të jetë negativ.");
+    throw createActionError("Totali i faturës nuk mund të jetë negativ.");
   }
 
   return total;

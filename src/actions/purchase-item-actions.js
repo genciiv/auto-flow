@@ -15,6 +15,7 @@ import {
   receivePurchaseOrderSchema,
 } from "@/schemas/purchase-schema";
 
+import { createActionError } from "@/lib/errors";
 function refreshPurchaseItemPages() {
   revalidatePath("/dashboard/purchases");
   revalidatePath("/dashboard/inventory");
@@ -64,17 +65,17 @@ export async function addPurchaseItem(formData) {
       });
 
       if (!purchase) {
-        throw new Error("Porosia nuk u gjet.");
+        throw createActionError("Porosia nuk u gjet.");
       }
 
       if (purchase.status === "RECEIVED") {
-        throw new Error(
+        throw createActionError(
           "Nuk mund të shtohen artikuj sepse porosia është marrë në magazinë.",
         );
       }
 
       if (purchase.status === "CANCELLED") {
-        throw new Error(
+        throw createActionError(
           "Nuk mund të shtohen artikuj në një porosi të anuluar.",
         );
       }
@@ -174,19 +175,19 @@ export async function receivePurchaseOrder(purchaseOrderId) {
       });
 
       if (!purchase) {
-        throw new Error("Porosia nuk u gjet.");
+        throw createActionError("Porosia nuk u gjet.");
       }
 
       if (purchase.status === "RECEIVED") {
-        throw new Error("Kjo porosi është marrë më parë në magazinë.");
+        throw createActionError("Kjo porosi është marrë më parë në magazinë.");
       }
 
       if (purchase.status === "CANCELLED") {
-        throw new Error("Një porosi e anuluar nuk mund të merret në magazinë.");
+        throw createActionError("Një porosi e anuluar nuk mund të merret në magazinë.");
       }
 
       if (purchase.items.length === 0) {
-        throw new Error("Porosia nuk ka artikuj për t'u futur në magazinë.");
+        throw createActionError("Porosia nuk ka artikuj për t'u futur në magazinë.");
       }
 
       const receivedUpdate = await transaction.purchaseOrder.updateMany({
@@ -205,7 +206,7 @@ export async function receivePurchaseOrder(purchaseOrderId) {
       });
 
       if (receivedUpdate.count !== 1) {
-        throw new Error(
+        throw createActionError(
           "Porosia është ndryshuar ose është marrë më parë në magazinë.",
         );
       }
@@ -214,7 +215,7 @@ export async function receivePurchaseOrder(purchaseOrderId) {
         const itemName = String(item.name || "").trim();
 
         if (!itemName) {
-          throw new Error(
+          throw createActionError(
             "Një nga artikujt e porosisë nuk ka emër të vlefshëm.",
           );
         }
@@ -223,13 +224,13 @@ export async function receivePurchaseOrder(purchaseOrderId) {
         const unitPrice = Number(item.unitPrice ?? 0);
 
         if (!Number.isFinite(quantity) || quantity <= 0) {
-          throw new Error(
+          throw createActionError(
             `Sasia e artikullit "${itemName}" nuk është e vlefshme.`,
           );
         }
 
         if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-          throw new Error(
+          throw createActionError(
             `Çmimi i artikullit "${itemName}" nuk është i vlefshëm.`,
           );
         }
