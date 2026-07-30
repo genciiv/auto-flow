@@ -4,108 +4,33 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { publicMarketplaceInquirySchema } from "@/schemas/marketplace-schema";
 
-function normalizeText(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function normalizeEmail(value) {
-  return normalizeText(value).toLowerCase();
-}
-
-function isValidEmail(email) {
-  if (!email) {
-    return true;
-  }
-
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
+const initialResult = {
+  success: false,
+  error: null,
+  message: null,
+};
 
 export async function createMarketplaceInquiryAction(previousState, formData) {
-  const listingId = normalizeText(formData.get("listingId"));
-  const slug = normalizeText(formData.get("slug"));
+  const validationResult = validateFormData(
+    publicMarketplaceInquirySchema,
+    formData,
+  );
 
-  const name = normalizeText(formData.get("name"));
-  const email = normalizeEmail(formData.get("email"));
-  const phone = normalizeText(formData.get("phone"));
-  const message = normalizeText(formData.get("message"));
-
-  if (!listingId || !slug) {
+  if (!validationResult.success) {
     return {
-      success: false,
-      error: "Publikimi nuk është i vlefshëm.",
-      message: null,
+      ...initialResult,
+      error: getFirstValidationMessage(
+        validationResult.error,
+        "Kontrollo të dhënat e formularit.",
+      ),
     };
   }
 
-  if (name.length < 2) {
-    return {
-      success: false,
-      error: "Shkruaj emrin dhe mbiemrin.",
-      message: null,
-    };
-  }
-
-  if (name.length > 100) {
-    return {
-      success: false,
-      error: "Emri nuk mund të ketë më shumë se 100 karaktere.",
-      message: null,
-    };
-  }
-
-  if (!email && !phone) {
-    return {
-      success: false,
-      error:
-        "Shkruaj të paktën një email ose numër telefoni që shitësi të mund të të kontaktojë.",
-      message: null,
-    };
-  }
-
-  if (!isValidEmail(email)) {
-    return {
-      success: false,
-      error: "Shkruaj një adresë email-i të vlefshme.",
-      message: null,
-    };
-  }
-
-  if (email.length > 150) {
-    return {
-      success: false,
-      error: "Email-i është shumë i gjatë.",
-      message: null,
-    };
-  }
-
-  if (phone.length > 30) {
-    return {
-      success: false,
-      error: "Numri i telefonit është shumë i gjatë.",
-      message: null,
-    };
-  }
-
-  if (message.length < 10) {
-    return {
-      success: false,
-      error: "Mesazhi duhet të ketë të paktën 10 karaktere.",
-      message: null,
-    };
-  }
-
-  if (message.length > 2000) {
-    return {
-      success: false,
-      error: "Mesazhi nuk mund të ketë më shumë se 2000 karaktere.",
-      message: null,
-    };
-  }
+  const { listingId, slug, name, email, phone, message } =
+    validationResult.data;
 
   try {
     const listing = await db.marketplaceListing.findFirst({
@@ -114,6 +39,7 @@ export async function createMarketplaceInquiryAction(previousState, formData) {
         slug,
         status: "PUBLISHED",
       },
+
       select: {
         id: true,
         slug: true,
@@ -122,9 +48,8 @@ export async function createMarketplaceInquiryAction(previousState, formData) {
 
     if (!listing) {
       return {
-        success: false,
+        ...initialResult,
         error: "Ky publikim nuk është më aktiv ose nuk është i disponueshëm.",
-        message: null,
       };
     }
 
@@ -135,14 +60,16 @@ export async function createMarketplaceInquiryAction(previousState, formData) {
         listingId: listing.id,
         senderUserId: session?.user?.id ?? null,
         name,
-        email: email || null,
-        phone: phone || null,
+        email,
+        phone,
         message,
         isRead: false,
       },
     });
 
     revalidatePath(`/marketplace/${listing.slug}`);
+
+    revalidatePath("/dashboard/marketplace/inquiries");
 
     return {
       success: true,
@@ -154,9 +81,8 @@ export async function createMarketplaceInquiryAction(previousState, formData) {
     console.error("Gabim gjatë krijimit të kërkesës:", error);
 
     return {
-      success: false,
+      ...initialResult,
       error: "Nuk ishte e mundur të dërgohej kërkesa. Provo përsëri pas pak.",
-      message: null,
     };
   }
 }

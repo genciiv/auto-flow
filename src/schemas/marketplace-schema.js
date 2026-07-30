@@ -245,3 +245,77 @@ export const marketplaceInquiryIdSchema = z.object({
     }),
   ),
 });
+
+export const publicMarketplaceInquirySchema = z
+  .object({
+    listingId: z.preprocess(
+      normalizeTrimmedString,
+      z.string().min(1, {
+        message: "Publikimi nuk është i vlefshëm.",
+      }),
+    ),
+
+    slug: z.preprocess(
+      normalizeTrimmedString,
+      z.string().min(1, {
+        message: "Publikimi nuk është i vlefshëm.",
+      }),
+    ),
+
+    name: z.preprocess(
+      normalizeTrimmedString,
+      z
+        .string()
+        .min(2, {
+          message: "Shkruaj emrin dhe mbiemrin.",
+        })
+        .max(100, {
+          message: "Emri nuk mund të ketë më shumë se 100 karaktere.",
+        }),
+    ),
+
+    email: z.preprocess(
+      (value) => normalizeEmail(value) || null,
+      z
+        .string()
+        .max(150, {
+          message: "Email-i është shumë i gjatë.",
+        })
+        .refine((value) => emailFormatRegex.test(value), {
+          message: "Shkruaj një adresë email-i të vlefshme.",
+        })
+        .nullable(),
+    ),
+
+    phone: z.preprocess(
+      (value) => normalizeTrimmedString(value) || null,
+      z
+        .string()
+        .max(30, {
+          message: "Numri i telefonit është shumë i gjatë.",
+        })
+        .nullable(),
+    ),
+
+    message: z.preprocess(
+      normalizeTrimmedString,
+      z
+        .string()
+        .min(10, {
+          message: "Mesazhi duhet të ketë të paktën 10 karaktere.",
+        })
+        .max(2000, {
+          message: "Mesazhi nuk mund të ketë më shumë se 2000 karaktere.",
+        }),
+    ),
+  })
+  .superRefine((data, context) => {
+    if (!data.email && !data.phone) {
+      context.addIssue({
+        code: "custom",
+        path: ["email"],
+        message:
+          "Shkruaj të paktën një email ose numër telefoni që shitësi të mund të të kontaktojë.",
+      });
+    }
+  });
