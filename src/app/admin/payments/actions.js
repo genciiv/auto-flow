@@ -4,20 +4,22 @@ import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
+import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  createPaymentSchema,
+  paymentIdObjectSchema,
+  updatePaymentStatusSchema,
+} from "@/schemas/payment-schema";
 import { createPlatformAuditLog } from "@/services/admin/activity-log-service";
 import {
   getPaymentById,
   refundPayment,
 } from "@/services/admin/payment-service";
 import { getPlatformSettings } from "@/services/admin/settings-service";
-
-const VALID_STATUSES = ["PENDING", "PAID", "FAILED", "REFUNDED"];
-
-const VALID_METHODS = ["CASH", "BANK_TRANSFER", "CARD", "OTHER"];
-
-function normalizeText(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
 
 function getAdminUserId(admin) {
   return admin?.user?.id ?? admin?.id ?? null;
@@ -37,36 +39,18 @@ function serializeDate(value) {
   return date.toISOString();
 }
 
-function parsePositiveNumber(value, fieldLabel) {
-  const normalizedValue = normalizeText(value).replace(",", ".");
-
-  if (!normalizedValue) {
-    throw new Error(`${fieldLabel} është e detyrueshme.`);
-  }
-
-  const parsedValue = Number(normalizedValue);
-
-  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-    throw new Error(`${fieldLabel} duhet të jetë më e madhe se zero.`);
-  }
-
-  return parsedValue;
-}
-
-function parseOptionalDate(value, fieldLabel) {
-  const normalizedValue = normalizeText(value);
-
-  if (!normalizedValue) {
+function parsePaidAt(value) {
+  if (!value) {
     return null;
   }
 
-  const parsedDate = new Date(`${normalizedValue}T00:00:00`);
+  const date = new Date(`${value}T00:00:00`);
 
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new Error(`${fieldLabel} nuk është e vlefshme.`);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Data e pagesës nuk është e vlefshme.");
   }
 
-  return parsedDate;
+  return date;
 }
 
 function revalidatePaymentPages(paymentId = null, subscriptionId = null) {
@@ -99,6 +83,7 @@ async function activateSubscriptionFromPayment({
     where: {
       id: subscription.id,
     },
+
     data: {
       status: "ACTIVE",
       trialStartsAt: null,
@@ -133,43 +118,65 @@ async function validateEnabledPaymentMethod(method) {
   }
 }
 
+function validatePaymentId(paymentId) {
+  const validationResult = validateObject(paymentIdObjectSchema, {
+    paymentId,
+  });
+
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "ID-ja e pagesës mungon.",
+      ),
+    );
+  }
+
+  return validationResult.data.paymentId;
+}
+
+function getDefaultSubscriptionAmount(subscription) {
+  const amount = Number(subscription.price);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Shuma e pagesës nuk është e vlefshme.");
+  }
+
+  return amount;
+}
+
 export async function createPaymentAction(formData) {
   const admin = await requirePlatformAdmin();
   const adminUserId = getAdminUserId(admin);
 
-  const subscriptionId = normalizeText(formData.get("subscriptionId"));
+  const validationResult = validateFormData(createPaymentSchema, formData);
 
-  const status = normalizeText(formData.get("status"));
-  const method = normalizeText(formData.get("method"));
-  const reference = normalizeText(formData.get("reference"));
-  const description = normalizeText(formData.get("description"));
-
-  if (!subscriptionId) {
-    throw new Error("Zgjidh abonimin.");
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "Të dhënat e pagesës nuk janë të vlefshme.",
+      ),
+    );
   }
 
-  if (!VALID_STATUSES.includes(status)) {
-    throw new Error("Statusi i pagesës nuk është i vlefshëm.");
-  }
-
-  if (!VALID_METHODS.includes(method)) {
-    throw new Error("Metoda e pagesës nuk është e vlefshme.");
-  }
+  const {
+    subscriptionId,
+    amount: customAmount,
+    status,
+    method,
+    reference,
+    description,
+    paidAt: paidAtInput,
+  } = validationResult.data;
 
   await validateEnabledPaymentMethod(method);
-
-  if (method === "BANK_TRANSFER" && !reference) {
-    throw new Error("Vendos referencën e transfertës bankare.");
-  }
-
-  if (status === "REFUNDED") {
-    throw new Error("Pagesa nuk mund të krijohet direkt si e rimbursuar.");
-  }
 
   const subscription = await db.subscription.findUnique({
     where: {
       id: subscriptionId,
     },
+
     include: {
       business: {
         select: {
@@ -178,6 +185,7 @@ export async function createPaymentAction(formData) {
           isActive: true,
         },
       },
+
       plan: {
         select: {
           id: true,
@@ -204,36 +212,32 @@ export async function createPaymentAction(formData) {
     );
   }
 
-  const amountInput = normalizeText(formData.get("amount"));
+  const amount =
+    customAmount !== null
+      ? customAmount
+      : getDefaultSubscriptionAmount(subscription);
 
-  const amount = amountInput
-    ? parsePositiveNumber(amountInput, "Shuma")
-    : Number(subscription.price);
+  const parsedPaidAt = parsePaidAt(paidAtInput);
 
-  if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error("Shuma e pagesës nuk është e vlefshme.");
-  }
-
-  const paidAtInput = parseOptionalDate(
-    formData.get("paidAt"),
-    "Data e pagesës",
-  );
-
-  const paidAt = status === "PAID" ? paidAtInput || new Date() : null;
+  const paidAt = status === "PAID" ? parsedPaidAt || new Date() : null;
 
   const payment = await db.$transaction(async (transaction) => {
     const createdPayment = await transaction.payment.create({
       data: {
         businessId: subscription.businessId,
+
         subscriptionId: subscription.id,
+
         amount,
         currency: "ALL",
         status,
         method,
-        reference: reference || null,
-        description: description || null,
+        reference,
+        description,
         paidAt,
+
         periodStart: subscription.currentPeriodStart,
+
         periodEnd: subscription.currentPeriodEnd,
       },
     });
@@ -254,7 +258,9 @@ export async function createPaymentAction(formData) {
     entityType: "PAYMENT",
     entityId: payment.id,
     title: "Pagesa u regjistrua",
+
     description: `U regjistrua një pagesë për biznesin ${subscription.business.name}.`,
+
     newValues: {
       subscriptionId: subscription.id,
       planId: subscription.plan.id,
@@ -265,7 +271,9 @@ export async function createPaymentAction(formData) {
       method: payment.method,
       reference: payment.reference,
       paidAt: serializeDate(payment.paidAt),
+
       periodStart: serializeDate(payment.periodStart),
+
       periodEnd: serializeDate(payment.periodEnd),
     },
   });
@@ -276,6 +284,7 @@ export async function createPaymentAction(formData) {
     success: true,
     paymentId: payment.id,
     subscriptionId: subscription.id,
+
     message:
       status === "PAID"
         ? "Pagesa u regjistrua dhe abonimi u aktivizua."
@@ -287,46 +296,71 @@ export async function updatePaymentStatusAction(paymentId, status) {
   const admin = await requirePlatformAdmin();
   const adminUserId = getAdminUserId(admin);
 
-  if (!paymentId) {
-    throw new Error("ID-ja e pagesës mungon.");
+  const validationResult = validateObject(updatePaymentStatusSchema, {
+    paymentId,
+    status,
+  });
+
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "Statusi i pagesës nuk është i vlefshëm.",
+      ),
+    );
   }
 
-  if (!VALID_STATUSES.includes(status)) {
-    throw new Error("Statusi i pagesës nuk është i vlefshëm.");
+  const { paymentId: validatedPaymentId, status: validatedStatus } =
+    validationResult.data;
+
+  if (validatedStatus === "REFUNDED") {
+    throw new Error("Përdor veprimin Rimburso për të rimbursuar pagesën.");
   }
 
-  const existingPayment = await getPaymentById(paymentId);
+  const existingPayment = await getPaymentById(validatedPaymentId);
 
   if (!existingPayment) {
     throw new Error("Pagesa nuk u gjet.");
   }
 
-  if (status === "REFUNDED") {
-    throw new Error("Përdor veprimin Rimburso për të rimbursuar pagesën.");
+  if (existingPayment.status === "REFUNDED") {
+    throw new Error(
+      "Statusi i një pagese të rimbursuar nuk mund të ndryshohet.",
+    );
+  }
+
+  if (existingPayment.status === validatedStatus) {
+    return {
+      success: true,
+      status: existingPayment.status,
+      message: "Statusi i pagesës është tashmë i përditësuar.",
+    };
   }
 
   const payment = await db.$transaction(async (transaction) => {
     const updatedPayment = await transaction.payment.update({
       where: {
-        id: paymentId,
+        id: validatedPaymentId,
       },
+
       data: {
-        status,
+        status: validatedStatus,
 
         paidAt:
-          status === "PAID"
+          validatedStatus === "PAID"
             ? existingPayment.paidAt || new Date()
-            : status === "PENDING"
+            : validatedStatus === "PENDING"
               ? null
               : existingPayment.paidAt,
       },
     });
 
-    if (status === "PAID" && existingPayment.subscription) {
+    if (validatedStatus === "PAID" && existingPayment.subscription) {
       await transaction.subscription.update({
         where: {
           id: existingPayment.subscription.id,
         },
+
         data: {
           status: "ACTIVE",
           trialStartsAt: null,
@@ -347,13 +381,18 @@ export async function updatePaymentStatusAction(paymentId, status) {
     entityType: "PAYMENT",
     entityId: payment.id,
     title: "Statusi i pagesës u ndryshua",
+
     description: `Statusi kaloi nga ${existingPayment.status} në ${payment.status}.`,
+
     oldValues: {
       status: existingPayment.status,
+
       paidAt: serializeDate(existingPayment.paidAt),
     },
+
     newValues: {
       status: payment.status,
+
       paidAt: serializeDate(payment.paidAt),
     },
   });
@@ -362,13 +401,16 @@ export async function updatePaymentStatusAction(paymentId, status) {
 
   const messages = {
     PENDING: "Pagesa u kthye në pritje.",
+
     PAID: "Pagesa u konfirmua dhe abonimi u aktivizua.",
+
     FAILED: "Pagesa u shënua si e dështuar.",
   };
 
   return {
     success: true,
     status: payment.status,
+
     message: messages[payment.status] || "Statusi u përditësua.",
   };
 }
@@ -377,17 +419,27 @@ export async function refundPaymentAction(paymentId) {
   const admin = await requirePlatformAdmin();
   const adminUserId = getAdminUserId(admin);
 
-  if (!paymentId) {
-    throw new Error("ID-ja e pagesës mungon.");
-  }
+  const validatedPaymentId = validatePaymentId(paymentId);
 
-  const existingPayment = await getPaymentById(paymentId);
+  const existingPayment = await getPaymentById(validatedPaymentId);
 
   if (!existingPayment) {
     throw new Error("Pagesa nuk u gjet.");
   }
 
-  const payment = await refundPayment(paymentId);
+  if (existingPayment.status === "REFUNDED") {
+    return {
+      success: true,
+      status: existingPayment.status,
+      message: "Pagesa është tashmë e rimbursuar.",
+    };
+  }
+
+  if (existingPayment.status !== "PAID") {
+    throw new Error("Vetëm një pagesë e paguar mund të rimbursohet.");
+  }
+
+  const payment = await refundPayment(validatedPaymentId);
 
   await createPlatformAuditLog({
     userId: adminUserId,
@@ -397,9 +449,11 @@ export async function refundPaymentAction(paymentId) {
     entityId: payment.id,
     title: "Pagesa u rimbursua",
     description: "Pagesa u shënua si e rimbursuar.",
+
     oldValues: {
       status: existingPayment.status,
     },
+
     newValues: {
       status: payment.status,
     },
