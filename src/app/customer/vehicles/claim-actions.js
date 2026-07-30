@@ -4,21 +4,67 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { requireCustomerActionContext } from "@/lib/customer-context";
+import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  cancelVehicleClaimSchema,
+  createVehicleClaimSchema,
+  customerVehicleIdSchema,
+  customerVehicleSearchSchema,
+} from "@/schemas/customer-vehicle-schema";
 
-function normalizePlate(value) {
+function normalizeStoredPlate(value) {
   return String(value || "")
     .trim()
     .toUpperCase()
     .replace(/\s+/g, "");
 }
 
-function normalizeVin(value) {
-  const vin = String(value || "")
+function normalizeStoredVin(value) {
+  const normalizedValue = String(value || "")
     .trim()
     .toUpperCase()
     .replace(/\s+/g, "");
 
-  return vin || null;
+  return normalizedValue || null;
+}
+
+function revalidateVehicleClaimPages(customerVehicleId) {
+  revalidatePath(`/customer/vehicles/${customerVehicleId}`);
+
+  revalidatePath(`/customer/vehicles/${customerVehicleId}/claim`);
+
+  revalidatePath("/customer/services");
+  revalidatePath("/customer/dashboard");
+}
+
+function validateCustomerVehicleId(customerVehicleId) {
+  const validationResult = validateObject(
+    customerVehicleIdSchema,
+    customerVehicleId,
+  );
+
+  if (!validationResult.success) {
+    return {
+      success: false,
+
+      message: getFirstValidationMessage(
+        validationResult.error,
+        "ID-ja e automjetit mungon.",
+      ),
+
+      customerVehicleId: null,
+    };
+  }
+
+  return {
+    success: true,
+    message: null,
+    customerVehicleId: validationResult.data,
+  };
 }
 
 export async function searchWorkshopVehicles(
@@ -29,11 +75,26 @@ export async function searchWorkshopVehicles(
   try {
     const { profileId } = await requireCustomerActionContext();
 
+    const customerVehicleIdResult =
+      validateCustomerVehicleId(customerVehicleId);
+
+    if (!customerVehicleIdResult.success) {
+      return {
+        success: false,
+        message: customerVehicleIdResult.message,
+        vehicles: [],
+      };
+    }
+
+    const validatedCustomerVehicleId =
+      customerVehicleIdResult.customerVehicleId;
+
     const customerVehicle = await db.customerVehicle.findFirst({
       where: {
-        id: customerVehicleId,
+        id: validatedCustomerVehicleId,
         profileId,
       },
+
       select: {
         id: true,
         plate: true,
@@ -49,20 +110,35 @@ export async function searchWorkshopVehicles(
       };
     }
 
-    const plate =
-      normalizePlate(formData.get("plate")) ||
-      normalizePlate(customerVehicle.plate);
+    const rawPlate = formData.get("plate") || customerVehicle.plate;
 
-    const vin =
-      normalizeVin(formData.get("vin")) || normalizeVin(customerVehicle.vin);
+    const rawVin = formData.get("vin") || customerVehicle.vin;
 
-    if (!plate && !vin) {
+    const searchFormData = new FormData();
+
+    searchFormData.set("plate", String(rawPlate || ""));
+
+    searchFormData.set("vin", String(rawVin || ""));
+
+    const validationResult = validateFormData(
+      customerVehicleSearchSchema,
+      searchFormData,
+    );
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Vendos targën ose numrin VIN.",
+
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Vendos targën ose numrin VIN.",
+        ),
+
         vehicles: [],
       };
     }
+
+    const { plate, vin } = validationResult.data;
 
     const vehicles = await db.vehicle.findMany({
       where: {
@@ -114,7 +190,7 @@ export async function searchWorkshopVehicles(
 
         portalClaims: {
           where: {
-            customerVehicleId,
+            customerVehicleId: validatedCustomerVehicleId,
           },
 
           select: {
@@ -140,10 +216,12 @@ export async function searchWorkshopVehicles(
 
     return {
       success: true,
+
       message:
         vehicles.length > 0
           ? `U gjetën ${vehicles.length} regjistrime të mundshme.`
           : "Nuk u gjet asnjë automjet te serviset e regjistruara.",
+
       vehicles: vehicles.map((vehicle) => ({
         ...vehicle,
         claim: vehicle.portalClaims[0] || null,
@@ -169,9 +247,32 @@ export async function createVehicleClaim(
   try {
     const { profileId } = await requireCustomerActionContext();
 
+    const validationResult = validateObject(createVehicleClaimSchema, {
+      customerVehicleId,
+      vehicleId,
+      message,
+    });
+
+    if (!validationResult.success) {
+      return {
+        success: false,
+
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Të dhënat e kërkesës nuk janë të vlefshme.",
+        ),
+      };
+    }
+
+    const {
+      customerVehicleId: validatedCustomerVehicleId,
+      vehicleId: validatedVehicleId,
+      message: validatedMessage,
+    } = validationResult.data;
+
     const customerVehicle = await db.customerVehicle.findFirst({
       where: {
-        id: customerVehicleId,
+        id: validatedCustomerVehicleId,
         profileId,
       },
 
@@ -191,7 +292,8 @@ export async function createVehicleClaim(
 
     const workshopVehicle = await db.vehicle.findFirst({
       where: {
-        id: vehicleId,
+        id: validatedVehicleId,
+
         business: {
           isActive: true,
         },
@@ -207,15 +309,18 @@ export async function createVehicleClaim(
     if (!workshopVehicle) {
       return {
         success: false,
+
         message: "Automjeti i servisit nuk u gjet.",
       };
     }
 
-    const customerPlate = normalizePlate(customerVehicle.plate);
-    const workshopPlate = normalizePlate(workshopVehicle.plate);
+    const customerPlate = normalizeStoredPlate(customerVehicle.plate);
 
-    const customerVin = normalizeVin(customerVehicle.vin);
-    const workshopVin = normalizeVin(workshopVehicle.vin);
+    const workshopPlate = normalizeStoredPlate(workshopVehicle.plate);
+
+    const customerVin = normalizeStoredVin(customerVehicle.vin);
+
+    const workshopVin = normalizeStoredVin(workshopVehicle.vin);
 
     const plateMatches =
       customerPlate && workshopPlate && customerPlate === workshopPlate;
@@ -226,6 +331,7 @@ export async function createVehicleClaim(
     if (!plateMatches && !vinMatches) {
       return {
         success: false,
+
         message:
           "Targa ose VIN-i i automjetit nuk përputhet me regjistrimin e servisit.",
       };
@@ -234,8 +340,9 @@ export async function createVehicleClaim(
     const existingClaim = await db.vehicleClaim.findUnique({
       where: {
         customerVehicleId_vehicleId: {
-          customerVehicleId,
-          vehicleId,
+          customerVehicleId: validatedCustomerVehicleId,
+
+          vehicleId: validatedVehicleId,
         },
       },
     });
@@ -243,6 +350,7 @@ export async function createVehicleClaim(
     if (existingClaim?.status === "APPROVED") {
       return {
         success: false,
+
         message: "Ky automjet është lidhur tashmë me këtë servis.",
       };
     }
@@ -250,41 +358,41 @@ export async function createVehicleClaim(
     if (existingClaim?.status === "PENDING") {
       return {
         success: false,
+
         message: "Kërkesa është dërguar dhe pret miratimin e servisit.",
       };
     }
 
-    const cleanMessage = String(message || "").trim();
-
     await db.vehicleClaim.upsert({
       where: {
         customerVehicleId_vehicleId: {
-          customerVehicleId,
-          vehicleId,
+          customerVehicleId: validatedCustomerVehicleId,
+
+          vehicleId: validatedVehicleId,
         },
       },
 
       update: {
         status: "PENDING",
-        customerMessage: cleanMessage || null,
+        customerMessage: validatedMessage,
         rejectionReason: null,
         reviewedAt: null,
       },
 
       create: {
-        customerVehicleId,
-        vehicleId,
+        customerVehicleId: validatedCustomerVehicleId,
+
+        vehicleId: validatedVehicleId,
         status: "PENDING",
-        customerMessage: cleanMessage || null,
+        customerMessage: validatedMessage,
       },
     });
 
-    revalidatePath(`/customer/vehicles/${customerVehicleId}`);
-    revalidatePath(`/customer/vehicles/${customerVehicleId}/claim`);
-    revalidatePath("/customer/services");
+    revalidateVehicleClaimPages(validatedCustomerVehicleId);
 
     return {
       success: true,
+
       message:
         "Kërkesa u dërgua. Servisi duhet ta miratojë para se të shfaqet historiku.",
     };
@@ -300,6 +408,7 @@ export async function createVehicleClaim(
 
     return {
       success: false,
+
       message: "Ndodhi një gabim gjatë dërgimit të kërkesës.",
     };
   }
@@ -309,9 +418,26 @@ export async function cancelVehicleClaim(claimId) {
   try {
     const { profileId } = await requireCustomerActionContext();
 
+    const validationResult = validateObject(cancelVehicleClaimSchema, {
+      claimId,
+    });
+
+    if (!validationResult.success) {
+      return {
+        success: false,
+
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "ID-ja e kërkesës mungon.",
+        ),
+      };
+    }
+
+    const validatedClaimId = validationResult.data.claimId;
+
     const claim = await db.vehicleClaim.findFirst({
       where: {
-        id: claimId,
+        id: validatedClaimId,
         status: "PENDING",
 
         customerVehicle: {
@@ -328,6 +454,7 @@ export async function cancelVehicleClaim(claimId) {
     if (!claim) {
       return {
         success: false,
+
         message: "Kërkesa nuk u gjet ose nuk mund të anulohet.",
       };
     }
@@ -338,8 +465,7 @@ export async function cancelVehicleClaim(claimId) {
       },
     });
 
-    revalidatePath(`/customer/vehicles/${claim.customerVehicleId}`);
-    revalidatePath(`/customer/vehicles/${claim.customerVehicleId}/claim`);
+    revalidateVehicleClaimPages(claim.customerVehicleId);
 
     return {
       success: true,
@@ -350,6 +476,7 @@ export async function cancelVehicleClaim(claimId) {
 
     return {
       success: false,
+
       message: "Kërkesa nuk mund të anulohej.",
     };
   }

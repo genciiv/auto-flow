@@ -5,6 +5,16 @@ import { redirect } from "next/navigation";
 
 import { db } from "@/lib/db";
 import { requireCustomerActionContext } from "@/lib/customer-context";
+import {
+  getFieldErrors,
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  customerVehicleIdSchema,
+  customerVehicleSchema,
+} from "@/schemas/customer-vehicle-schema";
 
 const emptyResult = {
   success: false,
@@ -12,123 +22,66 @@ const emptyResult = {
   errors: {},
 };
 
-function cleanText(value) {
-  const text = String(value || "").trim();
+function revalidateCustomerVehiclePages(vehicleId = null) {
+  revalidatePath("/customer/vehicles");
+  revalidatePath("/customer/dashboard");
+  revalidatePath("/customer/services");
 
-  return text || null;
-}
-
-function normalizePlate(value) {
-  return String(value || "")
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "");
-}
-
-function parseOptionalInteger(value) {
-  const text = String(value || "").trim();
-
-  if (!text) {
-    return null;
+  if (vehicleId) {
+    revalidatePath(`/customer/vehicles/${vehicleId}`);
+    revalidatePath(`/customer/vehicles/${vehicleId}/claim`);
   }
-
-  const number = Number(text);
-
-  if (!Number.isInteger(number)) {
-    return null;
-  }
-
-  return number;
 }
 
-function getVehicleData(formData) {
-  const yearRaw = String(formData.get("year") || "").trim();
-  const mileageRaw = String(formData.get("mileage") || "").trim();
-
+function getDuplicatePlateResult({
+  message = "Ekziston tashmë një automjet me këtë targë.",
+  fieldMessage = "Kjo targë është regjistruar më parë.",
+} = {}) {
   return {
-    plate: normalizePlate(formData.get("plate")),
-    brand: cleanText(formData.get("brand")),
-    model: cleanText(formData.get("model")),
-    year: parseOptionalInteger(yearRaw),
-    yearRaw,
-    fuel: cleanText(formData.get("fuel")),
-    engine: cleanText(formData.get("engine")),
-    transmission: cleanText(formData.get("transmission")),
-    vin: cleanText(formData.get("vin"))?.toUpperCase() || null,
-    mileage: parseOptionalInteger(mileageRaw),
-    mileageRaw,
-    color: cleanText(formData.get("color")),
-    notes: cleanText(formData.get("notes")),
+    ...emptyResult,
+    message,
+    errors: {
+      plate: fieldMessage,
+    },
   };
 }
 
-function validateVehicleData(data) {
-  const errors = {};
-  const currentYear = new Date().getFullYear();
+function validateVehicleId(vehicleId) {
+  const validationResult = validateObject(customerVehicleIdSchema, vehicleId);
 
-  if (!data.plate) {
-    errors.plate = "Targa është e detyrueshme.";
-  } else if (data.plate.length < 3 || data.plate.length > 20) {
-    errors.plate = "Targa duhet të ketë nga 3 deri në 20 karaktere.";
+  if (!validationResult.success) {
+    return {
+      success: false,
+      message: getFirstValidationMessage(
+        validationResult.error,
+        "ID-ja e automjetit mungon.",
+      ),
+      vehicleId: null,
+    };
   }
 
-  if (!data.brand) {
-    errors.brand = "Marka është e detyrueshme.";
-  } else if (data.brand.length > 60) {
-    errors.brand = "Marka nuk mund të jetë më e gjatë se 60 karaktere.";
-  }
-
-  if (data.model && data.model.length > 80) {
-    errors.model = "Modeli nuk mund të jetë më i gjatë se 80 karaktere.";
-  }
-
-  if (data.yearRaw && data.year === null) {
-    errors.year = "Viti duhet të jetë numër i plotë.";
-  } else if (
-    data.year !== null &&
-    (data.year < 1900 || data.year > currentYear + 1)
-  ) {
-    errors.year = `Viti duhet të jetë ndërmjet 1900 dhe ${currentYear + 1}.`;
-  }
-
-  if (data.mileageRaw && data.mileage === null) {
-    errors.mileage = "Kilometrat duhet të jenë numër i plotë.";
-  } else if (data.mileage !== null && data.mileage < 0) {
-    errors.mileage = "Kilometrat nuk mund të jenë negativë.";
-  }
-
-  if (data.vin && data.vin.length > 40) {
-    errors.vin = "VIN-i nuk mund të jetë më i gjatë se 40 karaktere.";
-  }
-
-  if (data.engine && data.engine.length > 50) {
-    errors.engine = "Motori nuk mund të jetë më i gjatë se 50 karaktere.";
-  }
-
-  if (data.color && data.color.length > 40) {
-    errors.color = "Ngjyra nuk mund të jetë më e gjatë se 40 karaktere.";
-  }
-
-  if (data.notes && data.notes.length > 1000) {
-    errors.notes = "Shënimet nuk mund të jenë më të gjata se 1000 karaktere.";
-  }
-
-  return errors;
+  return {
+    success: true,
+    message: null,
+    vehicleId: validationResult.data,
+  };
 }
 
 export async function createCustomerVehicle(previousState, formData) {
   try {
     const { profileId } = await requireCustomerActionContext();
-    const data = getVehicleData(formData);
-    const errors = validateVehicleData(data);
 
-    if (Object.keys(errors).length > 0) {
+    const validationResult = validateFormData(customerVehicleSchema, formData);
+
+    if (!validationResult.success) {
       return {
         ...emptyResult,
         message: "Kontrollo fushat e formularit.",
-        errors,
+        errors: getFieldErrors(validationResult.error),
       };
     }
+
+    const data = validationResult.data;
 
     const existingVehicle = await db.customerVehicle.findUnique({
       where: {
@@ -144,49 +97,27 @@ export async function createCustomerVehicle(previousState, formData) {
     });
 
     if (existingVehicle) {
-      return {
-        ...emptyResult,
-        message: "Ekziston tashmë një automjet me këtë targë.",
-        errors: {
-          plate: "Kjo targë është regjistruar më parë.",
-        },
-      };
+      return getDuplicatePlateResult();
     }
 
     await db.customerVehicle.create({
       data: {
         profileId,
-        plate: data.plate,
-        brand: data.brand,
-        model: data.model,
-        year: data.year,
-        fuel: data.fuel,
-        engine: data.engine,
-        transmission: data.transmission,
-        vin: data.vin,
-        mileage: data.mileage,
-        color: data.color,
-        notes: data.notes,
+        ...data,
       },
     });
 
-    revalidatePath("/customer/vehicles");
-    revalidatePath("/customer/dashboard");
+    revalidateCustomerVehiclePages();
   } catch (error) {
     console.error("Gabim gjatë krijimit të automjetit:", error);
 
     if (error?.code === "P2002") {
-      return {
-        ...emptyResult,
-        message: "Ekziston tashmë një automjet me këtë targë.",
-        errors: {
-          plate: "Kjo targë është regjistruar më parë.",
-        },
-      };
+      return getDuplicatePlateResult();
     }
 
     return {
       ...emptyResult,
+
       message:
         error instanceof Error
           ? error.message
@@ -205,9 +136,20 @@ export async function updateCustomerVehicle(
   try {
     const { profileId } = await requireCustomerActionContext();
 
+    const vehicleIdResult = validateVehicleId(vehicleId);
+
+    if (!vehicleIdResult.success) {
+      return {
+        ...emptyResult,
+        message: vehicleIdResult.message,
+      };
+    }
+
+    const validatedVehicleId = vehicleIdResult.vehicleId;
+
     const currentVehicle = await db.customerVehicle.findFirst({
       where: {
-        id: vehicleId,
+        id: validatedVehicleId,
         profileId,
       },
 
@@ -219,27 +161,30 @@ export async function updateCustomerVehicle(
     if (!currentVehicle) {
       return {
         ...emptyResult,
+
         message: "Automjeti nuk u gjet ose nuk keni leje ta ndryshoni.",
       };
     }
 
-    const data = getVehicleData(formData);
-    const errors = validateVehicleData(data);
+    const validationResult = validateFormData(customerVehicleSchema, formData);
 
-    if (Object.keys(errors).length > 0) {
+    if (!validationResult.success) {
       return {
         ...emptyResult,
         message: "Kontrollo fushat e formularit.",
-        errors,
+        errors: getFieldErrors(validationResult.error),
       };
     }
+
+    const data = validationResult.data;
 
     const duplicateVehicle = await db.customerVehicle.findFirst({
       where: {
         profileId,
         plate: data.plate,
+
         NOT: {
-          id: vehicleId,
+          id: validatedVehicleId,
         },
       },
 
@@ -249,38 +194,22 @@ export async function updateCustomerVehicle(
     });
 
     if (duplicateVehicle) {
-      return {
-        ...emptyResult,
+      return getDuplicatePlateResult({
         message: "Një automjet tjetër përdor këtë targë.",
-        errors: {
-          plate: "Kjo targë është regjistruar te një automjet tjetër.",
-        },
-      };
+
+        fieldMessage: "Kjo targë është regjistruar te një automjet tjetër.",
+      });
     }
 
     await db.customerVehicle.update({
       where: {
-        id: vehicleId,
+        id: validatedVehicleId,
       },
 
-      data: {
-        plate: data.plate,
-        brand: data.brand,
-        model: data.model,
-        year: data.year,
-        fuel: data.fuel,
-        engine: data.engine,
-        transmission: data.transmission,
-        vin: data.vin,
-        mileage: data.mileage,
-        color: data.color,
-        notes: data.notes,
-      },
+      data,
     });
 
-    revalidatePath("/customer/vehicles");
-    revalidatePath(`/customer/vehicles/${vehicleId}`);
-    revalidatePath("/customer/dashboard");
+    revalidateCustomerVehiclePages(validatedVehicleId);
 
     return {
       success: true,
@@ -291,17 +220,16 @@ export async function updateCustomerVehicle(
     console.error("Gabim gjatë përditësimit të automjetit:", error);
 
     if (error?.code === "P2002") {
-      return {
-        ...emptyResult,
+      return getDuplicatePlateResult({
         message: "Një automjet tjetër përdor këtë targë.",
-        errors: {
-          plate: "Kjo targë është regjistruar te një automjet tjetër.",
-        },
-      };
+
+        fieldMessage: "Kjo targë është regjistruar te një automjet tjetër.",
+      });
     }
 
     return {
       ...emptyResult,
+
       message:
         error instanceof Error
           ? error.message
@@ -314,9 +242,20 @@ export async function deleteCustomerVehicle(vehicleId) {
   try {
     const { profileId } = await requireCustomerActionContext();
 
+    const vehicleIdResult = validateVehicleId(vehicleId);
+
+    if (!vehicleIdResult.success) {
+      return {
+        success: false,
+        message: vehicleIdResult.message,
+      };
+    }
+
+    const validatedVehicleId = vehicleIdResult.vehicleId;
+
     const vehicle = await db.customerVehicle.findFirst({
       where: {
-        id: vehicleId,
+        id: validatedVehicleId,
         profileId,
       },
 
@@ -328,18 +267,18 @@ export async function deleteCustomerVehicle(vehicleId) {
     if (!vehicle) {
       return {
         success: false,
+
         message: "Automjeti nuk u gjet ose nuk keni leje ta fshini.",
       };
     }
 
     await db.customerVehicle.delete({
       where: {
-        id: vehicleId,
+        id: validatedVehicleId,
       },
     });
 
-    revalidatePath("/customer/vehicles");
-    revalidatePath("/customer/dashboard");
+    revalidateCustomerVehiclePages();
 
     return {
       success: true,
@@ -350,6 +289,7 @@ export async function deleteCustomerVehicle(vehicleId) {
 
     return {
       success: false,
+
       message:
         error instanceof Error
           ? error.message
