@@ -86,3 +86,16 @@ export const registerSchema = z
       });
     }
   });
+
+export const forgotPasswordSchema = z.object({
+  email: normalizedEmailStringSchema.pipe(
+    z
+      .string()
+      .min(1, {
+        message: "Vendos adresën e email-it.",
+      })
+      .refine((value) => emailFormatRegex.test(value), {
+        message: "Vendos një adresë email-i të vlefshme.",
+      }),
+  ),
+});

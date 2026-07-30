@@ -1,39 +1,40 @@
 "use server";
 
-import { db } from "@/lib/db";
 import { authTokenService } from "@/lib/auth-tokens";
+import { db } from "@/lib/db";
 import { EMAIL_CONFIG, passwordResetTemplate, sendEmail } from "@/lib/email";
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { forgotPasswordSchema } from "@/schemas/auth-schema";
 
 const GENERIC_SUCCESS_MESSAGE =
   "Nëse ekziston një llogari me këtë email, do të marrësh udhëzimet për rivendosjen e password-it.";
 
+const initialForgotPasswordState = {
+  error: null,
+  success: false,
+  message: null,
+};
+
 export async function forgotPasswordAction(previousState, formData) {
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
+  const validationResult = validateFormData(forgotPasswordSchema, formData);
 
-  if (!email) {
+  if (!validationResult.success) {
     return {
-      error: "Vendos adresën e email-it.",
-      success: false,
-      message: null,
+      ...initialForgotPasswordState,
+      error: getFirstValidationMessage(
+        validationResult.error,
+        "Vendos një adresë email-i të vlefshme.",
+      ),
     };
   }
 
-  if (!EMAIL_PATTERN.test(email)) {
-    return {
-      error: "Vendos një adresë email-i të vlefshme.",
-      success: false,
-      message: null,
-    };
-  }
+  const { email } = validationResult.data;
 
   const user = await db.user.findUnique({
     where: {
       email,
     },
+
     select: {
       id: true,
       name: true,
@@ -43,8 +44,11 @@ export async function forgotPasswordAction(previousState, formData) {
     },
   });
 
-  /*
-   * Për arsye sigurie nuk tregojmë nëse email-i ekziston.
+  /**
+   * Për arsye sigurie nuk tregojmë:
+   * - nëse email-i ekziston;
+   * - nëse llogaria është joaktive;
+   * - nëse llogaria nuk ka password.
    */
   if (!user || !user.isActive || !user.passwordHash) {
     return {
