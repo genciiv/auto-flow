@@ -5,55 +5,49 @@ import bcrypt from "bcryptjs";
 import { auth, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import { EMAIL_CONFIG, passwordChangedTemplate, sendEmail } from "@/lib/email";
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { customerPasswordChangeSchema } from "@/schemas/customer-profile-schema";
+
+const initialState = {
+  error: null,
+  success: false,
+};
+
+function getValidationResponse(error) {
+  return {
+    ...initialState,
+
+    error: getFirstValidationMessage(error, "Kontrollo fushat e password-it."),
+  };
+}
 
 export async function changePasswordAction(previousState, formData) {
   const session = await auth();
 
   if (!session?.user?.id) {
     return {
+      ...initialState,
+
       error: "Sesioni yt ka skaduar. Hyr përsëri në llogari.",
-      success: false,
     };
   }
 
-  const currentPassword = String(formData.get("currentPassword") ?? "");
+  const validationResult = validateFormData(
+    customerPasswordChangeSchema,
+    formData,
+  );
 
-  const newPassword = String(formData.get("newPassword") ?? "");
-
-  const confirmPassword = String(formData.get("confirmPassword") ?? "");
-
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    return {
-      error: "Plotëso të gjitha fushat e password-it.",
-      success: false,
-    };
+  if (!validationResult.success) {
+    return getValidationResponse(validationResult.error);
   }
 
-  if (newPassword.length < 8) {
-    return {
-      error: "Password-i i ri duhet të ketë të paktën 8 karaktere.",
-      success: false,
-    };
-  }
-
-  if (newPassword.length > 100) {
-    return {
-      error: "Password-i i ri është shumë i gjatë.",
-      success: false,
-    };
-  }
-
-  if (newPassword !== confirmPassword) {
-    return {
-      error: "Password-et e reja nuk përputhen.",
-      success: false,
-    };
-  }
+  const { currentPassword, newPassword } = validationResult.data;
 
   const user = await db.user.findUnique({
     where: {
       id: session.user.id,
     },
+
     select: {
       id: true,
       name: true,
@@ -65,8 +59,8 @@ export async function changePasswordAction(previousState, formData) {
 
   if (!user || !user.isActive || !user.passwordHash) {
     return {
+      ...initialState,
       error: "Llogaria nuk mund të përpunohej.",
-      success: false,
     };
   }
 
@@ -77,8 +71,8 @@ export async function changePasswordAction(previousState, formData) {
 
   if (!currentPasswordIsValid) {
     return {
+      ...initialState,
       error: "Password-i aktual është i pasaktë.",
-      success: false,
     };
   }
 
@@ -89,20 +83,23 @@ export async function changePasswordAction(previousState, formData) {
 
   if (sameAsCurrentPassword) {
     return {
+      ...initialState,
+
       error: "Password-i i ri duhet të jetë ndryshe nga password-i aktual.",
-      success: false,
     };
   }
 
   const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
   const now = new Date();
 
   try {
-    await db.$transaction(async (tx) => {
-      await tx.user.update({
+    await db.$transaction(async (transaction) => {
+      await transaction.user.update({
         where: {
           id: user.id,
         },
+
         data: {
           passwordHash: newPasswordHash,
 
@@ -112,13 +109,14 @@ export async function changePasswordAction(previousState, formData) {
         },
       });
 
-      await tx.authToken.updateMany({
+      await transaction.authToken.updateMany({
         where: {
           userId: user.id,
           type: "PASSWORD_RESET",
           usedAt: null,
           revokedAt: null,
         },
+
         data: {
           revokedAt: now,
         },
@@ -128,8 +126,9 @@ export async function changePasswordAction(previousState, formData) {
     console.error("Gabim gjatë ndryshimit të password-it:", error);
 
     return {
+      ...initialState,
+
       error: "Password-i nuk mund të ndryshohej. Provo përsëri.",
-      success: false,
     };
   }
 

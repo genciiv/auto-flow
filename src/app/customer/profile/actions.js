@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { requireCustomerActionContext } from "@/lib/customer-context";
+import {
+  getFieldErrors,
+  getFirstValidationMessage,
+  validateFormData,
+} from "@/lib/validation";
+import { customerProfileSchema } from "@/schemas/customer-profile-schema";
 
 const initialResult = {
   success: false,
@@ -11,103 +17,72 @@ const initialResult = {
   errors: {},
 };
 
-function cleanText(value) {
-  const text = String(value || "").trim();
-
-  return text || null;
-}
-
-function parseBirthDate(value) {
-  const text = String(value || "").trim();
-
-  if (!text) {
-    return null;
-  }
-
-  const date = new Date(`${text}T00:00:00`);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
-}
-
-function validateProfileData(data) {
-  const errors = {};
-
-  if (!data.firstName) {
-    errors.firstName = "Emri është i detyrueshëm.";
-  }
-
-  if (!data.lastName) {
-    errors.lastName = "Mbiemri është i detyrueshëm.";
-  }
-
-  if (data.firstName && data.firstName.length > 60) {
-    errors.firstName = "Emri nuk mund të jetë më i gjatë se 60 karaktere.";
-  }
-
-  if (data.lastName && data.lastName.length > 60) {
-    errors.lastName = "Mbiemri nuk mund të jetë më i gjatë se 60 karaktere.";
-  }
-
-  if (data.phone && data.phone.length > 30) {
-    errors.phone = "Numri i telefonit është shumë i gjatë.";
-  }
-
-  if (data.city && data.city.length > 80) {
-    errors.city = "Emri i qytetit është shumë i gjatë.";
-  }
-
-  if (data.address && data.address.length > 200) {
-    errors.address = "Adresa nuk mund të jetë më e gjatë se 200 karaktere.";
-  }
-
-  if (data.birthDateRaw && !data.birthDate) {
-    errors.birthDate = "Datëlindja nuk është e vlefshme.";
-  }
-
-  if (data.birthDate && data.birthDate > new Date()) {
-    errors.birthDate = "Datëlindja nuk mund të jetë në të ardhmen.";
-  }
-
-  return errors;
+function revalidateCustomerProfilePages() {
+  revalidatePath("/customer/profile");
+  revalidatePath("/customer/dashboard");
+  revalidatePath("/customer", "layout");
 }
 
 export async function updateCustomerProfile(previousState, formData) {
   try {
     const { userId, profileId } = await requireCustomerActionContext();
 
-    const firstName = cleanText(formData.get("firstName"));
-    const lastName = cleanText(formData.get("lastName"));
-    const phone = cleanText(formData.get("phone"));
-    const city = cleanText(formData.get("city"));
-    const address = cleanText(formData.get("address"));
-    const birthDateRaw = String(formData.get("birthDate") || "").trim();
-    const birthDate = parseBirthDate(birthDateRaw);
+    const validationResult = validateFormData(customerProfileSchema, formData);
 
-    const data = {
-      firstName,
-      lastName,
-      phone,
-      city,
-      address,
-      birthDate,
-      birthDateRaw,
-    };
-
-    const errors = validateProfileData(data);
-
-    if (Object.keys(errors).length > 0) {
+    if (!validationResult.success) {
       return {
         ...initialResult,
-        errors,
-        message: "Kontrollo fushat e formularit.",
+
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Kontrollo fushat e formularit.",
+        ),
+
+        errors: getFieldErrors(validationResult.error),
       };
     }
 
+    const { firstName, lastName, phone, city, address, birthDate } =
+      validationResult.data;
+
     const fullName = `${firstName} ${lastName}`.trim();
+
+    const [existingProfile, existingUser] = await Promise.all([
+      db.customerProfile.findUnique({
+        where: {
+          id: profileId,
+        },
+
+        select: {
+          id: true,
+        },
+      }),
+
+      db.user.findUnique({
+        where: {
+          id: userId,
+        },
+
+        select: {
+          id: true,
+          isActive: true,
+        },
+      }),
+    ]);
+
+    if (!existingProfile) {
+      return {
+        ...initialResult,
+        message: "Profili i klientit nuk u gjet.",
+      };
+    }
+
+    if (!existingUser || !existingUser.isActive) {
+      return {
+        ...initialResult,
+        message: "Llogaria nuk u gjet ose është çaktivizuar.",
+      };
+    }
 
     await db.$transaction([
       db.customerProfile.update({
@@ -137,9 +112,7 @@ export async function updateCustomerProfile(previousState, formData) {
       }),
     ]);
 
-    revalidatePath("/customer/profile");
-    revalidatePath("/customer/dashboard");
-    revalidatePath("/customer", "layout");
+    revalidateCustomerProfilePages();
 
     return {
       success: true,
@@ -151,10 +124,12 @@ export async function updateCustomerProfile(previousState, formData) {
 
     return {
       success: false,
+
       message:
         error instanceof Error
           ? error.message
           : "Ndodhi një gabim gjatë ruajtjes së profilit.",
+
       errors: {},
     };
   }

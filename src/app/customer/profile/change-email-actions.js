@@ -10,46 +10,55 @@ import {
   emailChangeVerificationTemplate,
   sendEmail,
 } from "@/lib/email";
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { customerEmailChangeSchema } from "@/schemas/customer-profile-schema";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const initialState = {
+  error: null,
+  success: false,
+  message: null,
+};
+
+function getValidationResponse(error) {
+  return {
+    ...initialState,
+
+    error: getFirstValidationMessage(error, "Kontrollo të dhënat e vendosura."),
+  };
+}
+
+function formatRetryMinutes(seconds) {
+  const normalizedSeconds = Math.max(1, Number(seconds) || 1);
+
+  return Math.max(1, Math.ceil(normalizedSeconds / 60));
+}
 
 export async function requestEmailChangeAction(previousState, formData) {
   const session = await auth();
 
   if (!session?.user?.id) {
     return {
+      ...initialState,
       error: "Sesioni yt ka skaduar. Hyr përsëri.",
-      success: false,
-      message: null,
     };
   }
 
-  const newEmail = String(formData.get("newEmail") ?? "")
-    .trim()
-    .toLowerCase();
+  const validationResult = validateFormData(
+    customerEmailChangeSchema,
+    formData,
+  );
 
-  const currentPassword = String(formData.get("currentPassword") ?? "");
-
-  if (!newEmail || !currentPassword) {
-    return {
-      error: "Plotëso email-in e ri dhe password-in aktual.",
-      success: false,
-      message: null,
-    };
+  if (!validationResult.success) {
+    return getValidationResponse(validationResult.error);
   }
 
-  if (!EMAIL_PATTERN.test(newEmail)) {
-    return {
-      error: "Vendos një adresë email-i të vlefshme.",
-      success: false,
-      message: null,
-    };
-  }
+  const { newEmail, currentPassword } = validationResult.data;
 
   const user = await db.user.findUnique({
     where: {
       id: session.user.id,
     },
+
     select: {
       id: true,
       name: true,
@@ -61,17 +70,18 @@ export async function requestEmailChangeAction(previousState, formData) {
 
   if (!user || !user.isActive || !user.passwordHash) {
     return {
+      ...initialState,
       error: "Llogaria nuk mund të përpunohej.",
-      success: false,
-      message: null,
     };
   }
 
-  if (newEmail === user.email.toLowerCase()) {
+  const currentEmail = user.email.trim().toLowerCase();
+
+  if (newEmail === currentEmail) {
     return {
+      ...initialState,
+
       error: "Email-i i ri duhet të jetë ndryshe nga email-i aktual.",
-      success: false,
-      message: null,
     };
   }
 
@@ -82,9 +92,8 @@ export async function requestEmailChangeAction(previousState, formData) {
 
   if (!passwordIsValid) {
     return {
+      ...initialState,
       error: "Password-i aktual është i pasaktë.",
-      success: false,
-      message: null,
     };
   }
 
@@ -92,6 +101,7 @@ export async function requestEmailChangeAction(previousState, formData) {
     where: {
       email: newEmail,
     },
+
     select: {
       id: true,
     },
@@ -99,21 +109,23 @@ export async function requestEmailChangeAction(previousState, formData) {
 
   if (existingUser) {
     return {
+      ...initialState,
+
       error: "Ekziston tashmë një llogari me këtë adresë email-i.",
-      success: false,
-      message: null,
     };
   }
 
   const resendStatus = await authTokenService.canResendEmailChange(user.id);
 
   if (!resendStatus.allowed) {
-    const minutes = Math.max(1, Math.ceil(resendStatus.retryAfterSeconds / 60));
+    const minutes = formatRetryMinutes(resendStatus.retryAfterSeconds);
 
     return {
-      error: `Prit edhe rreth ${minutes} minutë para se të kërkosh një email tjetër.`,
-      success: false,
-      message: null,
+      ...initialState,
+
+      error: `Prit edhe rreth ${minutes} ${
+        minutes === 1 ? "minutë" : "minuta"
+      } para se të kërkosh një email tjetër.`,
     };
   }
 
@@ -143,6 +155,7 @@ export async function requestEmailChangeAction(previousState, formData) {
     return {
       error: null,
       success: true,
+
       message:
         "Linku i konfirmimit u dërgua te email-i i ri. Kontrollo Inbox, Spam dhe Promotions.",
     };
@@ -150,9 +163,9 @@ export async function requestEmailChangeAction(previousState, formData) {
     console.error("Gabim gjatë kërkesës për ndryshimin e email-it:", error);
 
     return {
+      ...initialState,
+
       error: "Kërkesa nuk mund të përpunohej. Provo përsëri.",
-      success: false,
-      message: null,
     };
   }
 }
