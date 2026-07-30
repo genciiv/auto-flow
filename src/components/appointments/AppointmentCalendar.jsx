@@ -3,14 +3,41 @@
 import { useMemo, useState } from "react";
 import {
   CalendarDays,
+  Car,
   ChevronLeft,
   ChevronRight,
   Clock3,
   UserRound,
-  Car,
 } from "lucide-react";
 
 import AppointmentRowActions from "@/components/appointments/AppointmentRowActions";
+
+const TIRANA_TIME_ZONE = "Europe/Tirane";
+
+const MONTH_NAMES_SQ = [
+  "janar",
+  "shkurt",
+  "mars",
+  "prill",
+  "maj",
+  "qershor",
+  "korrik",
+  "gusht",
+  "shtator",
+  "tetor",
+  "nëntor",
+  "dhjetor",
+];
+
+const weekdays = [
+  "Hënë",
+  "Martë",
+  "Mërkurë",
+  "Enjte",
+  "Premte",
+  "Shtunë",
+  "Diel",
+];
 
 const statusConfig = {
   PENDING: {
@@ -45,16 +72,6 @@ const statusConfig = {
   },
 };
 
-const weekdays = [
-  "Hënë",
-  "Martë",
-  "Mërkurë",
-  "Enjte",
-  "Premte",
-  "Shtunë",
-  "Diel",
-];
-
 function padNumber(value) {
   return String(value).padStart(2, "0");
 }
@@ -66,11 +83,22 @@ function getDateKey(value) {
     return "";
   }
 
-  return [
-    date.getFullYear(),
-    padNumber(date.getMonth() + 1),
-    padNumber(date.getDate()),
-  ].join("-");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIRANA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) {
+    return "";
+  }
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatTime(value) {
@@ -81,18 +109,34 @@ function formatTime(value) {
   }
 
   return new Intl.DateTimeFormat("sq-AL", {
+    timeZone: TIRANA_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
 }
 
 function formatSelectedDate(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Datë e pavlefshme";
+  }
+
   return new Intl.DateTimeFormat("sq-AL", {
+    timeZone: TIRANA_TIME_ZONE,
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-  }).format(value);
+  }).format(date);
+}
+
+function getMonthLabel(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return `${MONTH_NAMES_SQ[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function createCalendarDays(currentMonth) {
@@ -243,10 +287,10 @@ export default function AppointmentCalendar({
   const today = useMemo(() => new Date(), []);
 
   const [currentMonth, setCurrentMonth] = useState(
-    new Date(today.getFullYear(), today.getMonth(), 1),
+    () => new Date(today.getFullYear(), today.getMonth(), 1),
   );
 
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [selectedDate, setSelectedDate] = useState(() => today);
 
   const calendarDays = useMemo(
     () => createCalendarDays(currentMonth),
@@ -280,14 +324,12 @@ export default function AppointmentCalendar({
     return groupedAppointments;
   }, [appointments]);
 
+  const monthLabel = getMonthLabel(currentMonth);
+
+  const todayDateKey = getDateKey(today);
   const selectedDateKey = getDateKey(selectedDate);
 
   const selectedAppointments = appointmentsByDate[selectedDateKey] || [];
-
-  const monthLabel = new Intl.DateTimeFormat("sq-AL", {
-    month: "long",
-    year: "numeric",
-  }).format(currentMonth);
 
   function goToPreviousMonth() {
     setCurrentMonth(
@@ -367,6 +409,7 @@ export default function AppointmentCalendar({
               className="px-2 py-3 text-center text-[11px] font-bold uppercase tracking-wide text-slate-500"
             >
               <span className="hidden sm:inline">{weekday}</span>
+
               <span className="sm:hidden">{weekday.slice(0, 1)}</span>
             </div>
           ))}
@@ -375,10 +418,12 @@ export default function AppointmentCalendar({
         <div className="grid grid-cols-7">
           {calendarDays.map(({ date, isCurrentMonth }) => {
             const dateKey = getDateKey(date);
+
             const dayAppointments = appointmentsByDate[dateKey] || [];
 
-            const isToday = dateKey === getDateKey(today);
-            const isSelected = dateKey === getDateKey(selectedDate);
+            const isToday = dateKey === todayDateKey;
+
+            const isSelected = dateKey === selectedDateKey;
 
             return (
               <button
