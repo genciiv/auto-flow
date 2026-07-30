@@ -5,32 +5,24 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
-
-const VALID_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  changeAppointmentStatusSchema,
+  createAppointmentSchema,
+  deleteAppointmentSchema,
+  startAppointmentServiceSchema,
+  updateAppointmentSchema,
+} from "@/schemas/appointment-schema";
 
 function revalidateAppointmentPages() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/appointments");
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard/vehicles");
-}
-
-function getOptionalString(formData, key) {
-  const value = formData.get(key);
-
-  if (!value || typeof value !== "string") {
-    return null;
-  }
-
-  const trimmedValue = value.trim();
-
-  return trimmedValue || null;
-}
-
-function normalizeStatus(value, fallback = "PENDING") {
-  return String(value || fallback)
-    .trim()
-    .toUpperCase();
 }
 
 function getErrorMessage(error, fallbackMessage) {
@@ -55,6 +47,7 @@ async function validateAppointmentRelations({
         id: customerId,
         businessId,
       },
+
       select: {
         id: true,
       },
@@ -74,6 +67,7 @@ async function validateAppointmentRelations({
         id: vehicleId,
         businessId,
       },
+
       select: {
         id: true,
         customerId: true,
@@ -108,43 +102,23 @@ export async function createAppointment(formData) {
       PERMISSIONS.APPOINTMENTS_CREATE,
     );
 
-    const title = getOptionalString(formData, "title");
-    const description = getOptionalString(formData, "description");
-    const customerId = getOptionalString(formData, "customerId");
-    const vehicleId = getOptionalString(formData, "vehicleId");
-    const dateValue = getOptionalString(formData, "date");
+    const validationResult = validateFormData(
+      createAppointmentSchema,
+      formData,
+    );
 
-    const status = normalizeStatus(getOptionalString(formData, "status"));
-
-    if (!title) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Titulli i terminit është i detyrueshëm.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Termini nuk mund të krijohej.",
+        ),
       };
     }
 
-    if (!dateValue) {
-      return {
-        success: false,
-        message: "Data dhe ora janë të detyrueshme.",
-      };
-    }
-
-    if (!VALID_STATUSES.includes(status)) {
-      return {
-        success: false,
-        message: "Statusi nuk është i vlefshëm.",
-      };
-    }
-
-    const appointmentDate = new Date(dateValue);
-
-    if (Number.isNaN(appointmentDate.getTime())) {
-      return {
-        success: false,
-        message: "Data e terminit nuk është e vlefshme.",
-      };
-    }
+    const { title, description, customerId, vehicleId, date, status } =
+      validationResult.data;
 
     const relationsResult = await validateAppointmentRelations({
       businessId,
@@ -163,7 +137,7 @@ export async function createAppointment(formData) {
         vehicleId,
         title,
         description,
-        date: appointmentDate,
+        date,
         status,
       },
     });
@@ -190,58 +164,37 @@ export async function updateAppointment(formData) {
       PERMISSIONS.APPOINTMENTS_UPDATE,
     );
 
-    const appointmentId = getOptionalString(formData, "appointmentId");
+    const validationResult = validateFormData(
+      updateAppointmentSchema,
+      formData,
+    );
 
-    const title = getOptionalString(formData, "title");
-    const description = getOptionalString(formData, "description");
-    const customerId = getOptionalString(formData, "customerId");
-    const vehicleId = getOptionalString(formData, "vehicleId");
-    const dateValue = getOptionalString(formData, "date");
-
-    const status = normalizeStatus(getOptionalString(formData, "status"));
-
-    if (!appointmentId) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Termini nuk u identifikua.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Termini nuk mund të përditësohej.",
+        ),
       };
     }
 
-    if (!title) {
-      return {
-        success: false,
-        message: "Titulli është i detyrueshëm.",
-      };
-    }
-
-    if (!dateValue) {
-      return {
-        success: false,
-        message: "Data dhe ora janë të detyrueshme.",
-      };
-    }
-
-    if (!VALID_STATUSES.includes(status)) {
-      return {
-        success: false,
-        message: "Statusi nuk është i vlefshëm.",
-      };
-    }
-
-    const appointmentDate = new Date(dateValue);
-
-    if (Number.isNaN(appointmentDate.getTime())) {
-      return {
-        success: false,
-        message: "Data e terminit nuk është e vlefshme.",
-      };
-    }
+    const {
+      appointmentId,
+      title,
+      description,
+      customerId,
+      vehicleId,
+      date,
+      status,
+    } = validationResult.data;
 
     const appointment = await db.appointment.findFirst({
       where: {
         id: appointmentId,
         businessId,
       },
+
       select: {
         id: true,
       },
@@ -268,12 +221,13 @@ export async function updateAppointment(formData) {
       where: {
         id: appointment.id,
       },
+
       data: {
         customerId,
         vehicleId,
         title,
         description,
-        date: appointmentDate,
+        date,
         status,
       },
     });
@@ -300,18 +254,28 @@ export async function deleteAppointment(appointmentId) {
       PERMISSIONS.APPOINTMENTS_DELETE,
     );
 
-    if (!appointmentId || typeof appointmentId !== "string") {
+    const validationResult = validateObject(deleteAppointmentSchema, {
+      appointmentId,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Termini nuk u identifikua.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Termini nuk u identifikua.",
+        ),
       };
     }
 
+    const validatedAppointmentId = validationResult.data.appointmentId;
+
     const appointment = await db.appointment.findFirst({
       where: {
-        id: appointmentId,
+        id: validatedAppointmentId,
         businessId,
       },
+
       select: {
         id: true,
       },
@@ -352,27 +316,30 @@ export async function updateAppointmentStatus(appointmentId, status) {
       PERMISSIONS.APPOINTMENTS_UPDATE,
     );
 
-    if (!appointmentId || typeof appointmentId !== "string") {
+    const validationResult = validateObject(changeAppointmentStatusSchema, {
+      appointmentId,
+      status,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Termini nuk u identifikua.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Statusi nuk është i vlefshëm.",
+        ),
       };
     }
 
-    const normalizedStatus = normalizeStatus(status, "");
-
-    if (!VALID_STATUSES.includes(normalizedStatus)) {
-      return {
-        success: false,
-        message: "Statusi nuk është i vlefshëm.",
-      };
-    }
+    const { appointmentId: validatedAppointmentId, status: validatedStatus } =
+      validationResult.data;
 
     const appointment = await db.appointment.findFirst({
       where: {
-        id: appointmentId,
+        id: validatedAppointmentId,
         businessId,
       },
+
       select: {
         id: true,
       },
@@ -389,8 +356,9 @@ export async function updateAppointmentStatus(appointmentId, status) {
       where: {
         id: appointment.id,
       },
+
       data: {
-        status: normalizedStatus,
+        status: validatedStatus,
       },
     });
 
@@ -420,19 +388,29 @@ export async function startServiceFromAppointment(appointmentId) {
 
     const { businessId } = appointmentContext;
 
-    if (!appointmentId || typeof appointmentId !== "string") {
+    const validationResult = validateObject(startAppointmentServiceSchema, {
+      appointmentId,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Termini nuk u identifikua.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Termini nuk u identifikua.",
+        ),
       };
     }
+
+    const validatedAppointmentId = validationResult.data.appointmentId;
 
     const service = await db.$transaction(async (transaction) => {
       const appointment = await transaction.appointment.findFirst({
         where: {
-          id: appointmentId,
+          id: validatedAppointmentId,
           businessId,
         },
+
         select: {
           id: true,
           vehicleId: true,
@@ -470,6 +448,7 @@ export async function startServiceFromAppointment(appointmentId) {
           id: appointment.vehicleId,
           businessId,
         },
+
         select: {
           id: true,
           customerId: true,
@@ -486,6 +465,7 @@ export async function startServiceFromAppointment(appointmentId) {
             id: appointment.customerId,
             businessId,
           },
+
           select: {
             id: true,
           },
@@ -509,6 +489,7 @@ export async function startServiceFromAppointment(appointmentId) {
           businessId,
           status: "PENDING",
         },
+
         data: {
           status: "IN_PROGRESS",
         },
