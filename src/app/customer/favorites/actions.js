@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { requireCustomerActionContext } from "@/lib/customer-context";
 import { db } from "@/lib/db";
+import { getFirstValidationMessage, validateObject } from "@/lib/validation";
+import { toggleMarketplaceFavoriteSchema } from "@/schemas/favorite-schema";
 import {
   createBusinessNotification,
   createCustomerNotification,
@@ -19,6 +21,19 @@ function revalidateFavoritePaths(slug) {
   if (slug) {
     revalidatePath(`/marketplace/${slug}`);
   }
+}
+
+function getFavoriteErrorResult(message) {
+  return {
+    success: false,
+    isFavorite: false,
+    favoritesCount: 0,
+    message,
+  };
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  return error instanceof Error ? error.message : fallbackMessage;
 }
 
 async function createFavoriteNotification({ listing, actor }) {
@@ -64,18 +79,24 @@ export async function toggleMarketplaceFavorite(listingId) {
   try {
     const { userId, user } = await requireCustomerActionContext();
 
-    if (!listingId || typeof listingId !== "string") {
-      return {
-        success: false,
-        isFavorite: false,
-        favoritesCount: 0,
-        message: "Publikimi nuk u gjet.",
-      };
+    const validationResult = validateObject(toggleMarketplaceFavoriteSchema, {
+      listingId,
+    });
+
+    if (!validationResult.success) {
+      return getFavoriteErrorResult(
+        getFirstValidationMessage(
+          validationResult.error,
+          "Publikimi nuk u gjet.",
+        ),
+      );
     }
+
+    const validatedListingId = validationResult.data.listingId;
 
     const listing = await db.marketplaceListing.findFirst({
       where: {
-        id: listingId,
+        id: validatedListingId,
         status: "PUBLISHED",
       },
       select: {
@@ -88,78 +109,104 @@ export async function toggleMarketplaceFavorite(listingId) {
     });
 
     if (!listing) {
-      return {
-        success: false,
-        isFavorite: false,
-        favoritesCount: 0,
-        message: "Publikimi nuk ekziston ose nuk është më aktiv.",
-      };
+      return getFavoriteErrorResult(
+        "Publikimi nuk ekziston ose nuk është më aktiv.",
+      );
     }
 
-    const existingFavorite = await db.marketplaceFavorite.findUnique({
-      where: {
-        userId_listingId: {
-          userId,
-          listingId: listing.id,
+    const result = await db.$transaction(async (transaction) => {
+      const existingFavorite = await transaction.marketplaceFavorite.findUnique(
+        {
+          where: {
+            userId_listingId: {
+              userId,
+              listingId: listing.id,
+            },
+          },
+          select: {
+            id: true,
+          },
         },
-      },
-      select: {
-        id: true,
-      },
-    });
+      );
 
-    let isFavorite = false;
+      if (existingFavorite) {
+        await transaction.marketplaceFavorite.delete({
+          where: {
+            id: existingFavorite.id,
+          },
+        });
 
-    if (existingFavorite) {
-      await db.marketplaceFavorite.delete({
-        where: {
-          id: existingFavorite.id,
-        },
-      });
-    } else {
-      await db.marketplaceFavorite.create({
+        const favoritesCount = await transaction.marketplaceFavorite.count({
+          where: {
+            listingId: listing.id,
+          },
+        });
+
+        return {
+          isFavorite: false,
+          favoritesCount,
+        };
+      }
+
+      await transaction.marketplaceFavorite.create({
         data: {
           userId,
           listingId: listing.id,
         },
       });
 
-      isFavorite = true;
-
-      await createFavoriteNotification({
-        listing,
-        actor: {
-          id: user.id,
-          name: user.name,
+      const favoritesCount = await transaction.marketplaceFavorite.count({
+        where: {
+          listingId: listing.id,
         },
       });
-    }
 
-    const favoritesCount = await db.marketplaceFavorite.count({
-      where: {
-        listingId: listing.id,
-      },
+      return {
+        isFavorite: true,
+        favoritesCount,
+      };
     });
+
+    if (result.isFavorite) {
+      try {
+        await createFavoriteNotification({
+          listing,
+          actor: {
+            id: userId,
+            name: user?.name,
+            image: user?.image,
+          },
+        });
+      } catch (notificationError) {
+        console.error(
+          "Favoriti u ruajt, por njoftimi nuk u krijua:",
+          notificationError,
+        );
+      }
+    }
 
     revalidateFavoritePaths(listing.slug);
 
     return {
       success: true,
-      isFavorite,
-      favoritesCount,
-      message: isFavorite
+      isFavorite: result.isFavorite,
+      favoritesCount: result.favoritesCount,
+      message: result.isFavorite
         ? "Publikimi u ruajt te favoritet."
         : "Publikimi u hoq nga favoritet.",
     };
   } catch (error) {
     console.error("Gabim gjatë përditësimit të favoritit:", error);
 
-    return {
-      success: false,
-      isFavorite: false,
-      favoritesCount: 0,
-      message:
-        error?.message || "Nuk mund të përditësohej favoriti. Provo përsëri.",
-    };
+    if (error?.code === "P2002") {
+      return getFavoriteErrorResult("Publikimi është tashmë te favoritet.");
+    }
+
+    return getFavoriteErrorResult(
+      getErrorMessage(
+        error,
+        "Nuk mund të përditësohej favoriti. Provo përsëri.",
+      ),
+    );
   }
 }
