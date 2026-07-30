@@ -3,51 +3,43 @@
 import bcrypt from "bcryptjs";
 
 import { authTokenService } from "@/lib/auth-tokens";
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { activateAccountSchema } from "@/schemas/auth-schema";
+
+const initialActivateAccountState = {
+  error: null,
+  success: false,
+  message: null,
+};
+
+const invalidTokenMessages = {
+  NOT_FOUND: "Linku i aktivizimit nuk është i vlefshëm.",
+
+  USER_DISABLED: "Kjo llogari është çaktivizuar.",
+
+  REVOKED: "Ky link është anuluar.",
+
+  USED: "Ky link është përdorur më parë.",
+
+  EXPIRED: "Linku ka skaduar. Kontakto administratorin.",
+
+  ALREADY_PROCESSED: "Ky link është përpunuar më parë.",
+};
 
 export async function activateAccountAction(previousState, formData) {
-  const token = String(formData.get("token") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const validationResult = validateFormData(activateAccountSchema, formData);
 
-  if (!token) {
+  if (!validationResult.success) {
     return {
-      error: "Linku i aktivizimit nuk është i vlefshëm.",
-      success: false,
-      message: null,
+      ...initialActivateAccountState,
+      error: getFirstValidationMessage(
+        validationResult.error,
+        "Llogaria nuk mund të aktivizohej.",
+      ),
     };
   }
 
-  if (!password || !confirmPassword) {
-    return {
-      error: "Plotëso të dyja fushat e password-it.",
-      success: false,
-      message: null,
-    };
-  }
-
-  if (password.length < 8) {
-    return {
-      error: "Password-i duhet të ketë të paktën 8 karaktere.",
-      success: false,
-      message: null,
-    };
-  }
-
-  if (password.length > 100) {
-    return {
-      error: "Password-i është shumë i gjatë.",
-      success: false,
-      message: null,
-    };
-  }
-
-  if (password !== confirmPassword) {
-    return {
-      error: "Password-et nuk përputhen.",
-      success: false,
-      message: null,
-    };
-  }
+  const { token, password } = validationResult.data;
 
   const passwordHash = await bcrypt.hash(password, 12);
 
@@ -58,19 +50,11 @@ export async function activateAccountAction(previousState, formData) {
     );
 
     if (!result.valid) {
-      const messages = {
-        NOT_FOUND: "Linku i aktivizimit nuk është i vlefshëm.",
-        USER_DISABLED: "Kjo llogari është çaktivizuar.",
-        REVOKED: "Ky link është anuluar.",
-        USED: "Ky link është përdorur më parë.",
-        EXPIRED: "Linku ka skaduar. Kontakto administratorin.",
-        ALREADY_PROCESSED: "Ky link është përpunuar më parë.",
-      };
-
       return {
-        error: messages[result.reason] ?? "Llogaria nuk mund të aktivizohej.",
-        success: false,
-        message: null,
+        ...initialActivateAccountState,
+        error:
+          invalidTokenMessages[result.reason] ??
+          "Llogaria nuk mund të aktivizohej.",
       };
     }
 
@@ -83,9 +67,8 @@ export async function activateAccountAction(previousState, formData) {
     console.error("Gabim gjatë aktivizimit të llogarisë:", error);
 
     return {
+      ...initialActivateAccountState,
       error: "Llogaria nuk mund të aktivizohej. Provo përsëri.",
-      success: false,
-      message: null,
     };
   }
 }

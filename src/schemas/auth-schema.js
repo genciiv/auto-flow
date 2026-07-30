@@ -151,3 +151,49 @@ export const resetPasswordSchema = z
       });
     }
   });
+
+export const activateAccountSchema = z
+  .object({
+    token: z.preprocess(
+      (value) => {
+        if (typeof value !== "string") {
+          return "";
+        }
+
+        return value.trim();
+      },
+      z.string().min(1, {
+        message: "Linku i aktivizimit nuk është i vlefshëm.",
+      }),
+    ),
+
+    /**
+     * Password-et nuk trim-ohen.
+     *
+     * Kjo ruan sjelljen ekzistuese.
+     */
+    password: z
+      .string()
+      .min(1, {
+        message: "Plotëso të dyja fushat e password-it.",
+      })
+      .min(8, {
+        message: "Password-i duhet të ketë të paktën 8 karaktere.",
+      })
+      .max(100, {
+        message: "Password-i është shumë i gjatë.",
+      }),
+
+    confirmPassword: z.string().min(1, {
+      message: "Plotëso të dyja fushat e password-it.",
+    }),
+  })
+  .superRefine((data, context) => {
+    if (data.password !== data.confirmPassword) {
+      context.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: "Password-et nuk përputhen.",
+      });
+    }
+  });
