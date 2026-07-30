@@ -10,45 +10,30 @@ import {
   validateMarketplaceImages,
 } from "@/lib/marketplace-images";
 import { PERMISSIONS } from "@/lib/permissions";
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import {
+  changeMarketplaceListingStatusSchema,
+  createMarketplaceListingSchema,
+  deleteMarketplaceListingSchema,
+  updateMarketplaceListingSchema,
+} from "@/schemas/marketplace-schema";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { logDelete, logStatusChange, logUpdate } from "@/services/audit-events";
-const VALID_TYPES = [
-  "VEHICLE",
-  "MOTORCYCLE",
-  "PART",
-  "ACCESSORY",
-  "SERVICE",
-  "OTHER",
-];
-
-const VALID_STATUSES = ["DRAFT", "PUBLISHED", "SOLD", "ARCHIVED"];
 
 const MAX_IMAGE_COUNT = 10;
 
-function getString(formData, field) {
-  const value = formData.get(field);
+function createSlug(title) {
+  const normalizedTitle = title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 70);
 
-  if (typeof value !== "string") {
-    return "";
-  }
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-  return value.trim();
-}
-
-function getOptionalString(formData, field) {
-  return getString(formData, field) || null;
-}
-
-function getOptionalInteger(formData, field) {
-  const value = getString(formData, field);
-
-  if (!value) {
-    return null;
-  }
-
-  const parsedValue = Number.parseInt(value, 10);
-
-  return Number.isInteger(parsedValue) ? parsedValue : null;
+  return `${normalizedTitle || "publikim"}-${suffix}`;
 }
 
 function extractStoragePath(publicUrl, bucket) {
@@ -57,6 +42,7 @@ function extractStoragePath(publicUrl, bucket) {
   }
 
   const marker = `/storage/v1/object/public/${bucket}/`;
+
   const markerIndex = publicUrl.indexOf(marker);
 
   if (markerIndex === -1) {
@@ -102,6 +88,10 @@ function getTypeLabel(type) {
 }
 
 function getMarketplaceAuditValues(listing) {
+  if (!listing) {
+    return null;
+  }
+
   return {
     title: listing.title,
     type: listing.type,
@@ -165,7 +155,10 @@ function getMarketplaceStatusAuditContent({
 
   return {
     title: `Ndryshoi statusi i produktit "${listing.title}"`,
-    description: `Statusi i produktit "${listing.title}" ndryshoi nga "${getStatusLabel(
+
+    description: `Statusi i produktit "${
+      listing.title
+    }" ndryshoi nga "${getStatusLabel(
       previousStatus,
     )}" në "${getStatusLabel(newStatus)}".`,
   };
@@ -185,6 +178,7 @@ async function getManagedListing({
       id: listingId,
       businessId,
     },
+
     ...(includeImages
       ? {
           include: {
@@ -211,6 +205,190 @@ function revalidateMarketplaceListing(listingId) {
   revalidatePath(`/dashboard/marketplace/${listingId}/edit`);
 }
 
+/**
+ * Krijon publikim të ri në Marketplace.
+ */
+export async function createMarketplaceListing(formData) {
+  const { businessId } = await requireBusinessActionPermission(
+    PERMISSIONS.MARKETPLACE_MANAGE,
+  );
+
+  const validationResult = validateFormData(
+    createMarketplaceListingSchema,
+    formData,
+  );
+
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "Të dhënat e publikimit nuk janë të vlefshme.",
+      ),
+    );
+  }
+
+  const {
+    title,
+    description,
+    type,
+    status,
+    price,
+    isNegotiable,
+    category,
+    condition,
+    city,
+    address,
+    phone,
+    email,
+    brand,
+    model,
+    productionYear,
+    mileage,
+    fuelType,
+    transmission,
+    engine,
+    color,
+    vin,
+    stock,
+  } = validationResult.data;
+
+  const files = formData
+    .getAll("images")
+    .filter(
+      (file) => file && typeof file.arrayBuffer === "function" && file.size > 0,
+    );
+
+  validateMarketplaceImages(files);
+
+  if (files.length > MAX_IMAGE_COUNT) {
+    throw new Error(
+      `Publikimi mund të ketë maksimumi ${MAX_IMAGE_COUNT} fotografi.`,
+    );
+  }
+
+  const listingId = crypto.randomUUID();
+
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET || "marketplace-images";
+
+  const uploadedPaths = [];
+  const uploadedImages = [];
+
+  try {
+    for (const [position, file] of files.entries()) {
+      const storagePath = createMarketplaceImagePath({
+        businessId,
+        listingId,
+        file,
+        position,
+      });
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from(bucket)
+        .upload(storagePath, buffer, {
+          contentType: file.type,
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw new Error(
+          `Ngarkimi i fotografisë "${file.name}" dështoi: ${uploadError.message}`,
+        );
+      }
+
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from(bucket)
+        .getPublicUrl(storagePath);
+
+      if (!publicUrlData?.publicUrl) {
+        throw new Error(
+          `Nuk u krijua URL-ja publike për fotografinë "${file.name}".`,
+        );
+      }
+
+      uploadedPaths.push(storagePath);
+
+      uploadedImages.push({
+        url: publicUrlData.publicUrl,
+        alt: title,
+        position,
+      });
+    }
+
+    await db.marketplaceListing.create({
+      data: {
+        id: listingId,
+
+        sellerType: "BUSINESS",
+        businessId,
+
+        type,
+        status,
+
+        title,
+        slug: createSlug(title),
+        description,
+
+        price,
+        isNegotiable,
+
+        category,
+        condition,
+
+        city,
+        address,
+
+        phone,
+        email,
+
+        brand,
+        model,
+
+        productionYear,
+        mileage,
+
+        fuelType,
+        transmission,
+        engine,
+        color,
+        vin,
+
+        stock,
+
+        publishedAt: status === "PUBLISHED" ? new Date() : null,
+
+        images:
+          uploadedImages.length > 0
+            ? {
+                create: uploadedImages,
+              }
+            : undefined,
+      },
+    });
+  } catch (error) {
+    if (uploadedPaths.length > 0) {
+      const { error: cleanupError } = await supabaseAdmin.storage
+        .from(bucket)
+        .remove(uploadedPaths);
+
+      if (cleanupError) {
+        console.error("Gabim gjatë pastrimit të fotografive:", cleanupError);
+      }
+    }
+
+    throw error;
+  }
+
+  revalidatePath("/dashboard/marketplace");
+
+  redirect("/dashboard/marketplace");
+}
+
+/**
+ * Përditëson publikimin dhe fotografitë e tij.
+ */
 export async function updateMarketplaceListing(formData) {
   const context = await requireBusinessActionPermission(
     PERMISSIONS.MARKETPLACE_MANAGE,
@@ -218,29 +396,45 @@ export async function updateMarketplaceListing(formData) {
 
   const { businessId } = context;
 
-  const listingId = getString(formData, "listingId");
-  const title = getString(formData, "title");
-  const requestedType = getString(formData, "type");
-  const requestedStatus = getString(formData, "status");
-  const priceValue = getString(formData, "price");
+  const validationResult = validateFormData(
+    updateMarketplaceListingSchema,
+    formData,
+  );
 
-  if (title.length < 3) {
-    throw new Error("Titulli duhet të ketë të paktën 3 karaktere.");
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "Të dhënat e publikimit nuk janë të vlefshme.",
+      ),
+    );
   }
 
-  if (!VALID_TYPES.includes(requestedType)) {
-    throw new Error("Lloji i publikimit nuk është i vlefshëm.");
-  }
-
-  if (!VALID_STATUSES.includes(requestedStatus)) {
-    throw new Error("Statusi i publikimit nuk është i vlefshëm.");
-  }
-
-  const price = Number(priceValue);
-
-  if (!Number.isFinite(price) || price < 0) {
-    throw new Error("Vendos një çmim të vlefshëm.");
-  }
+  const {
+    listingId,
+    title,
+    description,
+    type,
+    status,
+    price,
+    isNegotiable,
+    category,
+    condition,
+    city,
+    address,
+    phone,
+    email,
+    brand,
+    model,
+    productionYear,
+    mileage,
+    fuelType,
+    transmission,
+    engine,
+    color,
+    vin,
+    stock,
+  } = validationResult.data;
 
   const listing = await getManagedListing({
     listingId,
@@ -328,50 +522,46 @@ export async function updateMarketplaceListing(formData) {
       });
     }
 
-    const { publishedAt, soldAt } = getListingDates(requestedStatus, listing);
+    const { publishedAt, soldAt } = getListingDates(status, listing);
 
     await db.$transaction(async (transaction) => {
       const updatedListing = await transaction.marketplaceListing.update({
         where: {
           id: listingId,
         },
+
         data: {
-          type: requestedType,
-          status: requestedStatus,
+          type,
+          status,
 
           title,
-          description: getOptionalString(formData, "description"),
+          description,
 
           price,
-          isNegotiable: formData.get("isNegotiable") === "on",
+          isNegotiable,
 
-          category: getOptionalString(formData, "category"),
+          category,
+          condition,
 
-          condition: getOptionalString(formData, "condition"),
+          city,
+          address,
 
-          city: getOptionalString(formData, "city"),
-          address: getOptionalString(formData, "address"),
+          phone,
+          email,
 
-          phone: getOptionalString(formData, "phone"),
-          email: getOptionalString(formData, "email"),
+          brand,
+          model,
 
-          brand: getOptionalString(formData, "brand"),
-          model: getOptionalString(formData, "model"),
+          productionYear,
+          mileage,
 
-          productionYear: getOptionalInteger(formData, "productionYear"),
+          fuelType,
+          transmission,
+          engine,
+          color,
+          vin,
 
-          mileage: getOptionalInteger(formData, "mileage"),
-
-          fuelType: getOptionalString(formData, "fuelType"),
-
-          transmission: getOptionalString(formData, "transmission"),
-
-          engine: getOptionalString(formData, "engine"),
-
-          color: getOptionalString(formData, "color"),
-          vin: getOptionalString(formData, "vin"),
-
-          stock: getOptionalInteger(formData, "stock"),
+          stock,
 
           publishedAt,
           soldAt,
@@ -382,6 +572,7 @@ export async function updateMarketplaceListing(formData) {
         await transaction.marketplaceListingImage.deleteMany({
           where: {
             listingId,
+
             id: {
               in: deleteImageIds,
             },
@@ -394,6 +585,7 @@ export async function updateMarketplaceListing(formData) {
           where: {
             id: image.id,
           },
+
           data: {
             position,
             alt: title,
@@ -411,10 +603,15 @@ export async function updateMarketplaceListing(formData) {
         context,
         entityType: "MARKETPLACE_LISTING",
         entityId: updatedListing.id,
+
         title: `U përditësua produkti "${updatedListing.title}"`,
+
         description: `U përditësuan të dhënat e produktit "${updatedListing.title}" në Marketplace.`,
+
         oldValues: getMarketplaceAuditValues(listing),
+
         newValues: getMarketplaceAuditValues(updatedListing),
+
         metadata: {
           source: "marketplace-actions",
           operation: "updateMarketplaceListing",
@@ -426,6 +623,7 @@ export async function updateMarketplaceListing(formData) {
           deletedImageCount: deleteImageIds.length,
           uploadedImageCount: newImageRecords.length,
         },
+
         database: transaction,
       });
 
@@ -444,6 +642,7 @@ export async function updateMarketplaceListing(formData) {
           description: statusAuditContent.description,
           oldStatus: listing.status,
           newStatus: updatedListing.status,
+
           metadata: {
             source: "marketplace-actions",
             operation: "updateMarketplaceListing",
@@ -451,6 +650,7 @@ export async function updateMarketplaceListing(formData) {
             listingType: updatedListing.type,
             typeLabel: getTypeLabel(updatedListing.type),
           },
+
           database: transaction,
         });
       }
@@ -494,6 +694,9 @@ export async function updateMarketplaceListing(formData) {
   redirect(`/dashboard/marketplace/${listingId}`);
 }
 
+/**
+ * Ndryshon vetëm statusin e publikimit.
+ */
 export async function changeMarketplaceListingStatus(formData) {
   const context = await requireBusinessActionPermission(
     PERMISSIONS.MARKETPLACE_MANAGE,
@@ -501,32 +704,43 @@ export async function changeMarketplaceListingStatus(formData) {
 
   const { businessId } = context;
 
-  const listingId = getString(formData, "listingId");
-  const requestedStatus = getString(formData, "status");
+  const validationResult = validateFormData(
+    changeMarketplaceListingStatusSchema,
+    formData,
+  );
 
-  if (!VALID_STATUSES.includes(requestedStatus)) {
-    throw new Error("Statusi i publikimit nuk është i vlefshëm.");
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "Statusi i publikimit nuk është i vlefshëm.",
+      ),
+    );
   }
+
+  const { listingId, status } = validationResult.data;
 
   const listing = await getManagedListing({
     listingId,
     businessId,
   });
 
-  if (listing.status === requestedStatus) {
+  if (listing.status === status) {
     revalidateMarketplaceListing(listingId);
+
     redirect(`/dashboard/marketplace/${listingId}`);
   }
 
-  const { publishedAt, soldAt } = getListingDates(requestedStatus, listing);
+  const { publishedAt, soldAt } = getListingDates(status, listing);
 
   await db.$transaction(async (transaction) => {
     const updatedListing = await transaction.marketplaceListing.update({
       where: {
         id: listingId,
       },
+
       data: {
-        status: requestedStatus,
+        status,
         publishedAt,
         soldAt,
       },
@@ -546,6 +760,7 @@ export async function changeMarketplaceListingStatus(formData) {
       description: statusAuditContent.description,
       oldStatus: listing.status,
       newStatus: updatedListing.status,
+
       metadata: {
         source: "marketplace-actions",
         operation: "changeMarketplaceListingStatus",
@@ -555,6 +770,7 @@ export async function changeMarketplaceListingStatus(formData) {
         previousStatus: listing.status,
         currentStatus: updatedListing.status,
       },
+
       database: transaction,
     });
   });
@@ -564,6 +780,9 @@ export async function changeMarketplaceListingStatus(formData) {
   redirect(`/dashboard/marketplace/${listingId}`);
 }
 
+/**
+ * Fshin publikimin dhe fotografitë e tij.
+ */
 export async function deleteMarketplaceListing(formData) {
   const context = await requireBusinessActionPermission(
     PERMISSIONS.MARKETPLACE_MANAGE,
@@ -571,7 +790,21 @@ export async function deleteMarketplaceListing(formData) {
 
   const { businessId } = context;
 
-  const listingId = getString(formData, "listingId");
+  const validationResult = validateFormData(
+    deleteMarketplaceListingSchema,
+    formData,
+  );
+
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "Publikimi nuk u gjet.",
+      ),
+    );
+  }
+
+  const { listingId } = validationResult.data;
 
   const listing = await getManagedListing({
     listingId,
@@ -596,9 +829,13 @@ export async function deleteMarketplaceListing(formData) {
       context,
       entityType: "MARKETPLACE_LISTING",
       entityId: listing.id,
+
       title: `U fshi produkti "${listing.title}"`,
+
       description: `Produkti "${listing.title}" u fshi nga Marketplace.`,
+
       oldValues: getMarketplaceAuditValues(listing),
+
       metadata: {
         source: "marketplace-actions",
         operation: "deleteMarketplaceListing",
@@ -608,6 +845,7 @@ export async function deleteMarketplaceListing(formData) {
         listingStatus: listing.status,
         imageCount: listing.images.length,
       },
+
       database: transaction,
     });
   });

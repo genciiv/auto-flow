@@ -1,22 +1,12 @@
 import Link from "next/link";
 import { ArrowLeft, Save, Send } from "lucide-react";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
+import { createMarketplaceListing } from "@/actions/marketplace-actions";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import MarketplaceImageUpload from "@/components/marketplace/MarketplaceImageUpload";
 
-import {
-  requireBusinessActionPermission,
-  requireBusinessPermission,
-} from "@/lib/business-context";
-import { db } from "@/lib/db";
-import {
-  createMarketplaceImagePath,
-  validateMarketplaceImages,
-} from "@/lib/marketplace-images";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { PERMISSIONS } from "@/lib/permissions";
-import { supabaseAdmin } from "@/lib/supabase-server";
 
 const LISTING_TYPES = [
   {
@@ -44,212 +34,6 @@ const LISTING_TYPES = [
     label: "Tjetër",
   },
 ];
-
-const VALID_TYPES = LISTING_TYPES.map((type) => type.value);
-
-function getString(formData, field) {
-  const value = formData.get(field);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function getOptionalString(formData, field) {
-  const value = getString(formData, field);
-
-  return value || null;
-}
-
-function getOptionalInteger(formData, field) {
-  const value = getString(formData, field);
-
-  if (!value) {
-    return null;
-  }
-
-  const number = Number.parseInt(value, 10);
-
-  return Number.isInteger(number) ? number : null;
-}
-
-function createSlug(title) {
-  const normalizedTitle = title
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 70);
-
-  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-  return `${normalizedTitle || "publikim"}-${suffix}`;
-}
-
-async function createMarketplaceListing(formData) {
-  "use server";
-
-  const { businessId } = await requireBusinessActionPermission(
-    PERMISSIONS.MARKETPLACE_MANAGE,
-  );
-
-  const title = getString(formData, "title");
-  const description = getOptionalString(formData, "description");
-  const requestedType = getString(formData, "type");
-  const requestedStatus = getString(formData, "status");
-  const priceValue = getString(formData, "price");
-
-  if (title.length < 3) {
-    throw new Error("Titulli duhet të ketë të paktën 3 karaktere.");
-  }
-
-  if (!VALID_TYPES.includes(requestedType)) {
-    throw new Error("Lloji i publikimit nuk është i vlefshëm.");
-  }
-
-  const price = Number(priceValue);
-
-  if (!Number.isFinite(price) || price < 0) {
-    throw new Error("Vendos një çmim të vlefshëm.");
-  }
-
-  const files = formData
-    .getAll("images")
-    .filter(
-      (file) => file && typeof file.arrayBuffer === "function" && file.size > 0,
-    );
-
-  validateMarketplaceImages(files);
-
-  const status = requestedStatus === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
-
-  const listingId = crypto.randomUUID();
-
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET || "marketplace-images";
-
-  const uploadedPaths = [];
-  const uploadedImages = [];
-
-  try {
-    for (const [position, file] of files.entries()) {
-      const storagePath = createMarketplaceImagePath({
-        businessId,
-        listingId,
-        file,
-        position,
-      });
-
-      const buffer = Buffer.from(await file.arrayBuffer());
-
-      const { error: uploadError } = await supabaseAdmin.storage
-        .from(bucket)
-        .upload(storagePath, buffer, {
-          contentType: file.type,
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        throw new Error(
-          `Ngarkimi i fotografisë "${file.name}" dështoi: ${uploadError.message}`,
-        );
-      }
-
-      const { data: publicUrlData } = supabaseAdmin.storage
-        .from(bucket)
-        .getPublicUrl(storagePath);
-
-      if (!publicUrlData?.publicUrl) {
-        throw new Error(
-          `Nuk u krijua URL-ja publike për fotografinë "${file.name}".`,
-        );
-      }
-
-      uploadedPaths.push(storagePath);
-
-      uploadedImages.push({
-        url: publicUrlData.publicUrl,
-        alt: title,
-        position,
-      });
-    }
-
-    await db.marketplaceListing.create({
-      data: {
-        id: listingId,
-
-        sellerType: "BUSINESS",
-        businessId,
-
-        type: requestedType,
-        status,
-
-        title,
-        slug: createSlug(title),
-        description,
-
-        price,
-        isNegotiable: formData.get("isNegotiable") === "on",
-
-        category: getOptionalString(formData, "category"),
-
-        condition: getOptionalString(formData, "condition"),
-
-        city: getOptionalString(formData, "city"),
-        address: getOptionalString(formData, "address"),
-
-        phone: getOptionalString(formData, "phone"),
-        email: getOptionalString(formData, "email"),
-
-        brand: getOptionalString(formData, "brand"),
-        model: getOptionalString(formData, "model"),
-
-        productionYear: getOptionalInteger(formData, "productionYear"),
-
-        mileage: getOptionalInteger(formData, "mileage"),
-
-        fuelType: getOptionalString(formData, "fuelType"),
-
-        transmission: getOptionalString(formData, "transmission"),
-
-        engine: getOptionalString(formData, "engine"),
-
-        color: getOptionalString(formData, "color"),
-        vin: getOptionalString(formData, "vin"),
-
-        stock: getOptionalInteger(formData, "stock"),
-
-        publishedAt: status === "PUBLISHED" ? new Date() : null,
-
-        images:
-          uploadedImages.length > 0
-            ? {
-                create: uploadedImages,
-              }
-            : undefined,
-      },
-    });
-  } catch (error) {
-    if (uploadedPaths.length > 0) {
-      const { error: cleanupError } = await supabaseAdmin.storage
-        .from(bucket)
-        .remove(uploadedPaths);
-
-      if (cleanupError) {
-        console.error("Gabim gjatë pastrimit të fotografive:", cleanupError);
-      }
-    }
-
-    throw error;
-  }
-
-  revalidatePath("/dashboard/marketplace");
-
-  redirect("/dashboard/marketplace");
-}
 
 function SectionHeader({ title, description }) {
   return (
@@ -498,6 +282,7 @@ export default async function NewMarketplaceListingPage() {
                     type="number"
                     placeholder="P.sh. 10"
                     min="0"
+                    step="1"
                   />
 
                   <label className="block">
