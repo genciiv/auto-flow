@@ -1,8 +1,9 @@
 "use server";
 
-import { createBusinessApplication } from "@/services/application-service";
-
+import { validateFormData } from "@/lib/validation";
+import { businessApplicationSchema } from "@/schemas/application-schema";
 import { getPlatformSettings } from "@/services/admin/settings-service";
+import { createBusinessApplication } from "@/services/application-service";
 
 const initialErrorState = {
   success: false,
@@ -10,43 +11,11 @@ const initialErrorState = {
   fieldErrors: {},
 };
 
-function readRequiredString(formData, fieldName) {
-  const value = formData.get(fieldName);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function validateApplication({ businessName, ownerName, email, phone, city }) {
-  const fieldErrors = {};
-
-  if (businessName.length < 2) {
-    fieldErrors.businessName = "Vendos emrin e biznesit.";
-  }
-
-  if (ownerName.length < 2) {
-    fieldErrors.ownerName = "Vendos emrin e pronarit.";
-  }
-
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    fieldErrors.email = "Vendos një adresë emaili të vlefshme.";
-  }
-
-  if (phone.length < 6) {
-    fieldErrors.phone = "Vendos një numër telefoni të vlefshëm.";
-  }
-
-  if (city.length < 2) {
-    fieldErrors.city = "Vendos qytetin.";
-  }
-
-  return fieldErrors;
-}
-
 export async function submitBusinessApplicationAction(previousState, formData) {
+  /*
+   * Kontrolli i platformës qëndron përpara validimit,
+   * njësoj si në rrjedhën ekzistuese.
+   */
   const settings = await getPlatformSettings();
 
   if (!settings.allowRegistrations) {
@@ -57,29 +26,21 @@ export async function submitBusinessApplicationAction(previousState, formData) {
     };
   }
 
-  const businessName = readRequiredString(formData, "businessName");
-  const ownerName = readRequiredString(formData, "ownerName");
-  const email = readRequiredString(formData, "email").toLowerCase();
-  const phone = readRequiredString(formData, "phone");
-  const city = readRequiredString(formData, "city");
-  const address = readRequiredString(formData, "address");
-  const notes = readRequiredString(formData, "notes");
+  const validationResult = validateFormData(
+    businessApplicationSchema,
+    formData,
+  );
 
-  const fieldErrors = validateApplication({
-    businessName,
-    ownerName,
-    email,
-    phone,
-    city,
-  });
-
-  if (Object.keys(fieldErrors).length > 0) {
+  if (!validationResult.success) {
     return {
       ...initialErrorState,
-      fieldErrors,
+      fieldErrors: validationResult.fieldErrors,
       message: "Kontrollo fushat e formularit.",
     };
   }
+
+  const { businessName, ownerName, email, phone, city, address, notes } =
+    validationResult.data;
 
   try {
     await createBusinessApplication({

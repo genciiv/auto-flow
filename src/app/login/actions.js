@@ -3,20 +3,26 @@
 import { AuthError } from "next-auth";
 
 import { signIn } from "@/auth";
+import { validateFormData } from "@/lib/validation";
+import { loginSchema } from "@/schemas/auth-schema";
+
+const emptyLoginState = {
+  error: null,
+  code: null,
+  email: null,
+};
 
 export async function loginAction(previousState, formData) {
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
+  const validationResult = validateFormData(loginSchema, formData);
 
-  const password = String(formData.get("password") ?? "");
-
-  if (!email || !password) {
+  if (!validationResult.success) {
     return {
+      ...emptyLoginState,
       error: "Plotëso email-in dhe password-in.",
-      code: null,
     };
   }
+
+  const { email, password } = validationResult.data;
 
   try {
     await signIn("credentials", {
@@ -26,8 +32,7 @@ export async function loginAction(previousState, formData) {
     });
 
     return {
-      error: null,
-      code: null,
+      ...emptyLoginState,
     };
   } catch (error) {
     if (error instanceof AuthError) {
@@ -47,15 +52,22 @@ export async function loginAction(previousState, formData) {
         return {
           error: "Email-i ose password-i është i pasaktë.",
           code: "INVALID_CREDENTIALS",
+          email: null,
         };
       }
 
       return {
         error: "Nuk ishte e mundur të kryhej hyrja.",
         code: "AUTH_ERROR",
+        email: null,
       };
     }
 
+    /**
+     * Redirect-i i Auth.js hidhet si një exception i veçantë.
+     * Për këtë arsye gabimet që nuk janë AuthError
+     * duhet të vazhdojnë të hidhen.
+     */
     throw error;
   }
 }

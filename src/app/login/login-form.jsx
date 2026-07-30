@@ -4,7 +4,14 @@ import { useActionState, useState } from "react";
 
 import Link from "next/link";
 
-import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
+import {
+  AlertCircle,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  LockKeyhole,
+  Mail,
+} from "lucide-react";
 
 import { loginAction } from "./actions";
 
@@ -102,6 +109,22 @@ export default function LoginForm() {
           </button>
         </div>
       </div>
+
+      {state?.error ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle
+              aria-hidden="true"
+              className="mt-0.5 size-5 shrink-0"
+            />
+
+            <p>{state.error}</p>
+          </div>
+        </div>
+      ) : null}
 
       {state?.code === "EMAIL_NOT_VERIFIED" ? (
         <Link
