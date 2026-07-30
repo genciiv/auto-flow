@@ -3,22 +3,46 @@
 import { AuthError } from "next-auth";
 
 import { signIn } from "@/auth";
+import { actionFailure, validationFailure } from "@/lib/action-result";
+import { ERROR_CODES, logServerError } from "@/lib/errors";
 import { validateFormData } from "@/lib/validation";
 import { loginSchema } from "@/schemas/auth-schema";
 
 const emptyLoginState = {
+  success: false,
   error: null,
+  errors: {},
   code: null,
+  message: null,
+  fieldErrors: {},
+  data: null,
   email: null,
 };
+
+function loginFailure({ code, message, email = null, fieldErrors = {} }) {
+  return {
+    ...actionFailure({
+      code,
+      message,
+      fieldErrors,
+    }),
+
+    email,
+  };
+}
 
 export async function loginAction(previousState, formData) {
   const validationResult = validateFormData(loginSchema, formData);
 
   if (!validationResult.success) {
+    const validationResponse = validationFailure(validationResult.error, {
+      message: "Plotëso email-in dhe password-in.",
+    });
+
     return {
       ...emptyLoginState,
-      error: "Plotëso email-in dhe password-in.",
+      ...validationResponse,
+      email: null,
     };
   }
 
@@ -31,8 +55,13 @@ export async function loginAction(previousState, formData) {
       redirectTo: "/auth/redirect",
     });
 
+    /*
+     * Në rast normal Auth.js bën redirect dhe kjo pjesë
+     * nuk ekzekutohet.
+     */
     return {
       ...emptyLoginState,
+      success: true,
     };
   } catch (error) {
     if (error instanceof AuthError) {
@@ -40,34 +69,51 @@ export async function loginAction(previousState, formData) {
         error.type === "CredentialsSignin" &&
         error.code === "email_not_verified"
       ) {
-        return {
-          error:
+        return loginFailure({
+          code: ERROR_CODES.EMAIL_NOT_VERIFIED,
+          message:
             "Email-i yt nuk është verifikuar. Kontrollo email-in ose kërko një link të ri.",
-          code: "EMAIL_NOT_VERIFIED",
           email,
-        };
+        });
       }
 
       if (error.type === "CredentialsSignin") {
-        return {
-          error: "Email-i ose password-i është i pasaktë.",
-          code: "INVALID_CREDENTIALS",
-          email: null,
-        };
+        return loginFailure({
+          code: ERROR_CODES.INVALID_CREDENTIALS,
+          message: "Email-i ose password-i është i pasaktë.",
+        });
       }
 
-      return {
-        error: "Nuk ishte e mundur të kryhej hyrja.",
-        code: "AUTH_ERROR",
-        email: null,
-      };
+      logServerError("loginAction:AuthError", error, {
+        email,
+        authErrorType: error.type,
+        authErrorCode: error.code,
+      });
+
+      return loginFailure({
+        code: ERROR_CODES.AUTH_ERROR,
+        message: "Nuk ishte e mundur të kryhej hyrja.",
+      });
     }
 
-    /**
-     * Redirect-i i Auth.js hidhet si një exception i veçantë.
-     * Për këtë arsye gabimet që nuk janë AuthError
-     * duhet të vazhdojnë të hidhen.
+    /*
+     * Redirect-i i Auth.js hidhet si exception i Next.js.
+     * Ai duhet të vazhdojë deri te framework-u.
      */
-    throw error;
+    if (
+      error?.digest?.startsWith?.("NEXT_REDIRECT") ||
+      error?.message === "NEXT_REDIRECT"
+    ) {
+      throw error;
+    }
+
+    logServerError("loginAction", error, {
+      email,
+    });
+
+    return loginFailure({
+      code: ERROR_CODES.AUTH_ERROR,
+      message: "Nuk ishte e mundur të kryhej hyrja. Provo përsëri.",
+    });
   }
 }

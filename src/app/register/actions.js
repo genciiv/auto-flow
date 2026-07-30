@@ -2,6 +2,12 @@
 
 import bcrypt from "bcryptjs";
 
+import {
+  actionFailure,
+  actionSuccess,
+  errorFailure,
+  validationFailure,
+} from "@/lib/action-result";
 import { authTokenService } from "@/lib/auth-tokens";
 import { db } from "@/lib/db";
 import {
@@ -9,119 +15,169 @@ import {
   emailVerificationTemplate,
   sendEmail,
 } from "@/lib/email";
-import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { ERROR_CODES, logServerError } from "@/lib/errors";
+import { validateFormData } from "@/lib/validation";
 import { registerSchema } from "@/schemas/auth-schema";
 
-const initialRegisterState = {
-  error: null,
-  success: false,
-};
+function registrationFailure({ code, message, fieldErrors = {}, data = null }) {
+  return actionFailure({
+    code,
+    message,
+    fieldErrors,
+    data,
+  });
+}
 
 export async function registerAction(previousState, formData) {
   const validationResult = validateFormData(registerSchema, formData);
 
   if (!validationResult.success) {
-    return {
-      ...initialRegisterState,
-      error: getFirstValidationMessage(
-        validationResult.error,
-        "Të dhënat e regjistrimit nuk janë të vlefshme.",
-      ),
-    };
+    return validationFailure(validationResult.error, {
+      message: "Të dhënat e regjistrimit nuk janë të vlefshme.",
+    });
   }
 
   const { name, email, phone, password } = validationResult.data;
 
-  const existingUser = await db.user.findUnique({
-    where: {
-      email,
-    },
-
-    select: {
-      id: true,
-      emailVerified: true,
-    },
-  });
-
-  if (existingUser) {
-    return {
-      error: existingUser.emailVerified
-        ? "Ekziston tashmë një llogari me këtë adresë email-i."
-        : "Kjo llogari ekziston, por email-i nuk është verifikuar.",
-      success: false,
-    };
-  }
-
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  let user;
-
   try {
-    user = await db.user.create({
-      data: {
-        name,
+    const existingUser = await db.user.findUnique({
+      where: {
         email,
-        phone: phone || null,
-        passwordHash,
-        globalRole: "CUSTOMER",
-        isActive: true,
-        emailVerified: null,
       },
 
       select: {
         id: true,
-        name: true,
-        email: true,
+        emailVerified: true,
       },
     });
-  } catch (error) {
-    if (error?.code === "P2002") {
-      return {
-        error: "Ekziston tashmë një llogari me këtë adresë email-i.",
-        success: false,
-      };
+
+    if (existingUser) {
+      if (existingUser.emailVerified) {
+        return registrationFailure({
+          code: ERROR_CODES.EMAIL_ALREADY_EXISTS,
+          message: "Ekziston tashmë një llogari me këtë adresë email-i.",
+          fieldErrors: {
+            email: ["Ekziston tashmë një llogari me këtë adresë email-i."],
+          },
+        });
+      }
+
+      return registrationFailure({
+        code: ERROR_CODES.EMAIL_NOT_VERIFIED,
+        message: "Kjo llogari ekziston, por email-i nuk është verifikuar.",
+        fieldErrors: {
+          email: ["Kjo llogari ekziston, por email-i nuk është verifikuar."],
+        },
+        data: {
+          email,
+        },
+      });
     }
 
-    console.error("Gabim gjatë regjistrimit:", error);
+    const passwordHash = await bcrypt.hash(password, 12);
 
-    return {
-      error: "Nuk ishte e mundur të krijohej llogaria. Provo përsëri.",
-      success: false,
-    };
-  }
+    let user;
 
-  try {
-    const verificationToken =
-      await authTokenService.createEmailVerificationToken(user.id);
+    try {
+      user = await db.user.create({
+        data: {
+          name,
+          email,
+          phone: phone || null,
+          passwordHash,
+          globalRole: "CUSTOMER",
+          isActive: true,
+          emailVerified: null,
+        },
 
-    const verificationUrl =
-      `${EMAIL_CONFIG.appUrl}/verify-email?token=` +
-      encodeURIComponent(verificationToken);
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      });
+    } catch (error) {
+      if (error?.code === "P2002") {
+        return registrationFailure({
+          code: ERROR_CODES.EMAIL_ALREADY_EXISTS,
+          message: "Ekziston tashmë një llogari me këtë adresë email-i.",
+          fieldErrors: {
+            email: ["Ekziston tashmë një llogari me këtë adresë email-i."],
+          },
+        });
+      }
 
-    const html = emailVerificationTemplate({
-      name: user.name,
-      verificationUrl,
-    });
+      logServerError("registerAction:createUser", error);
 
-    await sendEmail({
-      to: user.email,
-      subject: "Verifiko adresën tënde të email-it",
-      html,
-    });
+      return errorFailure(error, {
+        fallbackCode: ERROR_CODES.REGISTRATION_FAILED,
 
-    return {
-      error: null,
-      success: true,
-      message:
-        "Llogaria u krijua. Kontrollo email-in për të verifikuar llogarinë.",
-    };
+        fallbackMessage:
+          "Nuk ishte e mundur të krijohej llogaria. Provo përsëri.",
+      });
+    }
+
+    try {
+      const verificationToken =
+        await authTokenService.createEmailVerificationToken(user.id);
+
+      const verificationUrl =
+        `${EMAIL_CONFIG.appUrl}/verify-email?token=` +
+        encodeURIComponent(verificationToken);
+
+      const html = emailVerificationTemplate({
+        name: user.name,
+        verificationUrl,
+      });
+
+      await sendEmail({
+        to: user.email,
+        subject: "Verifiko adresën tënde të email-it",
+        html,
+      });
+
+      return actionSuccess({
+        message:
+          "Llogaria u krijua. Kontrollo email-in për të verifikuar llogarinë.",
+
+        data: {
+          userId: user.id,
+          email: user.email,
+          verificationEmailSent: true,
+        },
+      });
+    } catch (error) {
+      logServerError("registerAction:sendVerificationEmail", error, {
+        userId: user.id,
+      });
+
+      /*
+       * Llogaria është krijuar. Nuk e fshijmë përdoruesin
+       * vetëm sepse shërbimi i email-it dështoi.
+       * Përdoruesi mund të përdorë resend-verification.
+       */
+      return registrationFailure({
+        code: ERROR_CODES.EMAIL_VERIFICATION_SEND_FAILED,
+
+        message:
+          "Llogaria u krijua, por email-i i verifikimit nuk u dërgua. Provo ta ridërgosh pas pak.",
+
+        data: {
+          userId: user.id,
+          email: user.email,
+          accountCreated: true,
+          verificationEmailSent: false,
+        },
+      });
+    }
   } catch (error) {
-    console.error("Gabim gjatë dërgimit të email-it të verifikimit:", error);
+    logServerError("registerAction", error);
 
-    return {
-      error:
-        "Llogaria u krijua, por email-i i verifikimit nuk u dërgua. Provo përsëri pas pak.",
-      success: false,
-    };
+    return errorFailure(error, {
+      fallbackCode: ERROR_CODES.REGISTRATION_FAILED,
+
+      fallbackMessage:
+        "Nuk ishte e mundur të përfundohej regjistrimi. Provo përsëri.",
+    });
   }
 }
