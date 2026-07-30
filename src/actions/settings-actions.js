@@ -3,43 +3,14 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
-import { requireBusinessActionPermission } from "@/lib/business-context";
-
-function getTextValue(formData, fieldName) {
-  const value = formData.get(fieldName);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function getOptionalTextValue(formData, fieldName) {
-  const value = getTextValue(formData, fieldName);
-
-  return value || null;
-}
-
-function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function isValidWebsite(value) {
-  if (!value) {
-    return true;
-  }
-
-  try {
-    const url = new URL(value);
-
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import {
+  businessSettingsSchema,
+  profileSettingsSchema,
+} from "@/schemas/settings-schema";
 
 function getErrorMessage(error) {
   if (
@@ -68,41 +39,57 @@ function getErrorMessage(error) {
   return "Ndodhi një gabim i papritur. Provo përsëri.";
 }
 
+function getValidationErrorMessage(validationResult, fallbackMessage) {
+  return getFirstValidationMessage(validationResult.error, fallbackMessage);
+}
+
+function revalidateProfileSettingsPages() {
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard", "layout");
+}
+
+function revalidateBusinessSettingsPages() {
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard/marketplace");
+}
+
 export async function updateProfileSettings(formData) {
   try {
     const { userId } = await requireBusinessActionPermission(
       PERMISSIONS.SETTINGS_UPDATE,
     );
 
-    const name = getTextValue(formData, "name");
+    const validationResult = validateFormData(profileSettingsSchema, formData);
 
-    const phone = getOptionalTextValue(formData, "phone");
-
-    if (name.length < 2) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Emri duhet të ketë të paktën 2 karaktere.",
+
+        message: getValidationErrorMessage(
+          validationResult,
+          "Të dhënat e profilit nuk janë të vlefshme.",
+        ),
       };
     }
 
-    if (name.length > 100) {
-      return {
-        success: false,
-        message: "Emri nuk mund të ketë më shumë se 100 karaktere.",
-      };
-    }
+    const { name, phone } = validationResult.data;
 
-    if (phone && phone.length > 30) {
-      return {
-        success: false,
-        message: "Numri i telefonit është shumë i gjatë.",
-      };
-    }
+    const existingUser = await db.user.findUnique({
+      where: {
+        id: userId,
+      },
 
-    if (existingUser) {
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existingUser) {
       return {
         success: false,
-        message: "Ky email përdoret tashmë nga një llogari tjetër.",
+        message: "Përdoruesi nuk u gjet.",
       };
     }
 
@@ -110,14 +97,14 @@ export async function updateProfileSettings(formData) {
       where: {
         id: userId,
       },
+
       data: {
         name,
         phone,
       },
     });
 
-    revalidatePath("/dashboard/settings");
-    revalidatePath("/dashboard", "layout");
+    revalidateProfileSettingsPages();
 
     return {
       success: true,
@@ -139,119 +126,75 @@ export async function updateBusinessSettings(formData) {
       PERMISSIONS.SETTINGS_UPDATE,
     );
 
-    const name = getTextValue(formData, "name");
-    const niptValue = getTextValue(formData, "nipt").toUpperCase();
-    const nipt = niptValue || null;
+    const validationResult = validateFormData(businessSettingsSchema, formData);
 
-    const emailValue = getTextValue(formData, "email").toLowerCase();
-    const email = emailValue || null;
-
-    const phone = getOptionalTextValue(formData, "phone");
-    const city = getOptionalTextValue(formData, "city");
-    const address = getOptionalTextValue(formData, "address");
-    const website = getOptionalTextValue(formData, "website");
-    const logo = getOptionalTextValue(formData, "logo");
-    const workingHours = getOptionalTextValue(formData, "workingHours");
-
-    const currency = getTextValue(formData, "currency") || "ALL";
-    const timezone = getTextValue(formData, "timezone") || "Europe/Tirane";
-
-    const vatInput = getTextValue(formData, "vat");
-    const vat = vatInput === "" ? 20 : Number(vatInput);
-
-    const allowedCurrencies = ["ALL", "EUR", "USD"];
-    const allowedTimezones = [
-      "Europe/Tirane",
-      "Europe/Rome",
-      "Europe/Berlin",
-      "Europe/London",
-    ];
-
-    if (name.length < 2) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Emri i biznesit duhet të ketë të paktën 2 karaktere.",
+
+        message: getValidationErrorMessage(
+          validationResult,
+          "Të dhënat e biznesit nuk janë të vlefshme.",
+        ),
       };
     }
 
-    if (name.length > 150) {
+    const {
+      name,
+      nipt,
+      email,
+      phone,
+      city,
+      address,
+      website,
+      logo,
+      workingHours,
+      currency,
+      vat,
+      timezone,
+    } = validationResult.data;
+
+    const existingBusiness = await db.business.findFirst({
+      where: {
+        id: businessId,
+      },
+
+      select: {
+        id: true,
+        isActive: true,
+      },
+    });
+
+    if (!existingBusiness) {
       return {
         success: false,
-        message: "Emri i biznesit është shumë i gjatë.",
+        message: "Biznesi nuk u gjet.",
       };
     }
 
-    if (email && !isValidEmail(email)) {
+    if (!existingBusiness.isActive) {
       return {
         success: false,
-        message: "Vendos një email biznesi të vlefshëm.",
-      };
-    }
-
-    if (website && !isValidWebsite(website)) {
-      return {
-        success: false,
-        message:
-          "Website duhet të fillojë me http:// ose https:// dhe të jetë i vlefshëm.",
-      };
-    }
-
-    if (logo && !isValidWebsite(logo)) {
-      return {
-        success: false,
-        message: "Linku i logos duhet të fillojë me http:// ose https://.",
-      };
-    }
-
-    if (nipt && nipt.length > 30) {
-      return {
-        success: false,
-        message: "NIPT-i nuk mund të ketë më shumë se 30 karaktere.",
-      };
-    }
-
-    if (phone && phone.length > 30) {
-      return {
-        success: false,
-        message: "Numri i telefonit është shumë i gjatë.",
-      };
-    }
-
-    if (!Number.isFinite(vat) || vat < 0 || vat > 100) {
-      return {
-        success: false,
-        message: "TVSH-ja duhet të jetë një numër nga 0 deri në 100.",
-      };
-    }
-
-    if (!allowedCurrencies.includes(currency)) {
-      return {
-        success: false,
-        message: "Monedha e zgjedhur nuk është e vlefshme.",
-      };
-    }
-
-    if (!allowedTimezones.includes(timezone)) {
-      return {
-        success: false,
-        message: "Zona kohore e zgjedhur nuk është e vlefshme.",
+        message: "Biznesi nuk është më aktiv.",
       };
     }
 
     if (nipt) {
-      const existingBusiness = await db.business.findFirst({
+      const businessWithSameNipt = await db.business.findFirst({
         where: {
           nipt,
+
           id: {
             not: businessId,
           },
         },
+
         select: {
           id: true,
         },
       });
 
-      if (existingBusiness) {
+      if (businessWithSameNipt) {
         return {
           success: false,
           message: "Ky NIPT përdoret tashmë nga një biznes tjetër.",
@@ -264,6 +207,7 @@ export async function updateBusinessSettings(formData) {
         id: businessId,
         isActive: true,
       },
+
       data: {
         name,
         nipt,
@@ -283,15 +227,16 @@ export async function updateBusinessSettings(formData) {
     if (updateResult.count !== 1) {
       return {
         success: false,
+
         message: "Biznesi nuk u gjet ose nuk është më aktiv.",
       };
     }
 
-    revalidatePath("/dashboard/settings");
-    revalidatePath("/dashboard");
+    revalidateBusinessSettingsPages();
 
     return {
       success: true,
+
       message: "Të dhënat e biznesit u përditësuan me sukses.",
     };
   } catch (error) {
