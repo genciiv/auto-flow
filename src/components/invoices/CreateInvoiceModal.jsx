@@ -354,7 +354,7 @@ export default function CreateInvoiceModal({
 
                 <div className="relative">
                   <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-semibold text-slate-500">
-                    €
+                    Lekë
                   </span>
 
                   <input
@@ -368,7 +368,7 @@ export default function CreateInvoiceModal({
                     disabled={isSubmitting || Boolean(form.serviceId)}
                     required={!form.serviceId}
                     placeholder="0.00"
-                    className="w-full rounded-2xl border border-slate-200 py-3 pl-8 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50"
+                    className="w-full rounded-2xl border border-slate-200 py-3 pl-16 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50"
                   />
                 </div>
 
