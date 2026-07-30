@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   Check,
@@ -24,11 +25,16 @@ export default function ApplicationActions({
   activationRequired = false,
   ownerEmail = "",
 }) {
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [approvalResult, setApprovalResult] = useState(null);
+
+  function getActionErrorMessage(actionError, fallbackMessage) {
+    return actionError instanceof Error ? actionError.message : fallbackMessage;
+  }
 
   function handleApprove() {
     const confirmed = window.confirm(
@@ -48,10 +54,13 @@ export default function ApplicationActions({
         const result = await approveApplicationAction(applicationId);
 
         setApprovalResult(result);
+        router.refresh();
       } catch (actionError) {
         console.error(actionError);
 
-        setError(actionError?.message || "Aplikimi nuk mund të aprovohej.");
+        setError(
+          getActionErrorMessage(actionError, "Aplikimi nuk mund të aprovohej."),
+        );
       }
     });
   }
@@ -67,27 +76,49 @@ export default function ApplicationActions({
 
     if (normalizedReason.length < 3) {
       setError("Arsyeja duhet të ketë të paktën 3 karaktere.");
+      setSuccessMessage("");
+
+      return;
+    }
+
+    if (normalizedReason.length > 1000) {
+      setError(
+        "Arsyeja e refuzimit nuk mund të ketë më shumë se 1000 karaktere.",
+      );
+      setSuccessMessage("");
 
       return;
     }
 
     setError("");
     setSuccessMessage("");
+    setApprovalResult(null);
 
     startTransition(async () => {
       try {
-        await rejectApplicationAction(applicationId, normalizedReason);
+        const result = await rejectApplicationAction(
+          applicationId,
+          normalizedReason,
+        );
+
+        setSuccessMessage(result?.message || "Aplikimi u refuzua me sukses.");
+
+        router.refresh();
       } catch (actionError) {
         console.error(actionError);
 
-        setError(actionError?.message || "Aplikimi nuk mund të refuzohej.");
+        setError(
+          getActionErrorMessage(actionError, "Aplikimi nuk mund të refuzohej."),
+        );
       }
     });
   }
 
   function handleResendActivation() {
     const confirmed = window.confirm(
-      `Dëshiron ta ridërgosh email-in e aktivizimit te ${ownerEmail}?`,
+      `Dëshiron ta ridërgosh email-in e aktivizimit te ${
+        ownerEmail || "pronari"
+      }?`,
     );
 
     if (!confirmed) {
@@ -96,6 +127,7 @@ export default function ApplicationActions({
 
     setError("");
     setSuccessMessage("");
+    setApprovalResult(null);
 
     startTransition(async () => {
       try {
@@ -104,12 +136,16 @@ export default function ApplicationActions({
         setSuccessMessage(
           `Email-i i aktivizimit u dërgua te ${result.ownerEmail}.`,
         );
+
+        router.refresh();
       } catch (actionError) {
         console.error(actionError);
 
         setError(
-          actionError?.message ||
+          getActionErrorMessage(
+            actionError,
             "Email-i i aktivizimit nuk mund të ridërgohej.",
+          ),
         );
       }
     });
@@ -215,12 +251,36 @@ export default function ApplicationActions({
     );
   }
 
+  if (status === "REJECTED") {
+    return successMessage || error ? (
+      <div className="w-full max-w-md">
+        {successMessage ? (
+          <div
+            role="status"
+            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+          >
+            {successMessage}
+          </div>
+        ) : null}
+
+        {error ? (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+          >
+            {error}
+          </div>
+        ) : null}
+      </div>
+    ) : null;
+  }
+
   if (status !== "PENDING") {
     return null;
   }
 
   return (
-    <div>
+    <div className="w-full max-w-md">
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
@@ -251,6 +311,15 @@ export default function ApplicationActions({
           Refuzo
         </button>
       </div>
+
+      {successMessage ? (
+        <div
+          role="status"
+          className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+        >
+          {successMessage}
+        </div>
+      ) : null}
 
       {error ? (
         <div

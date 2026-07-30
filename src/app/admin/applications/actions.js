@@ -11,6 +11,11 @@ import {
   EMAIL_CONFIG,
   sendEmail,
 } from "@/lib/email";
+import { getFirstValidationMessage, validateObject } from "@/lib/validation";
+import {
+  applicationIdObjectSchema,
+  rejectAdminApplicationSchema,
+} from "@/schemas/admin-application-schema";
 import {
   approveApplication,
   getApplicationActivationDetails,
@@ -19,32 +24,77 @@ import {
 
 function getAdminUserId(adminResult) {
   return (
-    adminResult?.id ||
     adminResult?.user?.id ||
+    adminResult?.id ||
     adminResult?.session?.user?.id ||
     null
   );
 }
 
 function formatRetryTime(seconds) {
-  if (seconds < 60) {
-    return `${seconds} sekonda`;
+  const normalizedSeconds = Math.max(1, Number(seconds) || 1);
+
+  if (normalizedSeconds < 60) {
+    return `${normalizedSeconds} sekonda`;
   }
 
-  const minutes = Math.ceil(seconds / 60);
+  const minutes = Math.ceil(normalizedSeconds / 60);
 
   return minutes === 1 ? "1 minutë" : `${minutes} minuta`;
+}
+
+function validateApplicationId(applicationId) {
+  const validationResult = validateObject(applicationIdObjectSchema, {
+    applicationId,
+  });
+
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "ID-ja e aplikimit mungon.",
+      ),
+    );
+  }
+
+  return validationResult.data.applicationId;
+}
+
+function revalidateApplicationPages(applicationId, businessId = null) {
+  revalidatePath("/admin");
+  revalidatePath("/admin/applications");
+  revalidatePath(`/admin/applications/${applicationId}`);
+  revalidatePath("/admin/businesses");
+  revalidatePath("/admin/subscriptions");
+  revalidatePath("/admin/activity-logs");
+
+  if (businessId) {
+    revalidatePath(`/admin/businesses/${businessId}`);
+  }
+}
+
+async function revokeActivationToken(plainToken, errorContext) {
+  if (!plainToken) {
+    return;
+  }
+
+  try {
+    await authTokenService.revokePlainToken(
+      plainToken,
+      AUTH_TOKEN_TYPES.ACCOUNT_ACTIVATION,
+    );
+  } catch (revokeError) {
+    console.error(errorContext, revokeError);
+  }
 }
 
 export async function approveApplicationAction(applicationId) {
   const admin = await requirePlatformAdmin();
 
-  if (!applicationId) {
-    throw new Error("ID-ja e aplikimit mungon.");
-  }
+  const validatedApplicationId = validateApplicationId(applicationId);
 
   const result = await approveApplication({
-    applicationId,
+    applicationId: validatedApplicationId,
     reviewedById: getAdminUserId(admin),
   });
 
@@ -96,27 +146,15 @@ export async function approveApplicationAction(applicationId) {
       error,
     );
 
-    if (createdToken) {
-      try {
-        await authTokenService.revokePlainToken(
-          createdToken,
-          AUTH_TOKEN_TYPES.ACCOUNT_ACTIVATION,
-        );
-      } catch (revokeError) {
-        console.error(
-          "Token-i i aktivizimit nuk mund të revokohej:",
-          revokeError,
-        );
-      }
-    }
+    await revokeActivationToken(
+      createdToken,
+      "Token-i i aktivizimit nuk mund të revokohej:",
+    );
 
     emailError = "Biznesi u krijua, por email-i nuk u dërgua.";
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/applications");
-  revalidatePath(`/admin/applications/${applicationId}`);
-  revalidatePath("/admin/businesses");
+  revalidateApplicationPages(validatedApplicationId, result.business.id);
 
   return {
     success: true,
@@ -131,14 +169,16 @@ export async function approveApplicationAction(applicationId) {
 export async function resendActivationEmailAction(applicationId) {
   await requirePlatformAdmin();
 
-  if (!applicationId) {
-    throw new Error("ID-ja e aplikimit mungon.");
-  }
+  const validatedApplicationId = validateApplicationId(applicationId);
 
-  const result = await getApplicationActivationDetails(applicationId);
+  const result = await getApplicationActivationDetails(validatedApplicationId);
 
   if (!result.ownerUser.isActive) {
     throw new Error("Llogaria e pronarit është çaktivizuar.");
+  }
+
+  if (!result.business.isActive) {
+    throw new Error("Biznesi i aprovuar është i çaktivizuar.");
   }
 
   if (!result.activationRequired) {
@@ -184,27 +224,17 @@ export async function resendActivationEmailAction(applicationId) {
   } catch (error) {
     console.error("Ridërgimi i email-it të aktivizimit dështoi:", error);
 
-    if (token) {
-      try {
-        await authTokenService.revokePlainToken(
-          token,
-          AUTH_TOKEN_TYPES.ACCOUNT_ACTIVATION,
-        );
-      } catch (revokeError) {
-        console.error(
-          "Token-i i padërguar nuk mund të revokohej:",
-          revokeError,
-        );
-      }
-    }
+    await revokeActivationToken(
+      token,
+      "Token-i i padërguar nuk mund të revokohej:",
+    );
 
     throw new Error(
       "Email-i i aktivizimit nuk mund të dërgohej. Provo përsëri.",
     );
   }
 
-  revalidatePath("/admin/applications");
-  revalidatePath(`/admin/applications/${applicationId}`);
+  revalidateApplicationPages(validatedApplicationId, result.business.id);
 
   return {
     success: true,
@@ -216,24 +246,35 @@ export async function resendActivationEmailAction(applicationId) {
 export async function rejectApplicationAction(applicationId, rejectionReason) {
   const admin = await requirePlatformAdmin();
 
-  if (!applicationId) {
-    throw new Error("ID-ja e aplikimit mungon.");
-  }
-
-  if (!rejectionReason || rejectionReason.trim().length < 3) {
-    throw new Error("Vendos një arsye për refuzimin.");
-  }
-
-  await rejectApplication({
+  const validationResult = validateObject(rejectAdminApplicationSchema, {
     applicationId,
-    reviewedById: getAdminUserId(admin),
     rejectionReason,
   });
 
-  revalidatePath("/admin/applications");
-  revalidatePath(`/admin/applications/${applicationId}`);
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "Të dhënat e refuzimit nuk janë të vlefshme.",
+      ),
+    );
+  }
+
+  const {
+    applicationId: validatedApplicationId,
+    rejectionReason: validatedReason,
+  } = validationResult.data;
+
+  await rejectApplication({
+    applicationId: validatedApplicationId,
+    reviewedById: getAdminUserId(admin),
+    rejectionReason: validatedReason,
+  });
+
+  revalidateApplicationPages(validatedApplicationId);
 
   return {
     success: true,
+    message: "Aplikimi u refuzua me sukses.",
   };
 }
