@@ -5,17 +5,17 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  createVehicleSchema,
+  deleteVehicleSchema,
+  updateVehicleSchema,
+} from "@/schemas/vehicle-schema";
 import { logCreate, logDelete, logUpdate } from "@/services/audit-events";
-
-function getFormString(formData, fieldName) {
-  const value = formData.get(fieldName);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
 
 function getPermissionErrorMessage(error) {
   if (
@@ -57,6 +57,7 @@ async function validateCustomerOwnership(customerId, businessId) {
       id: customerId,
       businessId,
     },
+
     select: {
       id: true,
     },
@@ -83,31 +84,20 @@ export async function createVehicle(formData) {
 
     const { businessId } = context;
 
-    const customerId = getFormString(formData, "customerId");
-    const plate = getFormString(formData, "plate").toUpperCase();
-    const brand = getFormString(formData, "brand");
-    const model = getFormString(formData, "model");
-    const yearValue = getFormString(formData, "year");
-    const vin = getFormString(formData, "vin").toUpperCase();
+    const validationResult = validateFormData(createVehicleSchema, formData);
 
-    if (!plate || !brand) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Targa dhe marka janë të detyrueshme.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Të dhënat e automjetit nuk janë të vlefshme.",
+        ),
       };
     }
 
-    const year = yearValue ? Number(yearValue) : null;
-
-    if (
-      year !== null &&
-      (!Number.isInteger(year) || year < 1900 || year > 2100)
-    ) {
-      return {
-        success: false,
-        message: "Viti i automjetit nuk është i vlefshëm.",
-      };
-    }
+    const { customerId, plate, brand, model, year, vin } =
+      validationResult.data;
 
     const customerValidation = await validateCustomerOwnership(
       customerId,
@@ -126,6 +116,7 @@ export async function createVehicle(formData) {
         businessId,
         plate,
       },
+
       select: {
         id: true,
       },
@@ -144,6 +135,7 @@ export async function createVehicle(formData) {
           businessId,
           vin,
         },
+
         select: {
           id: true,
         },
@@ -164,10 +156,11 @@ export async function createVehicle(formData) {
           customerId: customerValidation.customerId,
           plate,
           brand,
-          model: model || null,
+          model,
           year,
-          vin: vin || null,
+          vin,
         },
+
         select: {
           id: true,
           customerId: true,
@@ -184,12 +177,16 @@ export async function createVehicle(formData) {
         entityType: "VEHICLE",
         entityId: vehicle.id,
         title: `U krijua automjeti ${vehicle.plate}`,
-        description: `Automjeti "${vehicle.brand} ${vehicle.model || ""}" me targë "${vehicle.plate}" u regjistrua në sistem.`,
+        description: `Automjeti "${vehicle.brand} ${
+          vehicle.model || ""
+        }" me targë "${vehicle.plate}" u regjistrua në sistem.`,
         newValues: getVehicleAuditValues(vehicle),
+
         metadata: {
           source: "vehicle-actions",
           operation: "createVehicle",
         },
+
         database: transaction,
       });
     });
@@ -223,45 +220,27 @@ export async function updateVehicle(formData) {
 
     const { businessId } = context;
 
-    const id = getFormString(formData, "id");
-    const customerId = getFormString(formData, "customerId");
-    const plate = getFormString(formData, "plate").toUpperCase();
-    const brand = getFormString(formData, "brand");
-    const model = getFormString(formData, "model");
-    const yearValue = getFormString(formData, "year");
-    const vin = getFormString(formData, "vin").toUpperCase();
+    const validationResult = validateFormData(updateVehicleSchema, formData);
 
-    if (!id) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e automjetit mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Të dhënat e automjetit nuk janë të vlefshme.",
+        ),
       };
     }
 
-    if (!plate || !brand) {
-      return {
-        success: false,
-        message: "Targa dhe marka janë të detyrueshme.",
-      };
-    }
-
-    const year = yearValue ? Number(yearValue) : null;
-
-    if (
-      year !== null &&
-      (!Number.isInteger(year) || year < 1900 || year > 2100)
-    ) {
-      return {
-        success: false,
-        message: "Viti i automjetit nuk është i vlefshëm.",
-      };
-    }
+    const { id, customerId, plate, brand, model, year, vin } =
+      validationResult.data;
 
     const vehicle = await db.vehicle.findFirst({
       where: {
         id,
         businessId,
       },
+
       select: {
         id: true,
         customerId: true,
@@ -296,10 +275,12 @@ export async function updateVehicle(formData) {
       where: {
         businessId,
         plate,
+
         NOT: {
           id: vehicle.id,
         },
       },
+
       select: {
         id: true,
       },
@@ -317,10 +298,12 @@ export async function updateVehicle(formData) {
         where: {
           businessId,
           vin,
+
           NOT: {
             id: vehicle.id,
           },
         },
+
         select: {
           id: true,
         },
@@ -339,14 +322,16 @@ export async function updateVehicle(formData) {
         where: {
           id: vehicle.id,
         },
+
         data: {
           customerId: customerValidation.customerId,
           plate,
           brand,
-          model: model || null,
+          model,
           year,
-          vin: vin || null,
+          vin,
         },
+
         select: {
           id: true,
           customerId: true,
@@ -366,10 +351,12 @@ export async function updateVehicle(formData) {
         description: `Të dhënat e automjetit me targë "${updatedVehicle.plate}" u përditësuan.`,
         oldValues: getVehicleAuditValues(vehicle),
         newValues: getVehicleAuditValues(updatedVehicle),
+
         metadata: {
           source: "vehicle-actions",
           operation: "updateVehicle",
         },
+
         database: transaction,
       });
     });
@@ -405,18 +392,28 @@ export async function deleteVehicle(vehicleId) {
 
     const { businessId } = context;
 
-    if (!vehicleId || typeof vehicleId !== "string") {
+    const validationResult = validateObject(deleteVehicleSchema, {
+      vehicleId,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e automjetit mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "ID e automjetit mungon.",
+        ),
       };
     }
 
+    const validatedVehicleId = validationResult.data.vehicleId;
+
     const vehicle = await db.vehicle.findFirst({
       where: {
-        id: vehicleId,
+        id: validatedVehicleId,
         businessId,
       },
+
       select: {
         id: true,
         customerId: true,
@@ -479,12 +476,16 @@ export async function deleteVehicle(vehicleId) {
         entityType: "VEHICLE",
         entityId: vehicle.id,
         title: `U fshi automjeti ${vehicle.plate}`,
-        description: `Automjeti "${vehicle.brand} ${vehicle.model || ""}" me targë "${vehicle.plate}" u fshi nga sistemi.`,
+        description: `Automjeti "${vehicle.brand} ${
+          vehicle.model || ""
+        }" me targë "${vehicle.plate}" u fshi nga sistemi.`,
         oldValues: getVehicleAuditValues(vehicle),
+
         metadata: {
           source: "vehicle-actions",
           operation: "deleteVehicle",
         },
+
         database: transaction,
       });
     });
