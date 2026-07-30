@@ -5,27 +5,17 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  createCustomerSchema,
+  deleteCustomerSchema,
+  updateCustomerSchema,
+} from "@/schemas/customer-schema";
 import { logCreate, logDelete, logUpdate } from "@/services/audit-events";
-
-function getOptionalFormValue(formData, fieldName) {
-  const value = formData.get(fieldName);
-
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmedValue = value.trim();
-
-  return trimmedValue || null;
-}
-
-function validateEmail(email) {
-  if (!email) {
-    return true;
-  }
-
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
 
 function getCustomerAuditValues(customer) {
   if (!customer) {
@@ -48,18 +38,18 @@ export async function createCustomer(formData) {
 
   const { businessId } = context;
 
-  const name = getOptionalFormValue(formData, "name");
-  const phone = getOptionalFormValue(formData, "phone");
-  const email = getOptionalFormValue(formData, "email");
-  const city = getOptionalFormValue(formData, "city");
+  const validationResult = validateFormData(createCustomerSchema, formData);
 
-  if (!name) {
-    throw new Error("Emri është i detyrueshëm.");
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "Të dhënat e klientit nuk janë të vlefshme.",
+      ),
+    );
   }
 
-  if (!validateEmail(email)) {
-    throw new Error("Adresa e email-it nuk është e vlefshme.");
-  }
+  const { name, phone, email, city } = validationResult.data;
 
   await db.$transaction(async (transaction) => {
     const customer = await transaction.customer.create({
@@ -70,6 +60,7 @@ export async function createCustomer(formData) {
         email,
         city,
       },
+
       select: {
         id: true,
         name: true,
@@ -86,10 +77,12 @@ export async function createCustomer(formData) {
       title: `U krijua klienti ${customer.name}`,
       description: `Klienti "${customer.name}" u regjistrua në sistem.`,
       newValues: getCustomerAuditValues(customer),
+
       metadata: {
         source: "customer-actions",
         operation: "createCustomer",
       },
+
       database: transaction,
     });
   });
@@ -105,29 +98,25 @@ export async function updateCustomer(formData) {
 
   const { businessId } = context;
 
-  const id = getOptionalFormValue(formData, "id");
-  const name = getOptionalFormValue(formData, "name");
-  const phone = getOptionalFormValue(formData, "phone");
-  const email = getOptionalFormValue(formData, "email");
-  const city = getOptionalFormValue(formData, "city");
+  const validationResult = validateFormData(updateCustomerSchema, formData);
 
-  if (!id) {
-    throw new Error("ID e klientit mungon.");
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "Të dhënat e klientit nuk janë të vlefshme.",
+      ),
+    );
   }
 
-  if (!name) {
-    throw new Error("Emri është i detyrueshëm.");
-  }
-
-  if (!validateEmail(email)) {
-    throw new Error("Adresa e email-it nuk është e vlefshme.");
-  }
+  const { id, name, phone, email, city } = validationResult.data;
 
   const existingCustomer = await db.customer.findFirst({
     where: {
       id,
       businessId,
     },
+
     select: {
       id: true,
       name: true,
@@ -146,12 +135,14 @@ export async function updateCustomer(formData) {
       where: {
         id: existingCustomer.id,
       },
+
       data: {
         name,
         phone,
         email,
         city,
       },
+
       select: {
         id: true,
         name: true,
@@ -169,10 +160,12 @@ export async function updateCustomer(formData) {
       description: `Të dhënat e klientit "${updatedCustomer.name}" u përditësuan.`,
       oldValues: getCustomerAuditValues(existingCustomer),
       newValues: getCustomerAuditValues(updatedCustomer),
+
       metadata: {
         source: "customer-actions",
         operation: "updateCustomer",
       },
+
       database: transaction,
     });
   });
@@ -190,18 +183,28 @@ export async function deleteCustomer(customerId) {
 
     const { businessId } = context;
 
-    if (!customerId || typeof customerId !== "string") {
+    const validationResult = validateObject(deleteCustomerSchema, {
+      customerId,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e klientit mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "ID e klientit mungon.",
+        ),
       };
     }
 
+    const validatedCustomerId = validationResult.data.customerId;
+
     const customer = await db.customer.findFirst({
       where: {
-        id: customerId,
+        id: validatedCustomerId,
         businessId,
       },
+
       select: {
         id: true,
         name: true,
@@ -279,10 +282,12 @@ export async function deleteCustomer(customerId) {
         title: `U fshi klienti ${customer.name}`,
         description: `Klienti "${customer.name}" u fshi nga sistemi.`,
         oldValues: getCustomerAuditValues(customer),
+
         metadata: {
           source: "customer-actions",
           operation: "deleteCustomer",
         },
+
         database: transaction,
       });
     });
