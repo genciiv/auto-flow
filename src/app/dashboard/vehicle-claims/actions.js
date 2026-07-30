@@ -4,15 +4,22 @@ import { revalidatePath } from "next/cache";
 
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { getFirstValidationMessage, validateObject } from "@/lib/validation";
+import {
+  approveBusinessVehicleClaimSchema,
+  rejectBusinessVehicleClaimSchema,
+} from "@/schemas/business-vehicle-claim-schema";
 
 async function getBusinessClaim(claimId, businessId) {
   return db.vehicleClaim.findFirst({
     where: {
       id: claimId,
+
       vehicle: {
         businessId,
       },
     },
+
     select: {
       id: true,
       status: true,
@@ -25,11 +32,18 @@ async function getBusinessClaim(claimId, businessId) {
 function revalidateClaimPaths(claim) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/vehicle-claims");
+
   revalidatePath("/customer/dashboard");
   revalidatePath("/customer/services");
   revalidatePath("/customer/vehicles");
+
   revalidatePath(`/customer/vehicles/${claim.customerVehicleId}`);
+
   revalidatePath(`/customer/vehicles/${claim.customerVehicleId}/claim`);
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  return error instanceof Error ? error.message : fallbackMessage;
 }
 
 export async function approveVehicleClaim(
@@ -40,50 +54,87 @@ export async function approveVehicleClaim(
   try {
     const { businessId } = await requireBusinessContext();
 
-    if (!claimId) {
+    const validationResult = validateObject(approveBusinessVehicleClaimSchema, {
+      claimId,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Kërkesa nuk u gjet.",
+
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Kërkesa nuk u gjet.",
+        ),
       };
     }
 
-    const claim = await getBusinessClaim(claimId, businessId);
+    const validatedClaimId = validationResult.data.claimId;
+
+    const claim = await getBusinessClaim(validatedClaimId, businessId);
 
     if (!claim) {
       return {
         success: false,
+
         message: "Kjo kërkesë nuk ekziston ose nuk i përket biznesit tuaj.",
       };
     }
 
-    await db.$transaction(async (tx) => {
-      await tx.vehicleClaim.update({
+    if (claim.status !== "PENDING") {
+      return {
+        success: false,
+
+        message:
+          claim.status === "APPROVED"
+            ? "Kjo kërkesë është aprovuar më parë."
+            : "Vetëm kërkesat në pritje mund të aprovohen.",
+      };
+    }
+
+    const reviewedAt = new Date();
+
+    await db.$transaction(async (transaction) => {
+      const updatedClaim = await transaction.vehicleClaim.updateMany({
         where: {
           id: claim.id,
+          status: "PENDING",
         },
+
         data: {
           status: "APPROVED",
           rejectionReason: null,
-          reviewedAt: new Date(),
+          reviewedAt,
         },
       });
 
-      await tx.customerVehicleLink.upsert({
+      if (updatedClaim.count !== 1) {
+        throw new Error(
+          "Kërkesa është përpunuar ndërkohë nga një përdorues tjetër.",
+        );
+      }
+
+      await transaction.customerVehicleLink.upsert({
         where: {
           customerVehicleId_vehicleId: {
             customerVehicleId: claim.customerVehicleId,
+
             vehicleId: claim.vehicleId,
           },
         },
+
         update: {
           isActive: true,
-          linkedAt: new Date(),
+          linkedAt: reviewedAt,
           unlinkedAt: null,
         },
+
         create: {
           customerVehicleId: claim.customerVehicleId,
+
           vehicleId: claim.vehicleId,
           isActive: true,
+          linkedAt: reviewedAt,
         },
       });
     });
@@ -92,6 +143,7 @@ export async function approveVehicleClaim(
 
     return {
       success: true,
+
       message: "Kërkesa u aprovua dhe automjeti u lidh me klientin.",
     };
   } catch (error) {
@@ -99,8 +151,11 @@ export async function approveVehicleClaim(
 
     return {
       success: false,
-      message:
-        error?.message || "Kërkesa nuk mund të aprovohej. Provo përsëri.",
+
+      message: getErrorMessage(
+        error,
+        "Kërkesa nuk mund të aprovohej. Provo përsëri.",
+      ),
     };
   }
 }
@@ -109,68 +164,81 @@ export async function rejectVehicleClaim(claimId, formData) {
   try {
     const { businessId } = await requireBusinessContext();
 
-    if (!claimId) {
+    const validationResult = validateObject(rejectBusinessVehicleClaimSchema, {
+      claimId,
+
+      rejectionReason:
+        formData instanceof FormData ? formData.get("rejectionReason") : "",
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Kërkesa nuk u gjet.",
+
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Kontrollo të dhënat e refuzimit.",
+        ),
       };
     }
 
-    const rejectionReason = String(
-      formData?.get("rejectionReason") || "",
-    ).trim();
+    const { claimId: validatedClaimId, rejectionReason } =
+      validationResult.data;
 
-    if (!rejectionReason) {
-      return {
-        success: false,
-        message: "Shkruaj arsyen e refuzimit.",
-      };
-    }
-
-    if (rejectionReason.length < 3) {
-      return {
-        success: false,
-        message: "Arsyeja e refuzimit duhet të ketë të paktën 3 karaktere.",
-      };
-    }
-
-    if (rejectionReason.length > 500) {
-      return {
-        success: false,
-        message: "Arsyeja e refuzimit nuk duhet të kalojë 500 karaktere.",
-      };
-    }
-
-    const claim = await getBusinessClaim(claimId, businessId);
+    const claim = await getBusinessClaim(validatedClaimId, businessId);
 
     if (!claim) {
       return {
         success: false,
+
         message: "Kjo kërkesë nuk ekziston ose nuk i përket biznesit tuaj.",
       };
     }
 
-    await db.$transaction(async (tx) => {
-      await tx.vehicleClaim.update({
+    if (claim.status !== "PENDING") {
+      return {
+        success: false,
+
+        message:
+          claim.status === "REJECTED"
+            ? "Kjo kërkesë është refuzuar më parë."
+            : "Vetëm kërkesat në pritje mund të refuzohen.",
+      };
+    }
+
+    const reviewedAt = new Date();
+
+    await db.$transaction(async (transaction) => {
+      const updatedClaim = await transaction.vehicleClaim.updateMany({
         where: {
           id: claim.id,
+          status: "PENDING",
         },
+
         data: {
           status: "REJECTED",
           rejectionReason,
-          reviewedAt: new Date(),
+          reviewedAt,
         },
       });
 
-      await tx.customerVehicleLink.updateMany({
+      if (updatedClaim.count !== 1) {
+        throw new Error(
+          "Kërkesa është përpunuar ndërkohë nga një përdorues tjetër.",
+        );
+      }
+
+      await transaction.customerVehicleLink.updateMany({
         where: {
           customerVehicleId: claim.customerVehicleId,
+
           vehicleId: claim.vehicleId,
           isActive: true,
         },
+
         data: {
           isActive: false,
-          unlinkedAt: new Date(),
+          unlinkedAt: reviewedAt,
         },
       });
     });
@@ -186,8 +254,11 @@ export async function rejectVehicleClaim(claimId, formData) {
 
     return {
       success: false,
-      message:
-        error?.message || "Kërkesa nuk mund të refuzohej. Provo përsëri.",
+
+      message: getErrorMessage(
+        error,
+        "Kërkesa nuk mund të refuzohej. Provo përsëri.",
+      ),
     };
   }
 }
