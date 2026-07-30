@@ -5,32 +5,23 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  createInvoiceSchema,
+  deleteInvoiceSchema,
+  updateInvoiceSchema,
+  updateInvoiceStatusSchema,
+} from "@/schemas/invoice-schema";
+import {
   logCreate,
   logDelete,
   logPayment,
   logStatusChange,
   logUpdate,
 } from "@/services/audit-events";
-
-const ALLOWED_STATUSES = ["DRAFT", "UNPAID", "PAID", "OVERDUE"];
-
-function normalizeOptionalId(value) {
-  const normalizedValue = String(value || "").trim();
-
-  return normalizedValue || null;
-}
-
-function normalizeStatus(value) {
-  const status = String(value || "DRAFT")
-    .trim()
-    .toUpperCase();
-
-  if (!ALLOWED_STATUSES.includes(status)) {
-    return "DRAFT";
-  }
-
-  return status;
-}
 
 function getStatusLabel(status) {
   const labels = {
@@ -77,10 +68,12 @@ async function generateInvoiceNumber(businessId) {
   const invoices = await db.invoice.findMany({
     where: {
       businessId,
+
       number: {
         startsWith: `INV-${currentYear}-`,
       },
     },
+
     select: {
       number: true,
     },
@@ -90,6 +83,7 @@ async function generateInvoiceNumber(businessId) {
 
   for (const invoice of invoices) {
     const numberParts = invoice.number.split("-");
+
     const sequence = Number(numberParts[numberParts.length - 1]);
 
     if (Number.isInteger(sequence) && sequence > highestNumber) {
@@ -112,6 +106,7 @@ async function getServiceData(serviceId, businessId) {
       id: serviceId,
       businessId,
     },
+
     select: {
       id: true,
       customerId: true,
@@ -137,6 +132,7 @@ async function validateCustomer(customerId, businessId) {
       id: customerId,
       businessId,
     },
+
     select: {
       id: true,
     },
@@ -159,6 +155,7 @@ async function validateVehicle(vehicleId, businessId) {
       id: vehicleId,
       businessId,
     },
+
     select: {
       id: true,
       customerId: true,
@@ -172,7 +169,7 @@ async function validateVehicle(vehicleId, businessId) {
   return vehicle;
 }
 
-function validateInvoiceTotal(value) {
+function validateServiceTotal(value) {
   const total = Number(value);
 
   if (!Number.isFinite(total)) {
@@ -213,19 +210,30 @@ function getErrorMessage(error) {
 export async function createInvoice(formData) {
   try {
     const context = await requireBusinessContext();
+
     const { businessId } = context;
 
-    const selectedCustomerId = normalizeOptionalId(formData.get("customerId"));
+    const validationResult = validateFormData(createInvoiceSchema, formData);
 
-    const selectedVehicleId = normalizeOptionalId(formData.get("vehicleId"));
+    if (!validationResult.success) {
+      return {
+        success: false,
 
-    const serviceId = normalizeOptionalId(formData.get("serviceId"));
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Fatura nuk mund të krijohej.",
+        ),
+      };
+    }
 
-    const requestedNumber = String(formData.get("number") || "").trim();
-
-    const requestedTotal = String(formData.get("total") || "").trim();
-
-    const status = normalizeStatus(formData.get("status"));
+    const {
+      customerId: selectedCustomerId,
+      vehicleId: selectedVehicleId,
+      serviceId,
+      number: requestedNumber,
+      total: validatedManualTotal,
+      status,
+    } = validationResult.data;
 
     let customerId = selectedCustomerId;
     let vehicleId = selectedVehicleId;
@@ -237,6 +245,7 @@ export async function createInvoice(formData) {
           businessId,
           serviceId,
         },
+
         select: {
           id: true,
           number: true,
@@ -246,6 +255,7 @@ export async function createInvoice(formData) {
       if (existingInvoice) {
         return {
           success: false,
+
           message: `Për këtë shërbim ekziston tashmë fatura ${existingInvoice.number}.`,
         };
       }
@@ -253,17 +263,12 @@ export async function createInvoice(formData) {
       const service = await getServiceData(serviceId, businessId);
 
       customerId = service.customerId || customerId;
-      vehicleId = service.vehicleId || vehicleId;
-      total = validateInvoiceTotal(service.total || 0);
-    } else {
-      if (!requestedTotal) {
-        return {
-          success: false,
-          message: "Totali i faturës është i detyrueshëm.",
-        };
-      }
 
-      total = validateInvoiceTotal(requestedTotal);
+      vehicleId = service.vehicleId || vehicleId;
+
+      total = validateServiceTotal(service.total || 0);
+    } else {
+      total = validatedManualTotal;
     }
 
     const validatedVehicle = await validateVehicle(vehicleId, businessId);
@@ -277,6 +282,7 @@ export async function createInvoice(formData) {
     ) {
       return {
         success: false,
+
         message: "Automjeti i zgjedhur nuk i përket klientit të zgjedhur.",
       };
     }
@@ -291,6 +297,7 @@ export async function createInvoice(formData) {
         businessId,
         number,
       },
+
       select: {
         id: true,
       },
@@ -299,6 +306,7 @@ export async function createInvoice(formData) {
     if (duplicateNumber) {
       return {
         success: false,
+
         message: "Ekziston tashmë një faturë me këtë numër.",
       };
     }
@@ -316,6 +324,7 @@ export async function createInvoice(formData) {
           status,
           total,
         },
+
         select: {
           id: true,
           customerId: true,
@@ -334,12 +343,18 @@ export async function createInvoice(formData) {
         entityType: "INVOICE",
         entityId: invoice.id,
         title: `U krijua fatura ${invoice.number}`,
-        description: `Fatura "${invoice.number}" me total ${invoice.total} u krijua me statusin "${getStatusLabel(invoice.status)}".`,
+
+        description: `Fatura "${invoice.number}" me total ${invoice.total} u krijua me statusin "${getStatusLabel(
+          invoice.status,
+        )}".`,
+
         newValues: getInvoiceAuditValues(invoice),
+
         metadata: {
           source: "invoice-actions",
           operation: "createInvoice",
         },
+
         database: transaction,
       });
 
@@ -348,14 +363,19 @@ export async function createInvoice(formData) {
           context,
           entityType: "INVOICE",
           entityId: invoice.id,
+
           title: `U regjistrua pagesa për faturën ${invoice.number}`,
+
           description: `Fatura "${invoice.number}" u krijua drejtpërdrejt si e paguar.`,
+
           amount: invoice.total,
+
           metadata: {
             source: "invoice-actions",
             operation: "createInvoice",
             invoiceNumber: invoice.number,
           },
+
           database: transaction,
         });
       }
@@ -366,6 +386,7 @@ export async function createInvoice(formData) {
     return {
       success: true,
       message: "Fatura u krijua me sukses.",
+
       invoice: {
         id: createdInvoice.id,
         number: createdInvoice.number,
@@ -384,20 +405,54 @@ export async function createInvoice(formData) {
 export async function updateInvoice(invoiceId, formData) {
   try {
     const context = await requireBusinessContext();
+
     const { businessId } = context;
 
-    if (!invoiceId || typeof invoiceId !== "string") {
+    const idValidationResult = validateObject(deleteInvoiceSchema, {
+      invoiceId,
+    });
+
+    if (!idValidationResult.success) {
       return {
         success: false,
-        message: "ID-ja e faturës mungon.",
+
+        message: getFirstValidationMessage(
+          idValidationResult.error,
+          "ID-ja e faturës mungon.",
+        ),
       };
     }
 
+    const validatedInvoiceId = idValidationResult.data.invoiceId;
+
+    const validationResult = validateFormData(updateInvoiceSchema, formData);
+
+    if (!validationResult.success) {
+      return {
+        success: false,
+
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Fatura nuk mund të përditësohej.",
+        ),
+      };
+    }
+
+    const {
+      customerId: selectedCustomerId,
+      vehicleId: selectedVehicleId,
+      serviceId,
+      number,
+      total: validatedManualTotal,
+      status,
+    } = validationResult.data;
+
     const existingInvoice = await db.invoice.findFirst({
       where: {
-        id: invoiceId,
+        id: validatedInvoiceId,
         businessId,
       },
+
       select: {
         id: true,
         customerId: true,
@@ -416,33 +471,16 @@ export async function updateInvoice(invoiceId, formData) {
       };
     }
 
-    const selectedCustomerId = normalizeOptionalId(formData.get("customerId"));
-
-    const selectedVehicleId = normalizeOptionalId(formData.get("vehicleId"));
-
-    const serviceId = normalizeOptionalId(formData.get("serviceId"));
-
-    const number = String(formData.get("number") || "").trim();
-
-    const requestedTotal = String(formData.get("total") || "").trim();
-
-    const status = normalizeStatus(formData.get("status"));
-
-    if (!number) {
-      return {
-        success: false,
-        message: "Numri i faturës është i detyrueshëm.",
-      };
-    }
-
     const duplicateNumber = await db.invoice.findFirst({
       where: {
         businessId,
         number,
+
         NOT: {
-          id: invoiceId,
+          id: existingInvoice.id,
         },
       },
+
       select: {
         id: true,
       },
@@ -451,6 +489,7 @@ export async function updateInvoice(invoiceId, formData) {
     if (duplicateNumber) {
       return {
         success: false,
+
         message: "Ekziston tashmë një faturë me këtë numër.",
       };
     }
@@ -464,10 +503,12 @@ export async function updateInvoice(invoiceId, formData) {
         where: {
           businessId,
           serviceId,
+
           NOT: {
-            id: invoiceId,
+            id: existingInvoice.id,
           },
         },
+
         select: {
           id: true,
           number: true,
@@ -477,6 +518,7 @@ export async function updateInvoice(invoiceId, formData) {
       if (serviceInvoice) {
         return {
           success: false,
+
           message: `Për këtë shërbim ekziston tashmë fatura ${serviceInvoice.number}.`,
         };
       }
@@ -484,17 +526,12 @@ export async function updateInvoice(invoiceId, formData) {
       const service = await getServiceData(serviceId, businessId);
 
       customerId = service.customerId || customerId;
-      vehicleId = service.vehicleId || vehicleId;
-      total = validateInvoiceTotal(service.total || 0);
-    } else {
-      if (!requestedTotal) {
-        return {
-          success: false,
-          message: "Totali i faturës është i detyrueshëm.",
-        };
-      }
 
-      total = validateInvoiceTotal(requestedTotal);
+      vehicleId = service.vehicleId || vehicleId;
+
+      total = validateServiceTotal(service.total || 0);
+    } else {
+      total = validatedManualTotal;
     }
 
     const validatedVehicle = await validateVehicle(vehicleId, businessId);
@@ -508,6 +545,7 @@ export async function updateInvoice(invoiceId, formData) {
     ) {
       return {
         success: false,
+
         message: "Automjeti i zgjedhur nuk i përket klientit të zgjedhur.",
       };
     }
@@ -520,6 +558,7 @@ export async function updateInvoice(invoiceId, formData) {
         where: {
           id: existingInvoice.id,
         },
+
         data: {
           customerId,
           vehicleId,
@@ -528,6 +567,7 @@ export async function updateInvoice(invoiceId, formData) {
           status,
           total,
         },
+
         select: {
           id: true,
           customerId: true,
@@ -543,14 +583,20 @@ export async function updateInvoice(invoiceId, formData) {
         context,
         entityType: "INVOICE",
         entityId: updatedInvoice.id,
+
         title: `U përditësua fatura ${updatedInvoice.number}`,
+
         description: `Të dhënat e faturës "${updatedInvoice.number}" u përditësuan.`,
+
         oldValues: getInvoiceAuditValues(existingInvoice),
+
         newValues: getInvoiceAuditValues(updatedInvoice),
+
         metadata: {
           source: "invoice-actions",
           operation: "updateInvoice",
         },
+
         database: transaction,
       });
 
@@ -559,17 +605,22 @@ export async function updateInvoice(invoiceId, formData) {
           context,
           entityType: "INVOICE",
           entityId: updatedInvoice.id,
+
           title: `Ndryshoi statusi i faturës ${updatedInvoice.number}`,
+
           description: `Statusi ndryshoi nga "${getStatusLabel(
             existingInvoice.status,
           )}" në "${getStatusLabel(updatedInvoice.status)}".`,
+
           oldStatus: existingInvoice.status,
           newStatus: updatedInvoice.status,
+
           metadata: {
             source: "invoice-actions",
             operation: "updateInvoice",
             invoiceNumber: updatedInvoice.number,
           },
+
           database: transaction,
         });
 
@@ -578,15 +629,20 @@ export async function updateInvoice(invoiceId, formData) {
             context,
             entityType: "INVOICE",
             entityId: updatedInvoice.id,
+
             title: `U regjistrua pagesa për faturën ${updatedInvoice.number}`,
+
             description: `Fatura "${updatedInvoice.number}" u shënua si e paguar.`,
+
             amount: updatedInvoice.total,
+
             metadata: {
               source: "invoice-actions",
               operation: "updateInvoice",
               invoiceNumber: updatedInvoice.number,
               previousStatus: existingInvoice.status,
             },
+
             database: transaction,
           });
         }
@@ -597,6 +653,7 @@ export async function updateInvoice(invoiceId, formData) {
 
     return {
       success: true,
+
       message: "Fatura u përditësua me sukses.",
     };
   } catch (error) {
@@ -608,34 +665,38 @@ export async function updateInvoice(invoiceId, formData) {
     };
   }
 }
+
 export async function updateInvoiceStatus(invoiceId, status) {
   try {
     const context = await requireBusinessContext();
+
     const { businessId } = context;
 
-    if (!invoiceId || typeof invoiceId !== "string") {
+    const validationResult = validateObject(updateInvoiceStatusSchema, {
+      invoiceId,
+      status,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID-ja e faturës mungon.",
+
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Statusi i zgjedhur nuk është i vlefshëm.",
+        ),
       };
     }
 
-    const normalizedStatus = String(status || "")
-      .trim()
-      .toUpperCase();
-
-    if (!ALLOWED_STATUSES.includes(normalizedStatus)) {
-      return {
-        success: false,
-        message: "Statusi i zgjedhur nuk është i vlefshëm.",
-      };
-    }
+    const { invoiceId: validatedInvoiceId, status: normalizedStatus } =
+      validationResult.data;
 
     const invoice = await db.invoice.findFirst({
       where: {
-        id: invoiceId,
+        id: validatedInvoiceId,
         businessId,
       },
+
       select: {
         id: true,
         customerId: true,
@@ -657,6 +718,7 @@ export async function updateInvoiceStatus(invoiceId, status) {
     if (invoice.status === normalizedStatus) {
       return {
         success: true,
+
         message:
           normalizedStatus === "PAID"
             ? "Fatura është tashmë e paguar."
@@ -669,9 +731,11 @@ export async function updateInvoiceStatus(invoiceId, status) {
         where: {
           id: invoice.id,
         },
+
         data: {
           status: normalizedStatus,
         },
+
         select: {
           id: true,
           customerId: true,
@@ -687,17 +751,22 @@ export async function updateInvoiceStatus(invoiceId, status) {
         context,
         entityType: "INVOICE",
         entityId: updatedInvoice.id,
+
         title: `Ndryshoi statusi i faturës ${updatedInvoice.number}`,
+
         description: `Statusi i faturës "${updatedInvoice.number}" ndryshoi nga "${getStatusLabel(
           invoice.status,
         )}" në "${getStatusLabel(updatedInvoice.status)}".`,
+
         oldStatus: invoice.status,
         newStatus: updatedInvoice.status,
+
         metadata: {
           source: "invoice-actions",
           operation: "updateInvoiceStatus",
           invoiceNumber: updatedInvoice.number,
         },
+
         database: transaction,
       });
 
@@ -706,15 +775,20 @@ export async function updateInvoiceStatus(invoiceId, status) {
           context,
           entityType: "INVOICE",
           entityId: updatedInvoice.id,
+
           title: `U regjistrua pagesa për faturën ${updatedInvoice.number}`,
+
           description: `Fatura "${updatedInvoice.number}" u shënua si e paguar me total ${updatedInvoice.total}.`,
+
           amount: updatedInvoice.total,
+
           metadata: {
             source: "invoice-actions",
             operation: "updateInvoiceStatus",
             invoiceNumber: updatedInvoice.number,
             previousStatus: invoice.status,
           },
+
           database: transaction,
         });
       }
@@ -724,6 +798,7 @@ export async function updateInvoiceStatus(invoiceId, status) {
 
     return {
       success: true,
+
       message:
         normalizedStatus === "PAID"
           ? "Fatura u shënua si e paguar."
@@ -742,20 +817,32 @@ export async function updateInvoiceStatus(invoiceId, status) {
 export async function deleteInvoice(invoiceId) {
   try {
     const context = await requireBusinessContext();
+
     const { businessId } = context;
 
-    if (!invoiceId || typeof invoiceId !== "string") {
+    const validationResult = validateObject(deleteInvoiceSchema, {
+      invoiceId,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID-ja e faturës mungon.",
+
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "ID-ja e faturës mungon.",
+        ),
       };
     }
 
+    const validatedInvoiceId = validationResult.data.invoiceId;
+
     const invoice = await db.invoice.findFirst({
       where: {
-        id: invoiceId,
+        id: validatedInvoiceId,
         businessId,
       },
+
       select: {
         id: true,
         customerId: true,
@@ -785,16 +872,21 @@ export async function deleteInvoice(invoiceId) {
         context,
         entityType: "INVOICE",
         entityId: invoice.id,
+
         title: `U fshi fatura ${invoice.number}`,
+
         description: `Fatura "${invoice.number}" me total ${invoice.total} dhe status "${getStatusLabel(
           invoice.status,
         )}" u fshi nga sistemi.`,
+
         oldValues: getInvoiceAuditValues(invoice),
+
         metadata: {
           source: "invoice-actions",
           operation: "deleteInvoice",
           invoiceNumber: invoice.number,
         },
+
         database: transaction,
       });
     });
