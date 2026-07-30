@@ -3,6 +3,16 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
+import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  createPlanSchema,
+  planIdObjectSchema,
+  updatePlanSchema,
+} from "@/schemas/plan-schema";
 import { createPlatformAuditLog } from "@/services/admin/activity-log-service";
 import {
   createPlan,
@@ -12,145 +22,8 @@ import {
   updatePlan,
 } from "@/services/admin/plan-service";
 
-function normalizeText(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeSlug(value) {
-  return normalizeText(value)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 function getAdminUserId(admin) {
   return admin?.user?.id ?? admin?.id ?? null;
-}
-
-function parseRequiredNumber(value, fieldLabel) {
-  const normalizedValue = normalizeText(value).replace(",", ".");
-
-  if (!normalizedValue) {
-    throw new Error(`${fieldLabel} është i detyrueshëm.`);
-  }
-
-  const parsedValue = Number(normalizedValue);
-
-  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
-    throw new Error(`${fieldLabel} duhet të jetë numër pozitiv.`);
-  }
-
-  return parsedValue;
-}
-
-function parseOptionalInteger(value, fieldLabel) {
-  const normalizedValue = normalizeText(value);
-
-  if (!normalizedValue) {
-    return null;
-  }
-
-  const parsedValue = Number.parseInt(normalizedValue, 10);
-
-  if (
-    !Number.isInteger(parsedValue) ||
-    parsedValue < 1 ||
-    String(parsedValue) !== normalizedValue
-  ) {
-    throw new Error(`${fieldLabel} duhet të jetë numër i plotë pozitiv.`);
-  }
-
-  return parsedValue;
-}
-
-function parseSortOrder(value) {
-  const normalizedValue = normalizeText(value);
-
-  if (!normalizedValue) {
-    return 0;
-  }
-
-  const parsedValue = Number.parseInt(normalizedValue, 10);
-
-  if (!Number.isInteger(parsedValue) || parsedValue < 0) {
-    throw new Error("Renditja duhet të jetë numër i plotë pozitiv.");
-  }
-
-  return parsedValue;
-}
-
-function parseFeatures(value) {
-  const normalizedValue = normalizeText(value);
-
-  if (!normalizedValue) {
-    return [];
-  }
-
-  return normalizedValue
-    .split("\n")
-    .map((feature) => feature.trim())
-    .filter(Boolean);
-}
-
-function getPlanData(formData) {
-  const name = normalizeText(formData.get("name"));
-  const slugInput = normalizeText(formData.get("slug"));
-  const description = normalizeText(formData.get("description"));
-
-  if (name.length < 2) {
-    throw new Error("Emri i planit duhet të ketë të paktën 2 karaktere.");
-  }
-
-  const slug = normalizeSlug(slugInput || name);
-
-  if (!slug) {
-    throw new Error("Slug-u i planit nuk është i vlefshëm.");
-  }
-
-  const monthlyPrice = parseRequiredNumber(
-    formData.get("monthlyPrice"),
-    "Çmimi mujor",
-  );
-
-  const yearlyPrice = parseRequiredNumber(
-    formData.get("yearlyPrice"),
-    "Çmimi vjetor",
-  );
-
-  const maxUsers = parseOptionalInteger(
-    formData.get("maxUsers"),
-    "Numri maksimal i përdoruesve",
-  );
-
-  const maxCustomers = parseOptionalInteger(
-    formData.get("maxCustomers"),
-    "Numri maksimal i klientëve",
-  );
-
-  const maxVehicles = parseOptionalInteger(
-    formData.get("maxVehicles"),
-    "Numri maksimal i automjeteve",
-  );
-
-  const sortOrder = parseSortOrder(formData.get("sortOrder"));
-  const features = parseFeatures(formData.get("features"));
-
-  return {
-    name,
-    slug,
-    description: description || null,
-    monthlyPrice,
-    yearlyPrice,
-    maxUsers,
-    maxCustomers,
-    maxVehicles,
-    features,
-    isActive: formData.get("isActive") === "on",
-    isRecommended: formData.get("isRecommended") === "on",
-    sortOrder,
-  };
 }
 
 function getPlanAuditValues(plan) {
@@ -194,14 +67,40 @@ function revalidatePlanPages(planId = null) {
   }
 }
 
+function validatePlanId(planId) {
+  const validationResult = validateObject(planIdObjectSchema, {
+    planId,
+  });
+
+  if (!validationResult.success) {
+    throw new Error(
+      getFirstValidationMessage(
+        validationResult.error,
+        "ID-ja e planit mungon.",
+      ),
+    );
+  }
+
+  return validationResult.data.planId;
+}
+
 export async function createPlanAction(formData) {
   const admin = await requirePlatformAdmin();
   const adminUserId = getAdminUserId(admin);
 
   try {
-    const data = getPlanData(formData);
+    const validationResult = validateFormData(createPlanSchema, formData);
 
-    const plan = await createPlan(data);
+    if (!validationResult.success) {
+      throw new Error(
+        getFirstValidationMessage(
+          validationResult.error,
+          "Të dhënat e planit nuk janë të vlefshme.",
+        ),
+      );
+    }
+
+    const plan = await createPlan(validationResult.data);
 
     await createPlatformAuditLog({
       userId: adminUserId,
@@ -229,18 +128,29 @@ export async function updatePlanAction(planId, formData) {
   const admin = await requirePlatformAdmin();
   const adminUserId = getAdminUserId(admin);
 
-  if (!planId) {
-    throw new Error("ID-ja e planit mungon.");
-  }
-
   try {
-    const existingPlan = await getPlanById(planId);
+    const validatedPlanId = validatePlanId(planId);
+
+    const existingPlan = await getPlanById(validatedPlanId);
 
     if (!existingPlan) {
       throw new Error("Plani nuk u gjet.");
     }
 
-    const data = getPlanData(formData);
+    const validationResult = validateFormData(updatePlanSchema, formData);
+
+    if (!validationResult.success) {
+      throw new Error(
+        getFirstValidationMessage(
+          validationResult.error,
+          "Të dhënat e planit nuk janë të vlefshme.",
+        ),
+      );
+    }
+
+    const data = {
+      ...validationResult.data,
+    };
 
     if (existingPlan.slug === "free-trial") {
       data.slug = "free-trial";
@@ -251,7 +161,7 @@ export async function updatePlanAction(planId, formData) {
     }
 
     const plan = await updatePlan({
-      planId,
+      planId: validatedPlanId,
       ...data,
     });
 
@@ -282,18 +192,20 @@ export async function togglePlanStatusAction(planId) {
   const admin = await requirePlatformAdmin();
   const adminUserId = getAdminUserId(admin);
 
-  if (!planId) {
-    throw new Error("ID-ja e planit mungon.");
-  }
-
   try {
-    const existingPlan = await getPlanById(planId);
+    const validatedPlanId = validatePlanId(planId);
+
+    const existingPlan = await getPlanById(validatedPlanId);
 
     if (!existingPlan) {
       throw new Error("Plani nuk u gjet.");
     }
 
-    const plan = await togglePlanStatus(planId);
+    if (existingPlan.slug === "free-trial") {
+      throw new Error("Free Trial duhet të mbetet gjithmonë aktiv.");
+    }
+
+    const plan = await togglePlanStatus(validatedPlanId);
 
     await createPlatformAuditLog({
       userId: adminUserId,
@@ -328,12 +240,10 @@ export async function toggleRecommendedPlanAction(planId) {
   const admin = await requirePlatformAdmin();
   const adminUserId = getAdminUserId(admin);
 
-  if (!planId) {
-    throw new Error("ID-ja e planit mungon.");
-  }
-
   try {
-    const existingPlan = await getPlanById(planId);
+    const validatedPlanId = validatePlanId(planId);
+
+    const existingPlan = await getPlanById(validatedPlanId);
 
     if (!existingPlan) {
       throw new Error("Plani nuk u gjet.");
@@ -349,7 +259,7 @@ export async function toggleRecommendedPlanAction(planId) {
       );
     }
 
-    const plan = await toggleRecommendedPlan(planId);
+    const plan = await toggleRecommendedPlan(validatedPlanId);
 
     await createPlatformAuditLog({
       userId: adminUserId,
