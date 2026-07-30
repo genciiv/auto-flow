@@ -5,41 +5,20 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  addPurchaseItemSchema,
+  receivePurchaseOrderSchema,
+} from "@/schemas/purchase-schema";
 
 function refreshPurchaseItemPages() {
   revalidatePath("/dashboard/purchases");
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
-}
-
-function getFormString(formData, fieldName) {
-  const value = formData.get(fieldName);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function parsePositiveNumber(value, fieldName) {
-  const number = Number(value);
-
-  if (!Number.isFinite(number) || number <= 0) {
-    throw new Error(`${fieldName} duhet të jetë më i madh se zero.`);
-  }
-
-  return number;
-}
-
-function parseNonNegativeNumber(value, fieldName) {
-  const number = value === null || value === "" ? 0 : Number(value);
-
-  if (!Number.isFinite(number) || number < 0) {
-    throw new Error(`${fieldName} duhet të jetë numër pozitiv.`);
-  }
-
-  return number;
 }
 
 function getErrorMessage(error, fallbackMessage) {
@@ -56,26 +35,20 @@ export async function addPurchaseItem(formData) {
       PERMISSIONS.PURCHASES_UPDATE,
     );
 
-    const purchaseOrderId = getFormString(formData, "purchaseOrderId");
+    const validationResult = validateFormData(addPurchaseItemSchema, formData);
 
-    const name = getFormString(formData, "name");
-
-    if (!purchaseOrderId || !name) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Porosia dhe emri i artikullit janë të detyrueshme.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Artikulli nuk mund të shtohej.",
+        ),
       };
     }
 
-    const quantity = parsePositiveNumber(
-      formData.get("quantity") || 1,
-      "Sasia",
-    );
-
-    const unitPrice = parseNonNegativeNumber(
-      formData.get("unitPrice"),
-      "Çmimi për njësi",
-    );
+    const { purchaseOrderId, name, quantity, unitPrice } =
+      validationResult.data;
 
     await db.$transaction(async (transaction) => {
       const purchase = await transaction.purchaseOrder.findFirst({
@@ -83,6 +56,7 @@ export async function addPurchaseItem(formData) {
           id: purchaseOrderId,
           businessId,
         },
+
         select: {
           id: true,
           status: true,
@@ -119,6 +93,7 @@ export async function addPurchaseItem(formData) {
         where: {
           purchaseOrderId: purchase.id,
         },
+
         _sum: {
           total: true,
         },
@@ -128,6 +103,7 @@ export async function addPurchaseItem(formData) {
         where: {
           id: purchase.id,
         },
+
         data: {
           total: Number(totals._sum.total ?? 0),
         },
@@ -169,19 +145,29 @@ export async function receivePurchaseOrder(purchaseOrderId) {
       };
     }
 
-    if (!purchaseOrderId || typeof purchaseOrderId !== "string") {
+    const validationResult = validateObject(receivePurchaseOrderSchema, {
+      purchaseOrderId,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e porosisë mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "ID e porosisë mungon.",
+        ),
       };
     }
+
+    const validatedPurchaseOrderId = validationResult.data.purchaseOrderId;
 
     await db.$transaction(async (transaction) => {
       const purchase = await transaction.purchaseOrder.findFirst({
         where: {
-          id: purchaseOrderId,
+          id: validatedPurchaseOrderId,
           businessId,
         },
+
         include: {
           items: true,
         },
@@ -203,20 +189,16 @@ export async function receivePurchaseOrder(purchaseOrderId) {
         throw new Error("Porosia nuk ka artikuj për t'u futur në magazinë.");
       }
 
-      /*
-       * Ky updateMany e rezervon porosinë për marrje.
-       * Nëse dy kërkesa provojnë njëkohësisht, vetëm njëra kalon.
-       * Nëse ndonjë veprim më poshtë dështon, transaction e kthen
-       * edhe statusin në gjendjen e mëparshme.
-       */
       const receivedUpdate = await transaction.purchaseOrder.updateMany({
         where: {
           id: purchase.id,
           businessId,
+
           status: {
             in: ["PENDING", "ORDERED"],
           },
         },
+
         data: {
           status: "RECEIVED",
         },
@@ -257,6 +239,7 @@ export async function receivePurchaseOrder(purchaseOrderId) {
             businessId,
             name: itemName,
           },
+
           select: {
             id: true,
           },
@@ -268,10 +251,12 @@ export async function receivePurchaseOrder(purchaseOrderId) {
               id: existingPart.id,
               businessId,
             },
+
             data: {
               stock: {
                 increment: quantity,
               },
+
               buyPrice: unitPrice,
               supplier: purchase.supplier,
             },

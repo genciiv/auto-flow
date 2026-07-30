@@ -5,33 +5,22 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
-
-const VALID_STATUSES = ["PENDING", "ORDERED", "CANCELLED"];
+import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  createPurchaseOrderSchema,
+  deletePurchaseOrderSchema,
+  updatePurchaseOrderSchema,
+  updatePurchaseStatusSchema,
+} from "@/schemas/purchase-schema";
 
 function refreshPurchasePages() {
   revalidatePath("/dashboard/purchases");
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
-}
-
-function getFormString(formData, fieldName) {
-  const value = formData.get(fieldName);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function parseNonNegativeNumber(value, fieldName) {
-  const number = value === null || value === "" ? 0 : Number(value);
-
-  if (!Number.isFinite(number) || number < 0) {
-    throw new Error(`${fieldName} duhet të jetë numër pozitiv.`);
-  }
-
-  return number;
 }
 
 function getErrorMessage(error, fallbackMessage) {
@@ -48,30 +37,22 @@ export async function createPurchaseOrder(formData) {
       PERMISSIONS.PURCHASES_CREATE,
     );
 
-    const supplier = getFormString(formData, "supplier");
-
-    const status = getFormString(formData, "status") || "PENDING";
-
-    const notes = getFormString(formData, "notes");
-
-    const total = parseNonNegativeNumber(
-      formData.get("total"),
-      "Totali i porosisë",
+    const validationResult = validateFormData(
+      createPurchaseOrderSchema,
+      formData,
     );
 
-    if (!supplier) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Furnitori është i detyrueshëm.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Porosia nuk mund të krijohej.",
+        ),
       };
     }
 
-    if (!VALID_STATUSES.includes(status)) {
-      return {
-        success: false,
-        message: "Statusi i zgjedhur nuk është i vlefshëm.",
-      };
-    }
+    const { supplier, status, total, notes } = validationResult.data;
 
     await db.purchaseOrder.create({
       data: {
@@ -79,7 +60,7 @@ export async function createPurchaseOrder(formData) {
         supplier,
         status,
         total,
-        notes: notes || null,
+        notes,
       },
     });
 
@@ -105,45 +86,29 @@ export async function updatePurchaseOrder(formData) {
       PERMISSIONS.PURCHASES_UPDATE,
     );
 
-    const id = getFormString(formData, "id");
-
-    const supplier = getFormString(formData, "supplier");
-
-    const status = getFormString(formData, "status");
-    const notes = getFormString(formData, "notes");
-
-    const total = parseNonNegativeNumber(
-      formData.get("total"),
-      "Totali i porosisë",
+    const validationResult = validateFormData(
+      updatePurchaseOrderSchema,
+      formData,
     );
 
-    if (!id) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e porosisë mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Porosia nuk mund të përditësohej.",
+        ),
       };
     }
 
-    if (!supplier) {
-      return {
-        success: false,
-        message: "Furnitori është i detyrueshëm.",
-      };
-    }
-
-    if (!VALID_STATUSES.includes(status)) {
-      return {
-        success: false,
-        message:
-          "Statusi nuk është i vlefshëm. Porosia merret në magazinë vetëm nga butoni përkatës.",
-      };
-    }
+    const { id, supplier, status, total, notes } = validationResult.data;
 
     const purchase = await db.purchaseOrder.findFirst({
       where: {
         id,
         businessId,
       },
+
       select: {
         id: true,
         status: true,
@@ -168,11 +133,12 @@ export async function updatePurchaseOrder(formData) {
       where: {
         id: purchase.id,
       },
+
       data: {
         supplier,
         status,
         total,
-        notes: notes || null,
+        notes,
       },
     });
 
@@ -198,25 +164,30 @@ export async function updatePurchaseStatus(purchaseId, status) {
       PERMISSIONS.PURCHASES_UPDATE,
     );
 
-    if (!purchaseId || typeof purchaseId !== "string") {
+    const validationResult = validateObject(updatePurchaseStatusSchema, {
+      purchaseId,
+      status,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e porosisë mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Statusi i zgjedhur nuk është i vlefshëm.",
+        ),
       };
     }
 
-    if (!VALID_STATUSES.includes(status)) {
-      return {
-        success: false,
-        message: "Statusi i zgjedhur nuk është i vlefshëm.",
-      };
-    }
+    const { purchaseId: validatedPurchaseId, status: validatedStatus } =
+      validationResult.data;
 
     const purchase = await db.purchaseOrder.findFirst({
       where: {
-        id: purchaseId,
+        id: validatedPurchaseId,
         businessId,
       },
+
       select: {
         id: true,
         status: true,
@@ -242,8 +213,9 @@ export async function updatePurchaseStatus(purchaseId, status) {
       where: {
         id: purchase.id,
       },
+
       data: {
-        status,
+        status: validatedStatus,
       },
     });
 
@@ -269,22 +241,33 @@ export async function deletePurchaseOrder(purchaseId) {
       PERMISSIONS.PURCHASES_DELETE,
     );
 
-    if (!purchaseId || typeof purchaseId !== "string") {
+    const validationResult = validateObject(deletePurchaseOrderSchema, {
+      purchaseId,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e porosisë mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "ID e porosisë mungon.",
+        ),
       };
     }
 
+    const validatedPurchaseId = validationResult.data.purchaseId;
+
     const purchase = await db.purchaseOrder.findFirst({
       where: {
-        id: purchaseId,
+        id: validatedPurchaseId,
         businessId,
       },
+
       select: {
         id: true,
         supplier: true,
         status: true,
+
         _count: {
           select: {
             items: true,
@@ -319,6 +302,7 @@ export async function deletePurchaseOrder(purchaseId) {
         where: {
           id: purchase.id,
           businessId,
+
           status: {
             not: "RECEIVED",
           },
