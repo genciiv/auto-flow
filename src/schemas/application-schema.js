@@ -1,63 +1,46 @@
 import { z } from "zod";
 
-const normalizeString = (value) => {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-};
-
-const normalizeEmail = (value) => {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim().toLowerCase();
-};
+import {
+  emailFormatRegex,
+  normalizedEmailStringSchema,
+  optionalStringSchema,
+  phoneSchema,
+  requiredStringSchema,
+} from "./common-schema";
 
 export const businessApplicationSchema = z.object({
-  businessName: z.preprocess(
-    normalizeString,
+  businessName: requiredStringSchema("Vendos emrin e biznesit.").pipe(
     z.string().min(2, {
       message: "Vendos emrin e biznesit.",
     }),
   ),
 
-  ownerName: z.preprocess(
-    normalizeString,
+  ownerName: requiredStringSchema("Vendos emrin e pronarit.").pipe(
     z.string().min(2, {
       message: "Vendos emrin e pronarit.",
     }),
   ),
 
-  email: z.preprocess(
-    normalizeEmail,
+  email: normalizedEmailStringSchema.pipe(
     z
       .string()
       .min(1, {
         message: "Vendos një adresë emaili të vlefshme.",
       })
-      .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
+      .regex(emailFormatRegex, {
         message: "Vendos një adresë emaili të vlefshme.",
       }),
   ),
 
-  phone: z.preprocess(
-    normalizeString,
-    z.string().min(6, {
-      message: "Vendos një numër telefoni të vlefshëm.",
-    }),
-  ),
+  phone: phoneSchema("Vendos një numër telefoni të vlefshëm."),
 
-  city: z.preprocess(
-    normalizeString,
+  city: requiredStringSchema("Vendos qytetin.").pipe(
     z.string().min(2, {
       message: "Vendos qytetin.",
     }),
   ),
 
-  address: z.preprocess(normalizeString, z.string()),
+  address: optionalStringSchema,
 
-  notes: z.preprocess(normalizeString, z.string()),
+  notes: optionalStringSchema,
 });

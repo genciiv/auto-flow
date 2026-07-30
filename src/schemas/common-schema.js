@@ -1,31 +1,62 @@
 import { z } from "zod";
 
 /**
- * Normalizon një string duke hequr hapësirat
- * në fillim dhe në fund.
+ * Kthen një string të pastruar.
+ *
+ * Vlerat jo-string kthehen në string bosh,
+ * që fushat e munguara të marrin mesazhin
+ * e validimit të përcaktuar nga schema.
  */
-export const trimmedStringSchema = z.preprocess((value) => {
+export function normalizeTrimmedString(value) {
   if (typeof value !== "string") {
-    return value;
+    return "";
   }
 
   return value.trim();
-}, z.string());
+}
 
 /**
- * Krijon një string të detyrueshëm dhe të normalizuar.
+ * Normalizon email-in:
+ * - heq hapësirat në fillim dhe fund;
+ * - e konverton në lowercase.
+ */
+export function normalizeEmail(value) {
+  return normalizeTrimmedString(value).toLowerCase();
+}
+
+/**
+ * Normalizon telefonin:
+ * - heq hapësirat në fillim dhe fund;
+ * - bashkon hapësirat e shumëfishta në një.
+ */
+export function normalizePhone(value) {
+  return normalizeTrimmedString(value).replace(/\s+/g, " ");
+}
+
+/**
+ * Kontrolli bazë i formatit të email-it.
+ *
+ * Ruhet i njëjti regex që përdornin formularët
+ * para centralizimit me Zod.
+ */
+export const emailFormatRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * String i normalizuar me trim().
+ */
+export const trimmedStringSchema = z.preprocess(
+  normalizeTrimmedString,
+  z.string(),
+);
+
+/**
+ * String i detyrueshëm dhe i normalizuar.
  */
 export function requiredStringSchema(
   message = "Kjo fushë është e detyrueshme.",
 ) {
   return z.preprocess(
-    (value) => {
-      if (typeof value !== "string") {
-        return value;
-      }
-
-      return value.trim();
-    },
+    normalizeTrimmedString,
     z.string().min(1, {
       message,
     }),
@@ -35,63 +66,56 @@ export function requiredStringSchema(
 /**
  * String opsional.
  *
- * Vlera:
- * - trim-ohet
- * - konvertohet në string bosh nëse mungon
- *
- * E mbajmë si string bosh sepse kjo është sjellja
- * aktuale e formularëve të AutoFlow.
+ * Fusha bosh ruhet si string bosh për të ruajtur
+ * sjelljen aktuale të formularëve të AutoFlow.
  */
-export const optionalStringSchema = z.preprocess((value) => {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}, z.string());
+export const optionalStringSchema = z.preprocess(
+  normalizeTrimmedString,
+  z.string(),
+);
 
 /**
- * Normalizon email-in:
- * - heq hapësirat
- * - e konverton në lowercase
+ * Email i normalizuar pa kontroll formati.
  *
- * Nuk kontrollon formatin automatikisht, sepse
- * login-i aktual kontrollon vetëm nëse email-i ekziston.
+ * Login-i kontrollon vetëm që email-i të mos jetë bosh.
  */
-export const normalizedEmailStringSchema = z.preprocess((value) => {
-  if (typeof value !== "string") {
-    return value;
-  }
-
-  return value.trim().toLowerCase();
-}, z.string());
+export const normalizedEmailStringSchema = z.preprocess(
+  normalizeEmail,
+  z.string(),
+);
 
 /**
- * Kontroll bazë i formatit të email-it.
+ * Telefon i detyrueshëm.
  *
- * Përdor të njëjtin rregull që përdorte më parë
- * application action.
- */
-export const emailFormatRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/**
- * Numër telefoni bazë.
- *
- * Nuk vendosim kufizime të forta për karakteret,
- * sepse rrjedha aktuale kontrollon vetëm gjatësinë.
+ * Bën vetëm trim dhe kontroll të gjatësisë,
+ * njësoj si aplikimi ekzistues i biznesit.
  */
 export function phoneSchema(
   message = "Vendos një numër telefoni të vlefshëm.",
 ) {
   return z.preprocess(
-    (value) => {
-      if (typeof value !== "string") {
-        return "";
-      }
-
-      return value.trim();
-    },
+    normalizeTrimmedString,
     z.string().min(6, {
+      message,
+    }),
+  );
+}
+
+/**
+ * Telefon opsional.
+ *
+ * Lejon string bosh. Kur ka vlerë:
+ * - normalizon hapësirat;
+ * - kërkon të paktën 6 karaktere.
+ *
+ * Përdoret te regjistrimi i klientit.
+ */
+export function optionalPhoneSchema(
+  message = "Numri i telefonit nuk është i vlefshëm.",
+) {
+  return z.preprocess(
+    normalizePhone,
+    z.string().refine((value) => value.length === 0 || value.length >= 6, {
       message,
     }),
   );

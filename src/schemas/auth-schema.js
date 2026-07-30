@@ -1,42 +1,24 @@
 import { z } from "zod";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function normalizeEmail(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim().toLowerCase();
-}
-
-function normalizeTrimmedString(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function normalizePhone(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim().replace(/\s+/g, " ");
-}
+import {
+  emailFormatRegex,
+  normalizedEmailStringSchema,
+  optionalPhoneSchema,
+  requiredStringSchema,
+} from "./common-schema";
 
 const requiredLoginMessage = "Plotëso email-in dhe password-in.";
 
+const requiredRegisterMessage = "Plotëso të gjitha fushat e detyrueshme.";
+
 export const loginSchema = z.object({
-  email: z.preprocess(
-    normalizeEmail,
+  email: normalizedEmailStringSchema.pipe(
     z.string().min(1, {
       message: requiredLoginMessage,
     }),
   ),
 
-  /*
+  /**
    * Password-i nuk trim-ohet.
    *
    * Kjo ruan sjelljen aktuale dhe lejon që një
@@ -49,13 +31,9 @@ export const loginSchema = z.object({
 
 export const registerSchema = z
   .object({
-    name: z.preprocess(
-      normalizeTrimmedString,
+    name: requiredStringSchema(requiredRegisterMessage).pipe(
       z
         .string()
-        .min(1, {
-          message: "Plotëso të gjitha fushat e detyrueshme.",
-        })
         .min(2, {
           message: "Emri duhet të ketë të paktën 2 karaktere.",
         })
@@ -64,35 +42,29 @@ export const registerSchema = z
         }),
     ),
 
-    email: z.preprocess(
-      normalizeEmail,
+    email: normalizedEmailStringSchema.pipe(
       z
         .string()
         .min(1, {
-          message: "Plotëso të gjitha fushat e detyrueshme.",
+          message: requiredRegisterMessage,
         })
-        .refine((value) => EMAIL_PATTERN.test(value), {
+        .refine((value) => emailFormatRegex.test(value), {
           message: "Vendos një adresë email-i të vlefshme.",
         }),
     ),
 
-    phone: z.preprocess(
-      normalizePhone,
-      z.string().refine((value) => value.length === 0 || value.length >= 6, {
-        message: "Numri i telefonit nuk është i vlefshëm.",
-      }),
-    ),
+    phone: optionalPhoneSchema("Numri i telefonit nuk është i vlefshëm."),
 
-    /*
+    /**
      * Password-et nuk trim-ohen.
      *
-     * Kjo ruan të njëjtën sjellje që kishte action-i
-     * para integrimit me Zod.
+     * Kjo ruan sjelljen që kishte register action
+     * përpara integrimit me Zod.
      */
     password: z
       .string()
       .min(1, {
-        message: "Plotëso të gjitha fushat e detyrueshme.",
+        message: requiredRegisterMessage,
       })
       .min(8, {
         message: "Password-i duhet të ketë të paktën 8 karaktere.",
@@ -102,7 +74,7 @@ export const registerSchema = z
       }),
 
     confirmPassword: z.string().min(1, {
-      message: "Plotëso të gjitha fushat e detyrueshme.",
+      message: requiredRegisterMessage,
     }),
   })
   .superRefine((data, context) => {
