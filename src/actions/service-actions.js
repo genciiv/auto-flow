@@ -6,23 +6,22 @@ import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
+  getFirstValidationMessage,
+  validateFormData,
+  validateObject,
+} from "@/lib/validation";
+import {
+  changeServiceStatusSchema,
+  createServiceSchema,
+  deleteServiceSchema,
+  updateServiceSchema,
+} from "@/schemas/service-schema";
+import {
   logCreate,
   logDelete,
   logStatusChange,
   logUpdate,
 } from "@/services/audit-events";
-
-const VALID_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
-
-function getFormString(formData, fieldName) {
-  const value = formData.get(fieldName);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
 
 function getPermissionErrorMessage(error) {
   if (
@@ -81,40 +80,27 @@ export async function createService(formData) {
 
     const { businessId } = context;
 
-    const vehicleId = getFormString(formData, "vehicleId");
-    const title = getFormString(formData, "title");
-    const description = getFormString(formData, "description");
-    const status = getFormString(formData, "status") || "PENDING";
-    const totalValue = getFormString(formData, "total");
+    const validationResult = validateFormData(createServiceSchema, formData);
 
-    if (!vehicleId || !title) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Automjeti dhe titulli janë të detyrueshme.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Të dhënat e shërbimit nuk janë të vlefshme.",
+        ),
       };
     }
 
-    if (!VALID_STATUSES.includes(status)) {
-      return {
-        success: false,
-        message: "Statusi i zgjedhur nuk është i vlefshëm.",
-      };
-    }
-
-    const total = totalValue ? Number(totalValue) : 0;
-
-    if (!Number.isFinite(total) || total < 0) {
-      return {
-        success: false,
-        message: "Totali i shërbimit nuk është i vlefshëm.",
-      };
-    }
+    const { vehicleId, title, description, status, total } =
+      validationResult.data;
 
     const vehicle = await db.vehicle.findFirst({
       where: {
         id: vehicleId,
         businessId,
       },
+
       select: {
         id: true,
         customerId: true,
@@ -140,10 +126,11 @@ export async function createService(formData) {
           vehicleId: vehicle.id,
           customerId: vehicle.customerId || null,
           title,
-          description: description || null,
+          description,
           status,
           total,
         },
+
         select: {
           id: true,
           vehicleId: true,
@@ -164,6 +151,7 @@ export async function createService(formData) {
         title: `U krijua shërbimi ${service.title}`,
         description: `Shërbimi "${service.title}" u krijua për automjetin me targë "${vehicle.plate}".`,
         newValues: getServiceAuditValues(service),
+
         metadata: {
           source: "service-actions",
           operation: "createService",
@@ -171,6 +159,7 @@ export async function createService(formData) {
           vehicleBrand: vehicle.brand,
           vehicleModel: vehicle.model,
         },
+
         database: transaction,
       });
     });
@@ -202,42 +191,20 @@ export async function updateService(formData) {
 
     const { businessId } = context;
 
-    const id = getFormString(formData, "id");
-    const vehicleId = getFormString(formData, "vehicleId");
-    const title = getFormString(formData, "title");
-    const description = getFormString(formData, "description");
-    const status = getFormString(formData, "status");
-    const totalValue = getFormString(formData, "total");
+    const validationResult = validateFormData(updateServiceSchema, formData);
 
-    if (!id) {
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e shërbimit mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Të dhënat e shërbimit nuk janë të vlefshme.",
+        ),
       };
     }
 
-    if (!vehicleId || !title) {
-      return {
-        success: false,
-        message: "Automjeti dhe titulli janë të detyrueshme.",
-      };
-    }
-
-    if (!VALID_STATUSES.includes(status)) {
-      return {
-        success: false,
-        message: "Statusi i zgjedhur nuk është i vlefshëm.",
-      };
-    }
-
-    const total = totalValue ? Number(totalValue) : 0;
-
-    if (!Number.isFinite(total) || total < 0) {
-      return {
-        success: false,
-        message: "Totali i shërbimit nuk është i vlefshëm.",
-      };
-    }
+    const { id, vehicleId, title, description, status, total } =
+      validationResult.data;
 
     const [existingService, vehicle] = await Promise.all([
       db.serviceRecord.findFirst({
@@ -245,6 +212,7 @@ export async function updateService(formData) {
           id,
           businessId,
         },
+
         select: {
           id: true,
           vehicleId: true,
@@ -261,6 +229,7 @@ export async function updateService(formData) {
           id: vehicleId,
           businessId,
         },
+
         select: {
           id: true,
           customerId: true,
@@ -290,14 +259,16 @@ export async function updateService(formData) {
         where: {
           id: existingService.id,
         },
+
         data: {
           vehicleId: vehicle.id,
           customerId: vehicle.customerId || null,
           title,
-          description: description || null,
+          description,
           status,
           total,
         },
+
         select: {
           id: true,
           vehicleId: true,
@@ -317,11 +288,13 @@ export async function updateService(formData) {
         description: `Të dhënat e shërbimit "${updatedService.title}" u përditësuan.`,
         oldValues: getServiceAuditValues(existingService),
         newValues: getServiceAuditValues(updatedService),
+
         metadata: {
           source: "service-actions",
           operation: "updateService",
           vehiclePlate: vehicle.plate,
         },
+
         database: transaction,
       });
 
@@ -336,11 +309,13 @@ export async function updateService(formData) {
           )}" në "${getStatusLabel(updatedService.status)}".`,
           oldStatus: existingService.status,
           newStatus: updatedService.status,
+
           metadata: {
             source: "service-actions",
             operation: "updateService",
             vehiclePlate: vehicle.plate,
           },
+
           database: transaction,
         });
       }
@@ -374,29 +349,35 @@ export async function updateServiceStatus(serviceId, status) {
 
     const { businessId } = context;
 
-    if (!serviceId || typeof serviceId !== "string") {
+    const validationResult = validateObject(changeServiceStatusSchema, {
+      serviceId,
+      status,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e shërbimit mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Statusi i zgjedhur nuk është i vlefshëm.",
+        ),
       };
     }
 
-    if (!VALID_STATUSES.includes(status)) {
-      return {
-        success: false,
-        message: "Statusi i zgjedhur nuk është i vlefshëm.",
-      };
-    }
+    const { serviceId: validatedServiceId, status: validatedStatus } =
+      validationResult.data;
 
     const service = await db.serviceRecord.findFirst({
       where: {
-        id: serviceId,
+        id: validatedServiceId,
         businessId,
       },
+
       select: {
         id: true,
         title: true,
         status: true,
+
         vehicle: {
           select: {
             plate: true,
@@ -412,7 +393,7 @@ export async function updateServiceStatus(serviceId, status) {
       };
     }
 
-    if (service.status === status) {
+    if (service.status === validatedStatus) {
       return {
         success: true,
         message: "Statusi është tashmë i përditësuar.",
@@ -424,9 +405,11 @@ export async function updateServiceStatus(serviceId, status) {
         where: {
           id: service.id,
         },
+
         data: {
-          status,
+          status: validatedStatus,
         },
+
         select: {
           id: true,
           title: true,
@@ -444,11 +427,13 @@ export async function updateServiceStatus(serviceId, status) {
         )}" në "${getStatusLabel(updatedService.status)}".`,
         oldStatus: service.status,
         newStatus: updatedService.status,
+
         metadata: {
           source: "service-actions",
           operation: "updateServiceStatus",
           vehiclePlate: service.vehicle?.plate || null,
         },
+
         database: transaction,
       });
     });
@@ -480,18 +465,28 @@ export async function deleteService(serviceId) {
 
     const { businessId } = context;
 
-    if (!serviceId || typeof serviceId !== "string") {
+    const validationResult = validateObject(deleteServiceSchema, {
+      serviceId,
+    });
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "ID e shërbimit mungon.",
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "ID e shërbimit mungon.",
+        ),
       };
     }
 
+    const validatedServiceId = validationResult.data.serviceId;
+
     const service = await db.serviceRecord.findFirst({
       where: {
-        id: serviceId,
+        id: validatedServiceId,
         businessId,
       },
+
       select: {
         id: true,
         vehicleId: true,
@@ -557,8 +552,11 @@ export async function deleteService(serviceId) {
         entityType: "SERVICE",
         entityId: service.id,
         title: `U fshi shërbimi ${service.title}`,
-        description: `Shërbimi "${service.title}" për automjetin me targë "${service.vehicle?.plate || "pa targë"}" u fshi nga sistemi.`,
+        description: `Shërbimi "${service.title}" për automjetin me targë "${
+          service.vehicle?.plate || "pa targë"
+        }" u fshi nga sistemi.`,
         oldValues: getServiceAuditValues(service),
+
         metadata: {
           source: "service-actions",
           operation: "deleteService",
@@ -566,6 +564,7 @@ export async function deleteService(serviceId) {
           vehicleBrand: service.vehicle?.brand || null,
           vehicleModel: service.vehicle?.model || null,
         },
+
         database: transaction,
       });
     });
