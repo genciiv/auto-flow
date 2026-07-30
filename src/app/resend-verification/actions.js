@@ -1,38 +1,44 @@
 "use server";
 
-import { db } from "@/lib/db";
 import { authTokenService } from "@/lib/auth-tokens";
+import { db } from "@/lib/db";
 import {
   EMAIL_CONFIG,
   emailVerificationTemplate,
   sendEmail,
 } from "@/lib/email";
+import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
+import { resendVerificationSchema } from "@/schemas/auth-schema";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GENERIC_SUCCESS_MESSAGE =
+  "Nëse ekziston një llogari e paverifikuar me këtë email, do të marrësh një link të ri.";
+
+const initialResendVerificationState = {
+  error: null,
+  success: false,
+  message: null,
+};
 
 export async function resendVerificationAction(previousState, formData) {
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
+  const validationResult = validateFormData(resendVerificationSchema, formData);
 
-  if (!email) {
+  if (!validationResult.success) {
     return {
-      error: "Vendos adresën e email-it.",
-      success: false,
+      ...initialResendVerificationState,
+      error: getFirstValidationMessage(
+        validationResult.error,
+        "Vendos një adresë email-i të vlefshme.",
+      ),
     };
   }
 
-  if (!EMAIL_PATTERN.test(email)) {
-    return {
-      error: "Vendos një adresë email-i të vlefshme.",
-      success: false,
-    };
-  }
+  const { email } = validationResult.data;
 
   const user = await db.user.findUnique({
     where: {
       email,
     },
+
     select: {
       id: true,
       name: true,
@@ -42,16 +48,16 @@ export async function resendVerificationAction(previousState, formData) {
     },
   });
 
-  /*
-   * Nuk zbulojmë nëse një email ekziston apo jo.
-   * Kjo shmang kontrollimin masiv të adresave të regjistruara.
+  /**
+   * Nuk zbulojmë nëse email-i ekziston.
+   * Kjo shmang kontrollimin masiv të adresave
+   * të regjistruara në platformë.
    */
   if (!user) {
     return {
       error: null,
       success: true,
-      message:
-        "Nëse ekziston një llogari e paverifikuar me këtë email, do të marrësh një link të ri.",
+      message: GENERIC_SUCCESS_MESSAGE,
     };
   }
 
@@ -59,6 +65,7 @@ export async function resendVerificationAction(previousState, formData) {
     return {
       error: "Kjo llogari është çaktivizuar. Kontakto mbështetjen e AutoFlow.",
       success: false,
+      message: null,
     };
   }
 
@@ -80,6 +87,7 @@ export async function resendVerificationAction(previousState, formData) {
     return {
       error: `Prit edhe rreth ${minutes} minutë para se të kërkosh një link tjetër.`,
       success: false,
+      message: null,
     };
   }
 
@@ -113,6 +121,7 @@ export async function resendVerificationAction(previousState, formData) {
       error:
         "Email-i i verifikimit nuk mund të dërgohej. Provo përsëri pas pak.",
       success: false,
+      message: null,
     };
   }
 }

@@ -11,6 +11,17 @@ const requiredLoginMessage = "Plotëso email-in dhe password-in.";
 
 const requiredRegisterMessage = "Plotëso të gjitha fushat e detyrueshme.";
 
+const accountEmailSchema = normalizedEmailStringSchema.pipe(
+  z
+    .string()
+    .min(1, {
+      message: "Vendos adresën e email-it.",
+    })
+    .refine((value) => emailFormatRegex.test(value), {
+      message: "Vendos një adresë email-i të vlefshme.",
+    }),
+);
+
 export const loginSchema = z.object({
   email: normalizedEmailStringSchema.pipe(
     z.string().min(1, {
@@ -88,16 +99,11 @@ export const registerSchema = z
   });
 
 export const forgotPasswordSchema = z.object({
-  email: normalizedEmailStringSchema.pipe(
-    z
-      .string()
-      .min(1, {
-        message: "Vendos adresën e email-it.",
-      })
-      .refine((value) => emailFormatRegex.test(value), {
-        message: "Vendos një adresë email-i të vlefshme.",
-      }),
-  ),
+  email: accountEmailSchema,
+});
+
+export const resendVerificationSchema = z.object({
+  email: accountEmailSchema,
 });
 
 export const resetPasswordSchema = z
@@ -115,8 +121,9 @@ export const resetPasswordSchema = z
       }),
     ),
 
-    /*
+    /**
      * Password-et nuk trim-ohen.
+     *
      * Kjo ruan sjelljen ekzistuese.
      */
     password: z
