@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { requireCustomerActionContext } from "@/lib/customer-context";
+import { getFirstValidationMessage, validateObject } from "@/lib/validation";
+import { notificationIdSchema } from "@/schemas/notification-schema";
 import {
   deleteUserNotification,
   markAllUserNotificationsAsRead,
@@ -14,21 +16,53 @@ function revalidateNotificationPaths() {
   revalidatePath("/customer/dashboard");
   revalidatePath("/customer/favorites");
   revalidatePath("/customer/listings");
+  revalidatePath("/customer/inquiries");
+  revalidatePath("/customer/services");
+  revalidatePath("/customer/vehicles");
+}
+
+function validateNotificationId(notificationId) {
+  const validationResult = validateObject(notificationIdSchema, {
+    notificationId,
+  });
+
+  if (!validationResult.success) {
+    return {
+      success: false,
+      notificationId: null,
+      message: getFirstValidationMessage(
+        validationResult.error,
+        "Njoftimi nuk u gjet.",
+      ),
+    };
+  }
+
+  return {
+    success: true,
+    notificationId: validationResult.data.notificationId,
+    message: null,
+  };
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  return error instanceof Error ? error.message : fallbackMessage;
 }
 
 export async function markNotificationAsReadAction(notificationId) {
   try {
     const { userId } = await requireCustomerActionContext();
 
-    if (!notificationId || typeof notificationId !== "string") {
+    const validationResult = validateNotificationId(notificationId);
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Njoftimi nuk u gjet.",
+        message: validationResult.message,
       };
     }
 
     const updated = await markUserNotificationAsRead({
-      notificationId,
+      notificationId: validationResult.notificationId,
       userId,
     });
 
@@ -50,7 +84,7 @@ export async function markNotificationAsReadAction(notificationId) {
 
     return {
       success: false,
-      message: error?.message || "Njoftimi nuk mund të përditësohej.",
+      message: getErrorMessage(error, "Njoftimi nuk mund të përditësohej."),
     };
   }
 }
@@ -72,7 +106,7 @@ export async function markAllNotificationsAsReadAction() {
 
     return {
       success: false,
-      message: error?.message || "Njoftimet nuk mund të përditësoheshin.",
+      message: getErrorMessage(error, "Njoftimet nuk mund të përditësoheshin."),
     };
   }
 }
@@ -81,15 +115,17 @@ export async function deleteNotificationAction(notificationId) {
   try {
     const { userId } = await requireCustomerActionContext();
 
-    if (!notificationId || typeof notificationId !== "string") {
+    const validationResult = validateNotificationId(notificationId);
+
+    if (!validationResult.success) {
       return {
         success: false,
-        message: "Njoftimi nuk u gjet.",
+        message: validationResult.message,
       };
     }
 
     const deleted = await deleteUserNotification({
-      notificationId,
+      notificationId: validationResult.notificationId,
       userId,
     });
 
@@ -111,7 +147,7 @@ export async function deleteNotificationAction(notificationId) {
 
     return {
       success: false,
-      message: error?.message || "Njoftimi nuk mund të fshihej.",
+      message: getErrorMessage(error, "Njoftimi nuk mund të fshihej."),
     };
   }
 }
