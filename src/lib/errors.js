@@ -230,11 +230,27 @@ function normalizePrismaError(error) {
         cause: error,
       });
 
+    case "P2024":
+      return new AppError({
+        code: ERROR_CODES.DATABASE_ERROR,
+        message: "Databaza është përkohësisht e zënë. Provo përsëri.",
+        status: 503,
+        cause: error,
+      });
+
     case "P2025":
       return new AppError({
         code: ERROR_CODES.NOT_FOUND,
         message: "Rekordi që po kërkon nuk u gjet.",
         status: 404,
+        cause: error,
+      });
+
+    case "P2034":
+      return new AppError({
+        code: ERROR_CODES.CONFLICT,
+        message: "Veprimi pati konflikt me një proces tjetër. Provo përsëri.",
+        status: 409,
         cause: error,
       });
 
@@ -271,7 +287,7 @@ export function normalizeError(
   });
 }
 
-export function logServerError(context, error, metadata = null) {
+export function logServerError(context, error, metadata = null, requestId = null) {
   const normalizedError = normalizeError(error);
 
   const originalError = error instanceof Error ? error : null;
@@ -286,6 +302,8 @@ export function logServerError(context, error, metadata = null) {
     status: normalizedError.status,
 
     metadata,
+
+    requestId,
 
     stack:
       process.env.NODE_ENV === "development" ? originalError?.stack : undefined,

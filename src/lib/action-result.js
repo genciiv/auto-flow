@@ -1,10 +1,12 @@
 import { ERROR_CODES, normalizeError } from "@/lib/errors";
 import { getFieldErrors, getFirstValidationMessage } from "@/lib/validation";
+import { createRequestId } from "@/lib/request-context";
 
 export function actionSuccess({
   message = null,
   data = null,
   code = null,
+  requestId = createRequestId(),
 } = {}) {
   return {
     success: true,
@@ -12,6 +14,7 @@ export function actionSuccess({
     message,
     fieldErrors: {},
     data,
+    requestId,
 
     /*
      * Compatibility gjatë migrimit.
@@ -27,6 +30,7 @@ export function actionFailure({
   message = "Ndodhi një gabim i papritur. Provo përsëri.",
   fieldErrors = {},
   data = null,
+  requestId = createRequestId(),
 } = {}) {
   return {
     success: false,
@@ -34,6 +38,7 @@ export function actionFailure({
     message,
     fieldErrors,
     data,
+    requestId,
 
     /*
      * Compatibility me komponentët ekzistues.

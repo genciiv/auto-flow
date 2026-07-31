@@ -1,49 +1,34 @@
-import { NextResponse } from "next/server";
-
 import { auth } from "@/auth";
+import { apiError, apiFailure, apiSuccess } from "@/lib/api-response";
 import { db } from "@/lib/db";
+import { ERROR_CODES, logServerError } from "@/lib/errors";
+import { getRequestId } from "@/lib/request-context";
 import { getFirstValidationMessage, validateObject } from "@/lib/validation";
 import { globalSearchSchema } from "@/schemas/api-schema";
 
-function unauthorizedResponse() {
-  return NextResponse.json(
-    {
-      success: false,
-      message: "Duhet të identifikohesh.",
-      results: [],
-    },
-    {
-      status: 401,
-    },
-  );
+function unauthorizedResponse(requestId) {
+  return apiFailure({ code: ERROR_CODES.UNAUTHENTICATED, message: "Duhet të identifikohesh.", data: { results: [] }, status: 401, requestId });
 }
 
-function forbiddenResponse() {
-  return NextResponse.json(
-    {
-      success: false,
-      message: "Nuk ke akses në kërkimin e biznesit.",
-      results: [],
-    },
-    {
-      status: 403,
-    },
-  );
+function forbiddenResponse(requestId) {
+  return apiFailure({ code: ERROR_CODES.FORBIDDEN, message: "Nuk ke akses në kërkimin e biznesit.", data: { results: [] }, status: 403, requestId });
 }
 
 export async function GET(request) {
+  const requestId = getRequestId(request);
+
   try {
     const session = await auth();
 
     if (!session?.user?.id) {
-      return unauthorizedResponse();
+      return unauthorizedResponse(requestId);
     }
 
     const businessId = session.user.businessId;
     const businessRole = session.user.businessRole;
 
     if (!businessId || !businessRole) {
-      return forbiddenResponse();
+      return forbiddenResponse(requestId);
     }
 
     const { searchParams } = new URL(request.url);
@@ -53,28 +38,20 @@ export async function GET(request) {
     });
 
     if (!validationResult.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: getFirstValidationMessage(
-            validationResult.error,
-            "Kërkimi nuk është i vlefshëm.",
-          ),
-          results: [],
-        },
-        {
-          status: 400,
-        },
-      );
+      return apiFailure({
+        code: ERROR_CODES.VALIDATION_ERROR,
+        message: getFirstValidationMessage(validationResult.error, "Kërkimi nuk është i vlefshëm."),
+        fieldErrors: validationResult.fieldErrors,
+        data: { results: [] },
+        status: 400,
+        requestId,
+      });
     }
 
     const { query } = validationResult.data;
 
     if (query.length < 2) {
-      return NextResponse.json({
-        success: true,
-        results: [],
-      });
+      return apiSuccess({ data: { results: [] }, requestId });
     }
 
     const [customers, vehicles, invoices, services, parts] = await Promise.all([
@@ -532,22 +509,9 @@ export async function GET(request) {
       }),
     ];
 
-    return NextResponse.json({
-      success: true,
-      results,
-    });
+    return apiSuccess({ data: { results }, requestId });
   } catch (error) {
-    console.error("Global search error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Kërkimi nuk mund të përfundohej.",
-        results: [],
-      },
-      {
-        status: 500,
-      },
-    );
+    logServerError("api/search", error, null, requestId);
+    return apiError(error, { requestId, fallbackMessage: "Kërkimi nuk mund të përfundohej." });
   }
 }
