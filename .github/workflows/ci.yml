@@ -31,6 +31,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx prisma generate
       - run: npm run audit:ci
       - run: npm test
       - run: npm run lint
