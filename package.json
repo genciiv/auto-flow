@@ -9,7 +9,11 @@
     "lint": "eslint",
     "audit:errors": "node scripts/audit-error-handling.mjs",
     "audit:backend": "node scripts/audit-backend-error-handling.mjs",
-    "audit:security": "node scripts/audit-security-authorization.mjs"
+    "audit:security": "node scripts/audit-security-authorization.mjs",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/support/register.mjs --test --test-reporter=spec tests/index.test.mjs",
+    "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/support/register.mjs --test --test-reporter=spec tests/unit/index.test.mjs",
+    "test:contracts": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/support/register.mjs --test --test-reporter=spec tests/contracts/index.test.mjs",
+    "audit:tests": "node scripts/audit-automated-testing.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
