@@ -2,8 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import {
+  requireAnyBusinessActionPermission,
+  requireBusinessActionPermission,
+} from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   getFirstValidationMessage,
   validateFormData,
@@ -210,7 +214,9 @@ function getErrorMessage(error) {
 
 export async function createInvoice(formData) {
   try {
-    const context = await requireBusinessContext();
+    const context = await requireBusinessActionPermission(
+      PERMISSIONS.INVOICES_CREATE,
+    );
 
     const { businessId } = context;
 
@@ -405,7 +411,9 @@ export async function createInvoice(formData) {
 
 export async function updateInvoice(invoiceId, formData) {
   try {
-    const context = await requireBusinessContext();
+    const context = await requireBusinessActionPermission(
+      PERMISSIONS.INVOICES_UPDATE,
+    );
 
     const { businessId } = context;
 
@@ -669,7 +677,10 @@ export async function updateInvoice(invoiceId, formData) {
 
 export async function updateInvoiceStatus(invoiceId, status) {
   try {
-    const context = await requireBusinessContext();
+    const context = await requireAnyBusinessActionPermission([
+      PERMISSIONS.INVOICES_UPDATE,
+      PERMISSIONS.INVOICES_MARK_PAID,
+    ]);
 
     const { businessId } = context;
 
@@ -817,7 +828,9 @@ export async function updateInvoiceStatus(invoiceId, status) {
 
 export async function deleteInvoice(invoiceId) {
   try {
-    const context = await requireBusinessContext();
+    const context = await requireBusinessActionPermission(
+      PERMISSIONS.INVOICES_DELETE,
+    );
 
     const { businessId } = context;
 

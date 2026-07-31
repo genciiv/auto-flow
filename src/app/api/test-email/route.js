@@ -20,6 +20,18 @@ export async function POST(request) {
       return apiFailure({ code: ERROR_CODES.FORBIDDEN, message: "Nuk ke leje për të testuar sistemin e email-eve.", status: 403, requestId });
     }
 
+    if (
+      process.env.NODE_ENV === "production" &&
+      process.env.ENABLE_TEST_EMAIL_API !== "true"
+    ) {
+      return apiFailure({
+        code: ERROR_CODES.NOT_FOUND,
+        message: "Burimi nuk u gjet.",
+        status: 404,
+        requestId,
+      });
+    }
+
     let body;
     try {
       body = await request.json();

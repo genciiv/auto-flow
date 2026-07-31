@@ -4,6 +4,9 @@ import bcrypt from "bcryptjs";
 
 import { db } from "@/lib/db";
 
+const DUMMY_PASSWORD_HASH =
+  "$2b$12$KIXxP0D5RjQ1oZpjZx1x4eJ5aYj6fgl2w2l4vM2B2kL0Qz9oYjZrW";
+
 class EmailNotVerifiedError extends CredentialsSignin {
   code = "email_not_verified";
 }
@@ -90,14 +93,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
+        /*
+         * Kryejmë gjithmonë bcrypt.compare për të zvogëluar diferencën
+         * e kohës mes një email-i ekzistues dhe një email-i të panjohur.
+         */
+        const passwordHash =
+          user?.isActive && user?.passwordHash
+            ? user.passwordHash
+            : DUMMY_PASSWORD_HASH;
+
+        const passwordIsValid = await bcrypt.compare(password, passwordHash);
+
         if (!user || !user.isActive || !user.passwordHash) {
           return null;
         }
-
-        const passwordIsValid = await bcrypt.compare(
-          password,
-          user.passwordHash,
-        );
 
         if (!passwordIsValid) {
           return null;

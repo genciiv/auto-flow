@@ -1,5 +1,15 @@
+import { SECURITY_HEADERS } from "./src/lib/security-headers.mjs";
+
 /** @type {import("next").NextConfig} */
 const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: SECURITY_HEADERS,
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "55mb",
@@ -19,3 +29,4 @@ const nextConfig = {
 };
 
 export default nextConfig;
+

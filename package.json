@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "audit:errors": "node scripts/audit-error-handling.mjs",
-    "audit:backend": "node scripts/audit-backend-error-handling.mjs"
+    "audit:backend": "node scripts/audit-backend-error-handling.mjs",
+    "audit:security": "node scripts/audit-security-authorization.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

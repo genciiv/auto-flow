@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+import { createForbiddenError } from "@/lib/errors";
+
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import {
@@ -163,7 +165,7 @@ export async function requireBusinessActionPermission(permission) {
   const context = await requireBusinessContext();
 
   if (!hasPermission(context.businessRole, permission)) {
-    throw new Error("Nuk keni leje për të kryer këtë veprim.");
+    throw createForbiddenError("Nuk keni leje për të kryer këtë veprim.");
   }
 
   return context;
@@ -173,7 +175,7 @@ export async function requireAnyBusinessActionPermission(permissions = []) {
   const context = await requireBusinessContext();
 
   if (!hasAnyPermission(context.businessRole, permissions)) {
-    throw new Error("Nuk keni leje për të kryer këtë veprim.");
+    throw createForbiddenError("Nuk keni leje për të kryer këtë veprim.");
   }
 
   return context;
@@ -183,7 +185,7 @@ export async function requireAllBusinessActionPermissions(permissions = []) {
   const context = await requireBusinessContext();
 
   if (!hasAllPermissions(context.businessRole, permissions)) {
-    throw new Error("Nuk keni leje për të kryer këtë veprim.");
+    throw createForbiddenError("Nuk keni leje për të kryer këtë veprim.");
   }
 
   return context;
