@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 
@@ -19,8 +19,8 @@ function getAuthenticatedDestination(user) {
   }
 
   /*
-   * Aksesi në biznes ka përparësi ndaj portalit
-   * të klientit.
+   * Aksesi nÃ« biznes ka pÃ«rparÃ«si ndaj portalit
+   * tÃ« klientit.
    */
   if (user?.businessId && user?.businessRole) {
     return "/dashboard";
@@ -35,9 +35,9 @@ function getAuthenticatedDestination(user) {
 
 export default auth((request) => {
   /*
-   * Server Actions nuk duhet të ridrejtohen nga proxy.
-   * Përndryshe Next.js merr HTML redirect në vend të
-   * përgjigjes së Server Action-it.
+   * Server Actions nuk duhet tÃ« ridrejtohen nga proxy.
+   * PÃ«rndryshe Next.js merr HTML redirect nÃ« vend tÃ«
+   * pÃ«rgjigjes sÃ« Server Action-it.
    */
   const isServerAction =
     request.method === "POST" && request.headers.has("next-action");
@@ -64,14 +64,14 @@ export default auth((request) => {
   const isAuthenticationRoute = isLoginRoute || isRegisterRoute;
 
   /*
-   * Përdorues i paidentifikuar që kërkon faqe private.
+   * PÃ«rdorues i paidentifikuar qÃ« kÃ«rkon faqe private.
    */
   if (!isLoggedIn && (isAdminRoute || isDashboardRoute || isCustomerRoute)) {
     return redirectToLogin(request);
   }
 
   /*
-   * Përdorues i identifikuar që hap login/register.
+   * PÃ«rdorues i identifikuar qÃ« hap login/register.
    */
   if (isAuthenticationRoute && isLoggedIn) {
     const destination = getAuthenticatedDestination(user);
@@ -82,7 +82,7 @@ export default auth((request) => {
   }
 
   /*
-   * Vetëm platform admin mund të hapë /admin.
+   * VetÃ«m platform admin mund tÃ« hapÃ« /admin.
    */
   if (isAdminRoute && user?.globalRole !== "PLATFORM_ADMIN") {
     if (user?.businessId && user?.businessRole) {
@@ -97,8 +97,8 @@ export default auth((request) => {
   }
 
   /*
-   * Vetëm përdoruesit me BusinessUser aktiv mund
-   * të hapin dashboard-in e biznesit.
+   * VetÃ«m pÃ«rdoruesit me BusinessUser aktiv mund
+   * tÃ« hapin dashboard-in e biznesit.
    */
   if (isDashboardRoute) {
     const hasBusinessAccess =
@@ -120,9 +120,9 @@ export default auth((request) => {
   }
 
   /*
-   * Portali i klientit lejohet vetëm për CUSTOMER.
-   * Një CUSTOMER që ka edhe biznes mund ta hapë
-   * këtë portal manualisht.
+   * Portali i klientit lejohet vetÃ«m pÃ«r CUSTOMER.
+   * NjÃ« CUSTOMER qÃ« ka edhe biznes mund ta hapÃ«
+   * kÃ«tÃ« portal manualisht.
    */
   if (isCustomerRoute && user?.globalRole !== "CUSTOMER") {
     if (user?.globalRole === "PLATFORM_ADMIN") {
@@ -148,3 +148,4 @@ export const config = {
     "/customer/:path*",
   ],
 };
+

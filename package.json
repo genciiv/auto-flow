@@ -23,7 +23,10 @@
     "db:migrate:deploy": "node scripts/db/deploy-migrations.mjs",
     "db:backup": "node scripts/db/backup-postgres.mjs",
     "audit:rate-limit": "node scripts/audit-rate-limiting.mjs",
-    "audit:plans": "node scripts/audit-plan-enforcement.mjs"
+    "audit:plans": "node scripts/audit-plan-enforcement.mjs",
+    "test:integration": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/support/register.mjs --test --test-reporter=spec tests/integration/index.test.mjs",
+    "test:e2e": "node --test --test-reporter=spec tests/e2e/http-smoke.test.mjs",
+    "audit:e2e": "node scripts/audit-integration-e2e.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
