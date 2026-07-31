@@ -34,3 +34,22 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Database migrations dhe backup
+
+Workflow-i i databazës dokumentohet te:
+
+- `docs/database-migration-runbook.md`
+- `docs/database-backup-restore.md`
+- `DATABASE_SAFETY_MIGRATION_REPORT.md`
+
+Fillimi i sigurt:
+
+```bash
+npm run audit:database
+npm run db:baseline:generate
+npm run db:target
+npm run db:drift:check
+```
+
+Mos përdor `prisma migrate reset` mbi databazë me të dhëna reale.

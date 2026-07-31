@@ -13,7 +13,15 @@
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/support/register.mjs --test --test-reporter=spec tests/index.test.mjs",
     "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/support/register.mjs --test --test-reporter=spec tests/unit/index.test.mjs",
     "test:contracts": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/support/register.mjs --test --test-reporter=spec tests/contracts/index.test.mjs",
-    "audit:tests": "node scripts/audit-automated-testing.mjs"
+    "audit:tests": "node scripts/audit-automated-testing.mjs",
+    "audit:database": "node scripts/audit-database-safety.mjs",
+    "db:target": "node scripts/db/show-target.mjs",
+    "db:baseline:generate": "node scripts/db/generate-baseline.mjs",
+    "db:baseline:resolve": "node scripts/db/resolve-baseline.mjs",
+    "db:drift:check": "node scripts/db/check-drift.mjs",
+    "db:migrate:status": "node scripts/db/migration-status.mjs",
+    "db:migrate:deploy": "node scripts/db/deploy-migrations.mjs",
+    "db:backup": "node scripts/db/backup-postgres.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
