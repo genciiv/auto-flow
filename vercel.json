@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["fra1"],
+  "functions": {
+    "src/app/api/health/ready/route.js": { "maxDuration": 10 },
+    "src/app/api/health/live/route.js": { "maxDuration": 10 }
+  }
+}

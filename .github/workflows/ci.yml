@@ -23,6 +23,11 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/autoflow?schema=public
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/autoflow?schema=public
+      SUPABASE_URL: https://ci.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key-ci-service-role-key
+      SUPABASE_STORAGE_BUCKET: ci-bucket
+      RESEND_API_KEY: re_ci_only_key
+      EMAIL_FROM: AutoFlow <ci@example.com>
 
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +36,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx prisma generate
       - run: npm run audit:ci
       - run: npm test
       - run: npm run lint

@@ -28,7 +28,11 @@
     "test:e2e": "node --test --test-reporter=spec tests/e2e/http-smoke.test.mjs",
     "audit:e2e": "node scripts/audit-integration-e2e.mjs",
     "audit:observability": "node scripts/audit-observability-ci.mjs",
-    "audit:ci": "npm run audit:errors && npm run audit:backend && npm run audit:security && npm run audit:database && npm run audit:rate-limit && npm run audit:plans && npm run audit:e2e && npm run audit:observability"
+    "audit:ci": "npm run audit:errors && npm run audit:backend && npm run audit:security && npm run audit:database && npm run audit:rate-limit && npm run audit:plans && npm run audit:e2e && npm run audit:observability && npm run audit:deployment && npm run deploy:validate:ci",
+    "deploy:validate": "node scripts/deploy/validate-env.mjs",
+    "deploy:validate:ci": "node scripts/deploy/validate-env.mjs --target=development",
+    "deploy:verify": "node scripts/deploy/post-deploy-check.mjs",
+    "audit:deployment": "node scripts/audit-deployment-readiness.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
