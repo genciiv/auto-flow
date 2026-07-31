@@ -4,6 +4,7 @@ import { validateFormData } from "@/lib/validation";
 import { businessApplicationSchema } from "@/schemas/application-schema";
 import { getPlatformSettings } from "@/services/admin/settings-service";
 import { createBusinessApplication } from "@/services/application-service";
+import { protectPublicAction, rateLimitActionState } from "@/lib/public-action-protection";
 
 const initialErrorState = {
   success: false,
@@ -43,6 +44,7 @@ export async function submitBusinessApplicationAction(previousState, formData) {
     validationResult.data;
 
   try {
+    await protectPublicAction("businessApplication", email);
     await createBusinessApplication({
       businessName,
       ownerName,
@@ -60,6 +62,8 @@ export async function submitBusinessApplicationAction(previousState, formData) {
       fieldErrors: {},
     };
   } catch (error) {
+    const limited = rateLimitActionState(error, initialErrorState);
+    if (limited) return { ...limited, fieldErrors: {} };
     console.error("Business application error:", error);
 
     return {

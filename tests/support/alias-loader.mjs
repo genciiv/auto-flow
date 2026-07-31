@@ -6,6 +6,9 @@ const root = process.cwd();
 const nextServerMock = pathToFileURL(
   path.join(root, "tests/support/next-server.mock.mjs"),
 ).href;
+const nextHeadersMock = pathToFileURL(
+  path.join(root, "tests/support/next-headers.mock.mjs"),
+).href;
 
 async function resolveProjectFile(specifier) {
   const relativePath = specifier.slice(2);
@@ -35,6 +38,13 @@ export async function resolve(specifier, context, nextResolve) {
   if (specifier === "next/server") {
     return {
       url: nextServerMock,
+      shortCircuit: true,
+    };
+  }
+
+  if (specifier === "next/headers") {
+    return {
+      url: nextHeadersMock,
       shortCircuit: true,
     };
   }

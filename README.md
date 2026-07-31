@@ -53,3 +53,12 @@ npm run db:drift:check
 ```
 
 Mos përdor `prisma migrate reset` mbi databazë me të dhëna reale.
+
+## Rate limiting dhe brute-force protection
+
+```bash
+npm run audit:rate-limit
+npm test
+```
+
+Pas deploy-it të këtij versioni, aplikoni migration-et vetëm me `prisma migrate deploy`. Mos përdorni `migrate reset` në production.

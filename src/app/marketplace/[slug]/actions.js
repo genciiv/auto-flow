@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
 import { publicMarketplaceInquirySchema } from "@/schemas/marketplace-schema";
+import { protectPublicAction, rateLimitActionState } from "@/lib/public-action-protection";
 
 const initialResult = {
   success: false,
@@ -33,6 +34,7 @@ export async function createMarketplaceInquiryAction(previousState, formData) {
     validationResult.data;
 
   try {
+    await protectPublicAction("marketplaceInquiry", `${listingId}:${email}`);
     const listing = await db.marketplaceListing.findFirst({
       where: {
         id: listingId,
@@ -78,6 +80,8 @@ export async function createMarketplaceInquiryAction(previousState, formData) {
         "Kërkesa u dërgua me sukses. Shitësi do të të kontaktojë së shpejti.",
     };
   } catch (error) {
+    const limited = rateLimitActionState(error, initialResult);
+    if (limited) return limited;
     console.error("Gabim gjatë krijimit të kërkesës:", error);
 
     return {

@@ -5,6 +5,7 @@ import { ERROR_CODES, logServerError } from "@/lib/errors";
 import { getRequestId } from "@/lib/request-context";
 import { getFirstValidationMessage, validateObject } from "@/lib/validation";
 import { globalSearchSchema } from "@/schemas/api-schema";
+import { consumeRateLimit, getClientIpFromHeaders, RATE_LIMIT_POLICIES, rateLimitHeaders } from "@/lib/rate-limit";
 
 function unauthorizedResponse(requestId) {
   return apiFailure({ code: ERROR_CODES.UNAUTHENTICATED, message: "Duhet të identifikohesh.", data: { results: [] }, status: 401, requestId });
@@ -22,6 +23,16 @@ export async function GET(request) {
 
     if (!session?.user?.id) {
       return unauthorizedResponse(requestId);
+    }
+
+    const searchLimit = await consumeRateLimit({
+      scope: "search",
+      identifiers: [getClientIpFromHeaders(request.headers), session.user.id],
+      policy: RATE_LIMIT_POLICIES.search,
+    });
+
+    if (!searchLimit.allowed) {
+      return apiFailure({ code: ERROR_CODES.RATE_LIMITED, message: "Shumë kërkesa kërkimi. Provo përsëri pas pak.", status: 429, requestId, headers: rateLimitHeaders(searchLimit), data: { results: [] } });
     }
 
     const businessId = session.user.businessId;

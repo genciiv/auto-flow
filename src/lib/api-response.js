@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { ERROR_CODES, normalizeError } from "@/lib/errors";
 import { createRequestId, getRequestId } from "@/lib/request-context";
 
-function json(payload, { status = 200, requestId = createRequestId() } = {}) {
+function json(payload, { status = 200, requestId = createRequestId(), headers = {} } = {}) {
   return NextResponse.json(
     {
       ...payload,
@@ -16,6 +16,7 @@ function json(payload, { status = 200, requestId = createRequestId() } = {}) {
       headers: {
         "x-request-id": requestId,
         "cache-control": "no-store",
+        ...headers,
       },
     },
   );
@@ -41,6 +42,7 @@ export function apiFailure({
   data = null,
   requestId,
   status = 500,
+  headers = {},
 } = {}) {
   return json(
     {
@@ -50,7 +52,7 @@ export function apiFailure({
       fieldErrors,
       data,
     },
-    { status, requestId },
+    { status, requestId, headers },
   );
 }
 

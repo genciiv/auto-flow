@@ -18,6 +18,7 @@ import {
 import { ERROR_CODES, logServerError } from "@/lib/errors";
 import { validateFormData } from "@/lib/validation";
 import { registerSchema } from "@/schemas/auth-schema";
+import { protectPublicAction, rateLimitActionState } from "@/lib/public-action-protection";
 
 function registrationFailure({ code, message, fieldErrors = {}, data = null }) {
   return actionFailure({
@@ -40,6 +41,8 @@ export async function registerAction(previousState, formData) {
   const { name, email, phone, password } = validationResult.data;
 
   try {
+    await protectPublicAction("register", email);
+
     const existingUser = await db.user.findUnique({
       where: {
         email,
@@ -171,6 +174,9 @@ export async function registerAction(previousState, formData) {
       });
     }
   } catch (error) {
+    const limited = rateLimitActionState(error, { fieldErrors: {}, data: null });
+    if (limited) return limited;
+
     logServerError("registerAction", error);
 
     return errorFailure(error, {

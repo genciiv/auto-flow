@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { EMAIL_CONFIG, passwordResetTemplate, sendEmail } from "@/lib/email";
 import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
 import { forgotPasswordSchema } from "@/schemas/auth-schema";
+import { protectPublicAction, rateLimitActionState } from "@/lib/public-action-protection";
 
 const GENERIC_SUCCESS_MESSAGE =
   "Nëse ekziston një llogari me këtë email, do të marrësh udhëzimet për rivendosjen e password-it.";
@@ -29,6 +30,12 @@ export async function forgotPasswordAction(previousState, formData) {
   }
 
   const { email } = validationResult.data;
+
+  try {
+    await protectPublicAction("forgotPassword", email);
+  } catch (error) {
+    return rateLimitActionState(error, initialForgotPasswordState) ?? { ...initialForgotPasswordState, error: "Kërkesa nuk mund të përpunohej." };
+  }
 
   const user = await db.user.findUnique({
     where: {

@@ -9,6 +9,7 @@ import {
 } from "@/lib/email";
 import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
 import { resendVerificationSchema } from "@/schemas/auth-schema";
+import { protectPublicAction, rateLimitActionState } from "@/lib/public-action-protection";
 
 const GENERIC_SUCCESS_MESSAGE =
   "Nëse ekziston një llogari e paverifikuar me këtë email, do të marrësh një link të ri.";
@@ -33,6 +34,12 @@ export async function resendVerificationAction(previousState, formData) {
   }
 
   const { email } = validationResult.data;
+
+  try {
+    await protectPublicAction("resendVerification", email);
+  } catch (error) {
+    return rateLimitActionState(error, initialResendVerificationState) ?? { ...initialResendVerificationState, error: "Kërkesa nuk mund të përpunohej." };
+  }
 
   const user = await db.user.findUnique({
     where: {

@@ -5,3 +5,5 @@ import "./validation.test.mjs";
 import "./api-response.test.mjs";
 
 import "./database/database-safety.test.mjs";
+
+import "./security/rate-limit.test.mjs";

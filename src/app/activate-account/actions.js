@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { authTokenService } from "@/lib/auth-tokens";
 import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
 import { activateAccountSchema } from "@/schemas/auth-schema";
+import { protectPublicAction, rateLimitActionState } from "@/lib/public-action-protection";
 
 const initialActivateAccountState = {
   error: null,
@@ -40,6 +41,12 @@ export async function activateAccountAction(previousState, formData) {
   }
 
   const { token, password } = validationResult.data;
+
+  try {
+    await protectPublicAction("activateAccount", token.slice(0, 16));
+  } catch (error) {
+    return rateLimitActionState(error, initialActivateAccountState) ?? { ...initialActivateAccountState, error: "Kërkesa nuk mund të përpunohej." };
+  }
 
   const passwordHash = await bcrypt.hash(password, 12);
 

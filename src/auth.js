@@ -3,6 +3,8 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
 import { db } from "@/lib/db";
+import { consumeRateLimit, getClientIpFromHeaders, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
+import { isAccountLocked, recordFailedLogin, resetFailedLogins } from "@/lib/login-protection";
 
 const DUMMY_PASSWORD_HASH =
   "$2b$12$KIXxP0D5RjQ1oZpjZx1x4eJ5aYj6fgl2w2l4vM2B2kL0Qz9oYjZrW";
@@ -48,7 +50,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         },
       },
 
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email =
           typeof credentials?.email === "string"
             ? credentials.email.trim().toLowerCase()
@@ -58,6 +60,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           typeof credentials?.password === "string" ? credentials.password : "";
 
         if (!email || !password) {
+          return null;
+        }
+
+        const ip = getClientIpFromHeaders(request.headers);
+        const [ipLimit, identifierLimit] = await Promise.all([
+          consumeRateLimit({ scope: "loginIp", identifiers: [ip], policy: RATE_LIMIT_POLICIES.loginIp }),
+          consumeRateLimit({ scope: "loginIdentifier", identifiers: [ip, email], policy: RATE_LIMIT_POLICIES.loginIdentifier }),
+        ]);
+
+        if (!ipLimit.allowed || !identifierLimit.allowed) {
           return null;
         }
 
@@ -108,7 +120,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        if (isAccountLocked(user)) {
+          return null;
+        }
+
         if (!passwordIsValid) {
+          await recordFailedLogin(user.id);
           return null;
         }
 
@@ -129,6 +146,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!isPlatformAdmin && !isCustomer && !hasBusinessAccess) {
           return null;
         }
+
+        await resetFailedLogins(user.id);
 
         await db.user.update({
           where: {
