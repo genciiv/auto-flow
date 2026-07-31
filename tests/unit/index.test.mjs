@@ -9,3 +9,5 @@ import "./database/database-safety.test.mjs";
 import "./security/rate-limit.test.mjs";
 
 import "./plans/plan-access.test.mjs";
+
+import "./observability/logger.test.mjs";

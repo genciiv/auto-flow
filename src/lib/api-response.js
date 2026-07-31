@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { ERROR_CODES, normalizeError } from "@/lib/errors";
 import { createRequestId, getRequestId } from "@/lib/request-context";
+import { logger } from "@/lib/logger";
 
 function json(payload, { status = 200, requestId = createRequestId(), headers = {} } = {}) {
   return NextResponse.json(
@@ -61,6 +62,16 @@ export function apiError(error, { request, requestId, fallbackMessage } = {}) {
   const normalizedError = normalizeError(error, {
     fallbackMessage:
       fallbackMessage || "Ndodhi një gabim i papritur. Provo përsëri.",
+  });
+
+  const log = normalizedError.status >= 500 ? logger.error : logger.warn;
+  log("api.request.failed", {
+    requestId: resolvedRequestId,
+    method: request?.method,
+    path: request ? new URL(request.url).pathname : undefined,
+    status: normalizedError.status,
+    code: normalizedError.code,
+    error,
   });
 
   return apiFailure({

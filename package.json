@@ -26,7 +26,9 @@
     "audit:plans": "node scripts/audit-plan-enforcement.mjs",
     "test:integration": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/support/register.mjs --test --test-reporter=spec tests/integration/index.test.mjs",
     "test:e2e": "node --test --test-reporter=spec tests/e2e/http-smoke.test.mjs",
-    "audit:e2e": "node scripts/audit-integration-e2e.mjs"
+    "audit:e2e": "node scripts/audit-integration-e2e.mjs",
+    "audit:observability": "node scripts/audit-observability-ci.mjs",
+    "audit:ci": "npm run audit:errors && npm run audit:backend && npm run audit:security && npm run audit:database && npm run audit:rate-limit && npm run audit:plans && npm run audit:e2e && npm run audit:observability"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

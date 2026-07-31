@@ -16,9 +16,11 @@ function createPrismaClient() {
     adapter,
 
     log:
-      process.env.NODE_ENV === "development"
+      process.env.PRISMA_LOG_QUERIES === "true"
         ? ["query", "error", "warn"]
-        : ["error"],
+        : process.env.NODE_ENV === "development"
+          ? ["error", "warn"]
+          : ["error"],
   });
 }
 

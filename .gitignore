@@ -48,3 +48,6 @@ next-env.d.ts
 *.dump
 
 backups/
+
+# committed environment template
+!.env.example
