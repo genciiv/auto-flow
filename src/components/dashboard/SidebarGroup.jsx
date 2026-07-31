@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export default function SidebarGroup({ title, items, pathname }) {
+export default function SidebarGroup({ title, items, pathname, onNavigate }) {
   return (
     <div>
       <p className="mb-2 px-4 text-[11px] font-bold uppercase tracking-widest text-slate-400">
@@ -21,6 +21,7 @@ export default function SidebarGroup({ title, items, pathname }) {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onNavigate}
               className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                 isActive
                   ? "bg-blue-50 text-blue-700"

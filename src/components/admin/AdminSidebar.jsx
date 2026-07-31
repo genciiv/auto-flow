@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   WalletCards,
+  X,
 } from "lucide-react";
 
 import SidebarGroup from "@/components/dashboard/SidebarGroup";
@@ -90,12 +91,27 @@ const sidebarGroups = [
   },
 ];
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ open = false, onClose }) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-72 overflow-y-auto border-r border-slate-200 bg-white p-5 lg:block">
-      <div className="mb-6 flex items-center gap-3 px-2">
+    <>
+      {open ? (
+        <button
+          type="button"
+          aria-label="Mbyll menunë"
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm lg:hidden"
+        />
+      ) : null}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto border-r border-slate-200 bg-white p-5 transition-transform duration-300 lg:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+      <div className="mb-6 flex items-center justify-between gap-3 px-2">
+        <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white">
           <ShieldCheck size={23} />
         </div>
@@ -107,6 +123,16 @@ export default function AdminSidebar() {
 
           <p className="text-xs font-medium text-slate-500">Platform Admin</p>
         </div>
+        </div>
+
+        <button
+          type="button"
+          aria-label="Mbyll menunë"
+          onClick={onClose}
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 lg:hidden"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
@@ -130,9 +156,11 @@ export default function AdminSidebar() {
             title={group.title}
             items={group.items}
             pathname={pathname}
+            onNavigate={onClose}
           />
         ))}
       </nav>
-    </aside>
+      </aside>
+    </>
   );
 }

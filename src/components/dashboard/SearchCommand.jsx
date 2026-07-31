@@ -200,14 +200,17 @@ export default function SearchCommand() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="hidden w-full max-w-md items-center justify-between rounded-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 transition hover:border-slate-300 hover:bg-white lg:flex"
+        aria-label="Hap kërkimin"
+        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-slate-300 hover:bg-white sm:h-11 sm:w-11 lg:w-full lg:max-w-md lg:justify-between lg:px-4 lg:py-3"
       >
         <span className="flex items-center gap-3">
           <Search size={18} className="text-slate-400" />
-          Kërko klient, automjet, faturë...
+          <span className="hidden text-sm lg:inline">
+            Kërko klient, automjet, faturë...
+          </span>
         </span>
 
-        <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-400">
+        <span className="hidden rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-400 lg:inline">
           Ctrl K
         </span>
       </button>
