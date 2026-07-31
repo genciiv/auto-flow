@@ -16,6 +16,7 @@ import {
   updateCustomerSchema,
 } from "@/schemas/customer-schema";
 import { logCreate, logDelete, logUpdate } from "@/services/audit-events";
+import { assertPlanLimit, PLAN_RESOURCES } from "@/services/plan-access-service";
 
 import { createActionError } from "@/lib/errors";
 function getCustomerAuditValues(customer) {
@@ -53,6 +54,10 @@ export async function createCustomer(formData) {
   const { name, phone, email, city } = validationResult.data;
 
   await db.$transaction(async (transaction) => {
+    await assertPlanLimit(businessId, PLAN_RESOURCES.CUSTOMERS, {
+      database: transaction,
+    });
+
     const customer = await transaction.customer.create({
       data: {
         businessId,

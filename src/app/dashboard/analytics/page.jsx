@@ -5,7 +5,8 @@ import ServicePerformance from "@/components/analytics/ServicePerformance";
 import InventoryPerformance from "@/components/analytics/InventoryPerformance";
 import TopCustomersTable from "@/components/analytics/TopCustomersTable";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessFeature } from "@/lib/business-context";
+import { PLAN_FEATURES } from "@/services/plan-access-service";
 import { db } from "@/lib/db";
 
 const MONTH_NAMES = [
@@ -71,7 +72,7 @@ function normalizeServiceTitle(title) {
 }
 
 export default async function AnalyticsPage() {
-  const { businessId } = await requireBusinessContext();
+  const { businessId } = await requireBusinessFeature(PLAN_FEATURES.ANALYTICS);
 
   const now = new Date();
 

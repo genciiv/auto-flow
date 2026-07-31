@@ -10,6 +10,7 @@ import {
   validateFormData,
   validateObject,
 } from "@/lib/validation";
+import { assertPlanFeature, PLAN_FEATURES } from "@/services/plan-access-service";
 import {
   createPartSchema,
   deletePartSchema,
@@ -36,6 +37,8 @@ export async function createPart(formData) {
     const { businessId } = await requireBusinessActionPermission(
       PERMISSIONS.INVENTORY_CREATE,
     );
+
+    await assertPlanFeature(businessId, PLAN_FEATURES.INVENTORY);
 
     const validationResult = validateFormData(createPartSchema, formData);
 
@@ -128,6 +131,8 @@ export async function updatePart(formData) {
     const { businessId } = await requireBusinessActionPermission(
       PERMISSIONS.INVENTORY_UPDATE,
     );
+
+    await assertPlanFeature(businessId, PLAN_FEATURES.INVENTORY);
 
     const validationResult = validateFormData(updatePartSchema, formData);
 

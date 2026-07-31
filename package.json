@@ -22,7 +22,8 @@
     "db:migrate:status": "node scripts/db/migration-status.mjs",
     "db:migrate:deploy": "node scripts/db/deploy-migrations.mjs",
     "db:backup": "node scripts/db/backup-postgres.mjs",
-    "audit:rate-limit": "node scripts/audit-rate-limiting.mjs"
+    "audit:rate-limit": "node scripts/audit-rate-limiting.mjs",
+    "audit:plans": "node scripts/audit-plan-enforcement.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

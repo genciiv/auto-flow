@@ -10,6 +10,7 @@ import {
   hasPermission,
 } from "@/lib/permissions";
 import { getBusinessSubscriptionAccess } from "@/services/subscription-access-service";
+import { assertPlanFeature } from "@/services/plan-access-service";
 import { getMaintenanceStatus } from "@/services/maintenance-service";
 
 export async function requireBusinessContext(allowedRoles = []) {
@@ -186,6 +187,21 @@ export async function requireAllBusinessActionPermissions(permissions = []) {
 
   if (!hasAllPermissions(context.businessRole, permissions)) {
     throw createForbiddenError("Nuk keni leje për të kryer këtë veprim.");
+  }
+
+  return context;
+}
+
+export async function requireBusinessFeature(feature) {
+  const context = await requireBusinessContext();
+
+  try {
+    await assertPlanFeature(context.businessId, feature);
+  } catch (error) {
+    const code = error?.code || "PLAN_FEATURE_NOT_INCLUDED";
+    redirect(
+      `/subscription-required?reason=${encodeURIComponent(code)}&feature=${encodeURIComponent(feature)}`,
+    );
   }
 
   return context;

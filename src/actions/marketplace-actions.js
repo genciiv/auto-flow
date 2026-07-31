@@ -19,6 +19,7 @@ import {
 } from "@/schemas/marketplace-schema";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { logDelete, logStatusChange, logUpdate } from "@/services/audit-events";
+import { assertPlanFeature, PLAN_FEATURES } from "@/services/plan-access-service";
 
 import { createActionError } from "@/lib/errors";
 const MAX_IMAGE_COUNT = 10;
@@ -214,6 +215,8 @@ export async function createMarketplaceListing(formData) {
     PERMISSIONS.MARKETPLACE_MANAGE,
   );
 
+  await assertPlanFeature(businessId, PLAN_FEATURES.MARKETPLACE);
+
   const validationResult = validateFormData(
     createMarketplaceListingSchema,
     formData,
@@ -396,6 +399,8 @@ export async function updateMarketplaceListing(formData) {
   );
 
   const { businessId } = context;
+
+  await assertPlanFeature(businessId, PLAN_FEATURES.MARKETPLACE);
 
   const validationResult = validateFormData(
     updateMarketplaceListingSchema,
@@ -704,6 +709,8 @@ export async function changeMarketplaceListingStatus(formData) {
   );
 
   const { businessId } = context;
+
+  await assertPlanFeature(businessId, PLAN_FEATURES.MARKETPLACE);
 
   const validationResult = validateFormData(
     changeMarketplaceListingStatusSchema,

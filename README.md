@@ -62,3 +62,7 @@ npm test
 ```
 
 Pas deploy-it të këtij versioni, aplikoni migration-et vetëm me `prisma migrate deploy`. Mos përdorni `migrate reset` në production.
+
+## Plan limits and feature enforcement
+
+Plan rules are enforced server-side through `src/services/plan-access-service.js`. Run `npm run audit:plans` to verify resource limits and feature gates.

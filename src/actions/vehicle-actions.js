@@ -16,6 +16,7 @@ import {
   updateVehicleSchema,
 } from "@/schemas/vehicle-schema";
 import { logCreate, logDelete, logUpdate } from "@/services/audit-events";
+import { assertPlanLimit, PLAN_RESOURCES } from "@/services/plan-access-service";
 
 function getPermissionErrorMessage(error) {
   if (
@@ -150,6 +151,10 @@ export async function createVehicle(formData) {
     }
 
     await db.$transaction(async (transaction) => {
+      await assertPlanLimit(businessId, PLAN_RESOURCES.VEHICLES, {
+        database: transaction,
+      });
+
       const vehicle = await transaction.vehicle.create({
         data: {
           businessId,
