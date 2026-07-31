@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import { useActionState, useState } from "react";
 
 import Link from "next/link";
@@ -29,7 +31,11 @@ export default function LoginForm() {
     initialState,
   );
 
+  const feedback = <ActionFeedback state={state} />;
+
   return (
+    <>
+      {feedback}
     <form action={formAction} className="mt-8 space-y-5">
       <div>
         <label
@@ -161,5 +167,6 @@ export default function LoginForm() {
         )}
       </button>
     </form>
+    </>
   );
 }

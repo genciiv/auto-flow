@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import { useActionState } from "react";
 import {
   CalendarDays,
@@ -34,7 +36,11 @@ export default function CustomerVehicleForm({
 }) {
   const [state, formAction, isPending] = useActionState(action, initialState);
 
+  const feedback = <ActionFeedback state={state} />;
+
   return (
+    <>
+      {feedback}
     <form action={formAction} className="space-y-6">
       {state.message ? (
         <div
@@ -371,5 +377,6 @@ export default function CustomerVehicleForm({
         </button>
       </div>
     </form>
+    </>
   );
 }

@@ -1,5 +1,8 @@
 "use client";
 
+import { useConfirm } from "@/components/feedback/ConfirmProvider";
+import { useToast } from "@/components/feedback/ToastProvider";
+
 import { useState } from "react";
 import {
   Archive,
@@ -36,6 +39,8 @@ function ActionButton({
 
 export default function MarketplaceListingActions({ listingId, status }) {
   const [pendingAction, setPendingAction] = useState("");
+  const { confirm } = useConfirm();
+  const toast = useToast();
 
   async function submitStatus(nextStatus) {
     const messages = {
@@ -45,9 +50,13 @@ export default function MarketplaceListingActions({ listingId, status }) {
       DRAFT: "Dëshiron ta kthesh këtë publikim në draft?",
     };
 
-    const confirmed = window.confirm(
+    const confirmed = await confirm({
+      title: "Konfirmo ndryshimin",
+      description: 
       messages[nextStatus] || "Dëshiron të ndryshosh statusin?",
-    );
+      confirmLabel: "Vazhdo",
+      tone: "warning",
+    });
 
     if (!confirmed) {
       return;
@@ -61,16 +70,21 @@ export default function MarketplaceListingActions({ listingId, status }) {
     formData.set("status", nextStatus);
 
     try {
-      await changeMarketplaceListingStatus(formData);
+      const result = await changeMarketplaceListingStatus(formData);
+      if (result?.success === false) { toast.error(result.message || "Statusi nuk u ndryshua."); return; }
+      toast.success(result?.message || "Statusi u ndryshua me sukses.");
     } finally {
       setPendingAction("");
     }
   }
 
   async function submitDelete() {
-    const confirmed = window.confirm(
-      "Je i sigurt që dëshiron ta fshish përgjithmonë këtë publikim? Publikimi dhe fotografitë e tij nuk mund të rikthehen.",
-    );
+    const confirmed = await confirm({
+      title: "Fshi publikimin",
+      description: "Je i sigurt që dëshiron ta fshish përgjithmonë këtë publikim? Publikimi dhe fotografitë e tij nuk mund të rikthehen.",
+      confirmLabel: "Fshi përgjithmonë",
+      tone: "danger",
+    });
 
     if (!confirmed) {
       return;
@@ -83,7 +97,9 @@ export default function MarketplaceListingActions({ listingId, status }) {
     formData.set("listingId", listingId);
 
     try {
-      await deleteMarketplaceListing(formData);
+      const result = await deleteMarketplaceListing(formData);
+      if (result?.success === false) { toast.error(result.message || "Publikimi nuk u fshi."); return; }
+      toast.success(result?.message || "Publikimi u fshi me sukses.");
     } finally {
       setPendingAction("");
     }

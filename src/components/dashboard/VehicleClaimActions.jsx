@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import { useActionState, useState } from "react";
 import { Check, Loader2, MessageSquareWarning, X } from "lucide-react";
 
@@ -25,7 +27,11 @@ export default function VehicleClaimActions({
     initialState,
   );
 
+  const feedback = <ActionFeedback state={state} />;
+
   return (
+    <>
+      {feedback}
     <div className="space-y-3">
       {!showRejectForm ? (
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -120,5 +126,6 @@ export default function VehicleClaimActions({
         </p>
       ) : null}
     </div>
+    </>
   );
 }

@@ -1,5 +1,8 @@
 "use client";
 
+import { useConfirm } from "@/components/feedback/ConfirmProvider";
+import { useToast } from "@/components/feedback/ToastProvider";
+
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
@@ -17,6 +20,8 @@ import {
 
 export default function PaymentActions({ payment }) {
   const router = useRouter();
+  const { confirm } = useConfirm();
+  const toast = useToast();
 
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState(null);
@@ -29,21 +34,19 @@ export default function PaymentActions({ payment }) {
       try {
         const result = await action();
 
-        setMessage({
-          type: "success",
-          text: result?.message || "Veprimi përfundoi me sukses.",
-        });
+        if (result?.success === false) {
+          throw new Error(result.message || "Veprimi nuk mund të përfundohej.");
+        }
+        const successMessage = result?.message || "Veprimi përfundoi me sukses.";
+        setMessage({ type: "success", text: successMessage });
+        toast.success(successMessage);
 
         setStatus(result?.status || status);
         router.refresh();
       } catch (error) {
-        setMessage({
-          type: "error",
-          text:
-            error instanceof Error
-              ? error.message
-              : "Veprimi nuk mund të përfundohej.",
-        });
+        const errorMessage = error instanceof Error ? error.message : "Veprimi nuk mund të përfundohej.";
+        setMessage({ type: "error", text: errorMessage });
+        toast.error(errorMessage);
       }
     });
   }
@@ -54,10 +57,13 @@ export default function PaymentActions({ payment }) {
     runAction(() => updatePaymentStatusAction(payment.id, status));
   }
 
-  function handleRefund() {
-    const confirmed = window.confirm(
-      "Je i sigurt që dëshiron ta shënosh këtë pagesë si të rimbursuar?",
-    );
+  async function handleRefund() {
+    const confirmed = await confirm({
+      title: "Rimburso pagesën",
+      description: "Je i sigurt që dëshiron ta shënosh këtë pagesë si të rimbursuar?",
+      confirmLabel: "Konfirmo rimbursimin",
+      tone: "danger",
+    });
 
     if (!confirmed) {
       return;

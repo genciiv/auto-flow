@@ -1,5 +1,8 @@
 "use client";
 
+import { useConfirm } from "@/components/feedback/ConfirmProvider";
+import { useToast } from "@/components/feedback/ToastProvider";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -34,6 +37,8 @@ export default function ApplicationActions({
   ownerEmail = "",
 }) {
   const router = useRouter();
+  const { confirm } = useConfirm();
+  const toast = useToast();
 
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
@@ -46,10 +51,13 @@ export default function ApplicationActions({
     setApprovalResult(null);
   }
 
-  function handleApprove() {
-    const confirmed = window.confirm(
-      "Dëshiron ta aprovosh këtë aplikim? Do të krijohet biznesi dhe llogaria e pronarit.",
-    );
+  async function handleApprove() {
+    const confirmed = await confirm({
+      title: "Aprovo aplikimin",
+      description: "Do të krijohet biznesi dhe llogaria e pronarit.",
+      confirmLabel: "Aprovo",
+      tone: "warning",
+    });
 
     if (!confirmed || isPending) {
       return;
@@ -62,7 +70,9 @@ export default function ApplicationActions({
         const result = await approveApplicationAction(applicationId);
 
         if (!result?.success) {
-          setError(getResultError(result, "Aplikimi nuk mund të aprovohej."));
+          const message = getResultError(result, "Aplikimi nuk mund të aprovohej.");
+          setError(message);
+          toast.error(message);
 
           return;
         }
@@ -87,6 +97,7 @@ export default function ApplicationActions({
           message: result.message || "Aplikimi u aprovua me sukses.",
         });
 
+        toast.success(result.message || "Aplikimi u aprovua me sukses.");
         router.refresh();
       } catch (actionError) {
         console.error("Gabim gjatë aprovimit të aplikimit:", actionError);
@@ -161,16 +172,17 @@ export default function ApplicationActions({
     });
   }
 
-  function handleResendActivation() {
+  async function handleResendActivation() {
     if (isPending) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Dëshiron ta ridërgosh email-in e aktivizimit te ${
-        ownerEmail || "pronari"
-      }?`,
-    );
+    const confirmed = await confirm({
+      title: "Ridërgo email-in e aktivizimit",
+      description: `Email-i do të dërgohet te ${ownerEmail || "pronari"}.`,
+      confirmLabel: "Ridërgo email-in",
+      tone: "warning",
+    });
 
     if (!confirmed) {
       return;

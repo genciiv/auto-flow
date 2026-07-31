@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import { useActionState, useState, useTransition } from "react";
 import {
   Building2,
@@ -27,7 +29,7 @@ const initialState = {
 
 function StatusBadge({ status }) {
   if (status === "APPROVED") {
-    return (
+  return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
         <CheckCircle2 size={14} />E miratuar
       </span>
@@ -165,6 +167,8 @@ export default function VehicleClaimSearch({ customerVehicle, searchAction }) {
         action={formAction}
         className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
       >
+        <ActionFeedback state={state} />
+
         <div className="flex items-start gap-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
             <Search size={20} />

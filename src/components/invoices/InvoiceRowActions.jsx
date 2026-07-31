@@ -1,5 +1,8 @@
 "use client";
 
+import { useConfirm } from "@/components/feedback/ConfirmProvider";
+import { useToast } from "@/components/feedback/ToastProvider";
+
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -41,6 +44,8 @@ const statusOptions = [
 
 export default function InvoiceRowActions({ invoice, onEdit }) {
   const router = useRouter();
+  const { confirm } = useConfirm();
+  const toast = useToast();
   const menuRef = useRef(null);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -87,10 +92,13 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
     });
   }
 
-  function handleDelete() {
-    const confirmed = window.confirm(
-      `A je i sigurt që dëshiron të fshish faturën ${invoice.number || ""}?`,
-    );
+  async function handleDelete() {
+    const confirmed = await confirm({
+      title: "Fshi faturën",
+      description: `A je i sigurt që dëshiron të fshish faturën ${invoice.number || ""}?`,
+      confirmLabel: "Fshi faturën",
+      tone: "danger",
+    });
 
     if (!confirmed) return;
 
@@ -100,10 +108,13 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
       const result = await deleteInvoice(invoice.id);
 
       if (!result?.success) {
-        setError(result?.message || "Fatura nuk u fshi.");
+        const message = result?.message || "Fatura nuk u fshi.";
+        setError(message);
+        toast.error(message);
         return;
       }
 
+      toast.success(result?.message || "Fatura u fshi me sukses.");
       setIsOpen(false);
       router.refresh();
     });

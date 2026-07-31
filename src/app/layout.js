@@ -2,6 +2,8 @@ import "./globals.css";
 
 import AuthSessionProvider from "@/providers/AuthSessionProvider";
 import CookieConsent from "@/components/legal/CookieConsent";
+import ToastProvider from "@/components/feedback/ToastProvider";
+import ConfirmProvider from "@/components/feedback/ConfirmProvider";
 
 export const metadata = {
   title: {
@@ -17,8 +19,12 @@ export default function RootLayout({ children }) {
     <html lang="sq">
       <body>
         <AuthSessionProvider>
-          {children}
-          <CookieConsent />
+          <ToastProvider>
+            <ConfirmProvider>
+              {children}
+              <CookieConsent />
+            </ConfirmProvider>
+          </ToastProvider>
         </AuthSessionProvider>
       </body>
     </html>

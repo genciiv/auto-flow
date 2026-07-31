@@ -1,5 +1,8 @@
 "use client";
 
+import { useConfirm } from "@/components/feedback/ConfirmProvider";
+import { useToast } from "@/components/feedback/ToastProvider";
+
 import { useState } from "react";
 import { CheckCircle2, Loader2, PackageCheck, XCircle } from "lucide-react";
 
@@ -12,6 +15,8 @@ export default function ReceivePurchaseButton({
   canReceive = false,
 }) {
   const [isReceiving, setIsReceiving] = useState(false);
+  const { confirm } = useConfirm();
+  const toast = useToast();
   const [error, setError] = useState("");
 
   const isReceived = status === "RECEIVED";
@@ -25,9 +30,12 @@ export default function ReceivePurchaseButton({
       return;
     }
 
-    const confirmed = window.confirm(
-      "Je i sigurt që dëshiron ta marrësh këtë porosi në magazinë? Stoku i pjesëve do të rritet.",
-    );
+    const confirmed = await confirm({
+      title: "Merr porosinë në magazinë",
+      description: "Stoku i pjesëve do të rritet pasi porosia të konfirmohet.",
+      confirmLabel: "Konfirmo marrjen",
+      tone: "warning",
+    });
 
     if (!confirmed) {
       return;
@@ -40,12 +48,17 @@ export default function ReceivePurchaseButton({
       const result = await receivePurchaseOrder(purchaseOrderId);
 
       if (!result?.success) {
-        setError(result?.message || "Porosia nuk mund të merrej në magazinë.");
+        const message = result?.message || "Porosia nuk mund të merrej në magazinë.";
+        setError(message);
+        toast.error(message);
+      } else {
+        toast.success(result?.message || "Porosia u mor në magazinë.");
       }
     } catch (receiveError) {
       console.error(receiveError);
 
       setError("Ndodhi një gabim gjatë marrjes së porosisë.");
+      toast.error("Ndodhi një gabim gjatë marrjes së porosisë.");
     } finally {
       setIsReceiving(false);
     }

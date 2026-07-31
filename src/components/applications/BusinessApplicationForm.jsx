@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import { useActionState, useEffect, useRef } from "react";
 import {
   ArrowRight,
@@ -103,6 +105,7 @@ export default function BusinessApplicationForm() {
       ) : null}
 
       <form ref={formRef} action={formAction} className="mt-7 space-y-5">
+        <ActionFeedback state={state} />
         <div className="grid gap-5 sm:grid-cols-2">
           <FormField
             label="Emri i biznesit"

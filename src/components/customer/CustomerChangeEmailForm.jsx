@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import { useActionState, useState } from "react";
 import {
   CheckCircle2,
@@ -27,7 +29,11 @@ export default function CustomerChangeEmailForm({ currentEmail }) {
 
   const [passwordVisible, setPasswordVisible] = useState(false);
 
+  const feedback = <ActionFeedback state={state} />;
+
   return (
+    <>
+      {feedback}
     <form action={formAction} className="space-y-5">
       {state?.error ? (
         <div
@@ -145,5 +151,6 @@ export default function CustomerChangeEmailForm({ currentEmail }) {
         )}
       </button>
     </form>
+    </>
   );
 }

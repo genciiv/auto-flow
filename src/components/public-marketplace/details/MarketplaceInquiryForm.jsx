@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import { useActionState, useEffect, useRef } from "react";
 import {
   CheckCircle2,
@@ -37,7 +39,11 @@ export default function MarketplaceInquiryForm({
     }
   }, [state.success]);
 
+  const feedback = <ActionFeedback state={state} />;
+
   return (
+    <>
+      {feedback}
     <div className="mt-8 border-t border-slate-200 pt-8">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
@@ -226,5 +232,6 @@ export default function MarketplaceInquiryForm({
         </button>
       </form>
     </div>
+    </>
   );
 }

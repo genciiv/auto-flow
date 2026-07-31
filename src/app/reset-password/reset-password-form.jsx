@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
@@ -98,6 +100,7 @@ export default function ResetPasswordForm({ token }) {
 
   return (
     <form action={formAction} className="mt-8 space-y-5">
+      <ActionFeedback state={state} />
       <input type="hidden" name="token" value={token} />
 
       {state?.error ? (

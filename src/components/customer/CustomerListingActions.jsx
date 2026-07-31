@@ -1,4 +1,7 @@
 "use client";
+
+import { useConfirm } from "@/components/feedback/ConfirmProvider";
+import { useToast } from "@/components/feedback/ToastProvider";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -16,6 +19,19 @@ export default function CustomerListingActions({
   deleteAction,
 }) {
   const [open, setOpen] = useState(false);
+  const { confirm } = useConfirm();
+  const toast = useToast();
+
+  async function handleDelete() {
+    const confirmed = await confirm({ title: "Fshi publikimin", description: "A je i sigurt që dëshiron ta fshish? Ky veprim nuk mund të zhbëhet.", confirmLabel: "Fshi", tone: "danger" });
+    if (!confirmed) return;
+    const formData = new FormData();
+    formData.set("listingId", listing.id);
+    const result = await deleteAction(formData);
+    if (result?.success === false) toast.error(result.message || "Publikimi nuk u fshi.");
+    else toast.success(result?.message || "Publikimi u fshi me sukses.");
+    setOpen(false);
+  }
   return (
     <div className="relative">
       <button
@@ -80,19 +96,10 @@ export default function CustomerListingActions({
               </button>
             </form>
           ) : null}
-          <form
-            action={deleteAction}
-            onSubmit={(e) => {
-              if (!window.confirm("A je i sigurt që dëshiron ta fshish?"))
-                e.preventDefault();
-            }}
-          >
-            <input type="hidden" name="listingId" value={listing.id} />
-            <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50">
-              <Trash2 size={16} />
-              Fshi
-            </button>
-          </form>
+          <button type="button" onClick={handleDelete} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50">
+            <Trash2 size={16} />
+            Fshi
+          </button>
         </div>
       ) : null}
     </div>

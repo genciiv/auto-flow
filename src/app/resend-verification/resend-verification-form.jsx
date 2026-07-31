@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import { useActionState } from "react";
 import { LoaderCircle, Mail, Send } from "lucide-react";
 
@@ -17,7 +19,11 @@ export default function ResendVerificationForm({ initialEmail = "" }) {
     initialState,
   );
 
+  const feedback = <ActionFeedback state={state} />;
+
   return (
+    <>
+      {feedback}
     <form action={formAction} className="mt-8 space-y-5">
       {state?.error ? (
         <div
@@ -81,5 +87,6 @@ export default function ResendVerificationForm({ initialEmail = "" }) {
         )}
       </button>
     </form>
+    </>
   );
 }

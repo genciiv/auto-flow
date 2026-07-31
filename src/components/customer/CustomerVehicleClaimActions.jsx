@@ -1,5 +1,8 @@
 "use client";
 
+import { useConfirm } from "@/components/feedback/ConfirmProvider";
+import { useToast } from "@/components/feedback/ToastProvider";
+
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ArrowRight, History, Loader2, RotateCcw, XCircle } from "lucide-react";
@@ -12,10 +15,13 @@ export default function CustomerVehicleClaimActions({
   status,
 }) {
   const [message, setMessage] = useState("");
+  const { confirm } = useConfirm();
+  const toast = useToast();
   const [isPending, startTransition] = useTransition();
 
-  function handleCancel() {
-    if (!window.confirm("A je i sigurt që dëshiron ta anulosh këtë kërkesë?")) {
+  async function handleCancel() {
+    const confirmed = await confirm({ title: "Anulo kërkesën", description: "A je i sigurt që dëshiron ta anulosh këtë kërkesë?", confirmLabel: "Anulo kërkesën", tone: "danger" });
+    if (!confirmed) {
       return;
     }
 
@@ -23,7 +29,10 @@ export default function CustomerVehicleClaimActions({
 
     startTransition(async () => {
       const result = await cancelVehicleClaim(claimId);
-      setMessage(result?.message || "Veprimi nuk mund të përfundohej.");
+      const resultMessage = result?.message || "Veprimi nuk mund të përfundohej.";
+      setMessage(resultMessage);
+      if (result?.success === false) toast.error(resultMessage);
+      else toast.success(resultMessage);
     });
   }
 

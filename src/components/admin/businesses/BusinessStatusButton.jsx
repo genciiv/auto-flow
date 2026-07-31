@@ -1,5 +1,8 @@
 "use client";
 
+import { useConfirm } from "@/components/feedback/ConfirmProvider";
+import { useToast } from "@/components/feedback/ToastProvider";
+
 import { useState, useTransition } from "react";
 import { CircleOff, LoaderCircle, Power } from "lucide-react";
 
@@ -11,18 +14,21 @@ export default function BusinessStatusButton({
   compact = false,
 }) {
   const [currentStatus, setCurrentStatus] = useState(isActive);
+  const { confirm } = useConfirm();
+  const toast = useToast();
 
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  function handleStatusChange() {
+  async function handleStatusChange() {
     const nextStatus = !currentStatus;
 
-    const confirmed = window.confirm(
-      nextStatus
-        ? "Dëshiron ta aktivizosh këtë biznes?"
-        : "Dëshiron ta çaktivizosh këtë biznes?",
-    );
+    const confirmed = await confirm({
+      title: nextStatus ? "Aktivizo biznesin" : "Çaktivizo biznesin",
+      description: nextStatus ? "Dëshiron ta aktivizosh këtë biznes?" : "Dëshiron ta çaktivizosh këtë biznes?",
+      confirmLabel: nextStatus ? "Aktivizo" : "Çaktivizo",
+      tone: nextStatus ? "warning" : "danger",
+    });
 
     if (!confirmed) {
       return;
@@ -34,9 +40,13 @@ export default function BusinessStatusButton({
       try {
         const result = await changeBusinessStatusAction(businessId, nextStatus);
 
-        setCurrentStatus(result?.isActive ?? nextStatus);
+        if (result?.success === false) { throw new Error(result.message); }
+        setCurrentStatus(result?.data?.isActive ?? result?.isActive ?? nextStatus);
+        toast.success(result?.message || "Statusi u ndryshua me sukses.");
       } catch (actionError) {
         console.error(actionError);
+
+        toast.error(actionError instanceof Error ? actionError.message : "Statusi nuk mund të ndryshohej. Provo përsëri.");
 
         setError(
           actionError instanceof Error

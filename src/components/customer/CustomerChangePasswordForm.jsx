@@ -1,5 +1,7 @@
 "use client";
 
+import ActionFeedback from "@/components/feedback/ActionFeedback";
+
 import { useActionState, useState } from "react";
 import {
   Eye,
@@ -77,6 +79,7 @@ export default function CustomerChangePasswordForm() {
 
   return (
     <form action={formAction} className="space-y-5">
+      <ActionFeedback state={state} />
       {state?.error ? (
         <div
           role="alert"

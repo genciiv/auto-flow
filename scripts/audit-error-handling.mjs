@@ -159,4 +159,40 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log("Error handling audit: OK");
+const requiredUiFiles = [
+  "src/components/feedback/ToastProvider.jsx",
+  "src/components/feedback/ConfirmProvider.jsx",
+  "src/components/feedback/ErrorState.jsx",
+  "src/components/ui/Alert.jsx",
+  "src/components/ui/FieldError.jsx",
+  "src/components/ui/Skeleton.jsx",
+  "src/app/global-error.jsx",
+  "src/app/admin/error.jsx",
+  "src/app/dashboard/error.jsx",
+  "src/app/customer/error.jsx",
+  "src/app/marketplace/error.jsx",
+];
+
+for (const requiredFile of requiredUiFiles) {
+  if (!fs.existsSync(path.resolve(requiredFile))) {
+    console.error(`Mungon komponenti UI i detyrueshëm: ${requiredFile}`);
+    process.exit(1);
+  }
+}
+
+const clientSource = [];
+function collectClientSource(directory) {
+  if (!fs.existsSync(directory)) return;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) collectClientSource(fullPath);
+    else if (/\.(js|jsx)$/.test(entry.name)) clientSource.push(fs.readFileSync(fullPath, "utf8"));
+  }
+}
+collectClientSource(srcRoot);
+if (clientSource.some((source) => source.includes("window.confirm("))) {
+  console.error("U gjet window.confirm; përdor ConfirmProvider global.");
+  process.exit(1);
+}
+
+console.log("Error handling audit: OK — kontrata e actions dhe shtresa UI u verifikuan.");
