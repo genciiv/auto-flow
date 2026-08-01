@@ -10,7 +10,7 @@ const valid = {
   SUPABASE_URL: "https://project.supabase.co",
   SUPABASE_SERVICE_ROLE_KEY: "service-role-value",
   SUPABASE_STORAGE_BUCKET: "autoflow",
-  RESEND_API_KEY: "re_valid",
+  BREVO_API_KEY: "xkeysib-valid",
   EMAIL_FROM: "AutoFlow <noreply@autoflow.al>",
 };
 

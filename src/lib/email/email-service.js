@@ -1,16 +1,29 @@
-import { Resend } from "resend";
-
 import { EMAIL_CONFIG } from "./email-config";
 import { buildSubject } from "./email-utils";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
+const EMAIL_REQUEST_TIMEOUT_MS = 15_000;
 
 function normalizeRecipients(to) {
   if (Array.isArray(to)) {
-    return to.filter(Boolean);
+    return to.filter(Boolean).map((recipient) => String(recipient).trim());
   }
 
-  return to ? [to] : [];
+  return to ? [String(to).trim()] : [];
+}
+
+function parseEmailAddress(value) {
+  const normalized = String(value || "").trim();
+  const namedAddressMatch = normalized.match(/^\s*(.*?)\s*<([^<>\s]+@[^<>\s]+)>\s*$/);
+
+  if (namedAddressMatch) {
+    return {
+      name: namedAddressMatch[1].replace(/^['"]|['"]$/g, "").trim() || undefined,
+      email: namedAddressMatch[2].trim(),
+    };
+  }
+
+  return { email: normalized };
 }
 
 function buildDevelopmentNotice(originalRecipients) {
@@ -34,9 +47,20 @@ function buildDevelopmentNotice(originalRecipients) {
   `;
 }
 
+async function readBrevoError(response) {
+  try {
+    const body = await response.json();
+    return body?.message || body?.code || `Brevo API ktheu statusin ${response.status}.`;
+  } catch {
+    return `Brevo API ktheu statusin ${response.status}.`;
+  }
+}
+
 export async function sendEmail({ to, subject, html, text, replyTo }) {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY nuk është konfiguruar.");
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+
+  if (!apiKey) {
+    throw new Error("BREVO_API_KEY nuk është konfiguruar.");
   }
 
   if (!EMAIL_CONFIG.from) {
@@ -58,7 +82,6 @@ export async function sendEmail({ to, subject, html, text, replyTo }) {
   }
 
   const isDevelopment = process.env.NODE_ENV !== "production";
-
   const developmentRecipient = process.env.EMAIL_DEV_REDIRECT_TO?.trim();
 
   const finalRecipients =
@@ -78,29 +101,50 @@ export async function sendEmail({ to, subject, html, text, replyTo }) {
         )}\n\n${text}`
       : text;
 
-  const emailData = {
-    from: EMAIL_CONFIG.from,
-    to: finalRecipients,
+  const payload = {
+    sender: parseEmailAddress(EMAIL_CONFIG.from),
+    to: finalRecipients.map(parseEmailAddress),
     subject: buildSubject(subject),
-    html: finalHtml,
-    text: finalText,
   };
 
+  if (finalHtml) payload.htmlContent = finalHtml;
+  if (finalText) payload.textContent = finalText;
+
   const finalReplyTo = replyTo || EMAIL_CONFIG.replyTo;
+  if (finalReplyTo) payload.replyTo = parseEmailAddress(finalReplyTo);
 
-  if (finalReplyTo) {
-    emailData.replyTo = finalReplyTo;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), EMAIL_REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(BREVO_ENDPOINT, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const message = await readBrevoError(response);
+      console.error("Brevo email error:", {
+        status: response.status,
+        message,
+      });
+      throw new Error(message || "Ndodhi një problem gjatë dërgimit të email-it.");
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("Dërgimi i email-it tejkaloi kohën e lejuar.");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const { data, error } = await resend.emails.send(emailData);
-
-  if (error) {
-    console.error("Resend email error:", error);
-
-    throw new Error(
-      error.message || "Ndodhi një problem gjatë dërgimit të email-it.",
-    );
-  }
-
-  return data;
 }

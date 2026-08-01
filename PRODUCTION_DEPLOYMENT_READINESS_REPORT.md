@@ -11,7 +11,7 @@ Ky hap e kthen release-in e AutoFlow në një proces të verifikueshëm dhe të 
 - Production deployment runbook dhe rollback runbook.
 - Audit i ri `audit:deployment` dhe scripts `deploy:validate`, `deploy:validate:ci`, `deploy:verify`.
 - 3 teste kontrate për env validation dhe release/rollback artifacts.
-- `.env.example` i plotësuar me Resend dhe Supabase server variables.
+- `.env.example` i plotësuar me Brevo dhe Supabase server variables.
 - `audit:ci` përfshin deployment readiness gate.
 
 ## Verifikime të kryera

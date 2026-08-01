@@ -26,7 +26,7 @@ jobs:
       SUPABASE_URL: https://ci.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key-ci-service-role-key
       SUPABASE_STORAGE_BUCKET: ci-bucket
-      RESEND_API_KEY: re_ci_only_key
+      BREVO_API_KEY: xkeysib-ci-only-key
       EMAIL_FROM: AutoFlow <ci@example.com>
 
     steps:

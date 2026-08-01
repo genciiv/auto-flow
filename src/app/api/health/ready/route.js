@@ -11,8 +11,9 @@ export async function GET() {
   const ready = database.status === "up";
 
   const headers = {
-    "cache-control": "no-store",
-  };
+  "cache-control": "no-store",
+  "x-request-id": requestId,
+};
 
   const data = {
     status: ready ? "ok" : "degraded",
