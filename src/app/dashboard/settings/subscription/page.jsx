@@ -5,6 +5,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import PlanRequestButton from "./PlanRequestButton";
 
 const FEATURE_LABELS = {
   appointments: "Takime dhe rezervime",
@@ -82,7 +83,6 @@ export default async function SubscriptionSettingsPage() {
     }),
   ]);
 
-  const supportEmail = process.env.EMAIL_REPLY_TO || "vaqogenci@gmail.com";
 
   return (
     <DashboardLayout>
@@ -109,12 +109,6 @@ export default async function SubscriptionSettingsPage() {
         <div className="grid gap-6 xl:grid-cols-2">
           {plans.map((plan) => {
             const isCurrent = currentSubscription?.planId === plan.id;
-            const subject = encodeURIComponent(
-              `Kërkesë për planin ${plan.name} - ${business?.name || "Biznes AutoFlow"}`,
-            );
-            const body = encodeURIComponent(
-              `Përshëndetje,\n\nDëshiroj të ndryshoj abonimin e biznesit ${business?.name || ""} në planin ${plan.name}.\n\nJu lutem më dërgoni hapat e pagesës dhe konfirmimit.`,
-            );
 
             return (
               <article
@@ -178,12 +172,7 @@ export default async function SubscriptionSettingsPage() {
                     Plani aktual · {currentSubscription.status}
                   </div>
                 ) : (
-                  <a
-                    href={`mailto:${supportEmail}?subject=${subject}&body=${body}`}
-                    className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white transition hover:bg-slate-800"
-                  >
-                    Kërko këtë plan
-                  </a>
+                  <PlanRequestButton planId={plan.id} planName={plan.name} />
                 )}
               </article>
             );

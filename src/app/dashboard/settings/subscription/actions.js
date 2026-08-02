@@ -1,0 +1,141 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import {
+  actionFailure,
+  actionSuccess,
+  errorFailure,
+} from "@/lib/action-result";
+import { requireBusinessPermission } from "@/lib/business-context";
+import { db } from "@/lib/db";
+import { EMAIL_CONFIG, sendEmail } from "@/lib/email";
+import { ERROR_CODES, logServerError } from "@/lib/errors";
+import { PERMISSIONS } from "@/lib/permissions";
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+export async function requestSubscriptionPlanAction(previousState, formData) {
+  const planId = String(formData.get("planId") ?? "").trim();
+
+  if (!planId) {
+    return actionFailure({
+      code: ERROR_CODES.VALIDATION_ERROR,
+      message: "Plani i zgjedhur nuk është i vlefshëm.",
+    });
+  }
+
+  try {
+    const { businessId, business, user } = await requireBusinessPermission(
+      PERMISSIONS.BILLING_MANAGE,
+    );
+
+    const [requestedPlan, currentSubscription] = await Promise.all([
+      db.plan.findFirst({
+        where: {
+          id: planId,
+          isActive: true,
+          slug: { not: "free-trial" },
+        },
+        select: {
+          id: true,
+          name: true,
+          monthlyPrice: true,
+          yearlyPrice: true,
+        },
+      }),
+      db.subscription.findFirst({
+        where: { businessId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          planId: true,
+          plan: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    if (!requestedPlan) {
+      return actionFailure({
+        code: ERROR_CODES.NOT_FOUND,
+        message: "Plani i zgjedhur nuk ekziston ose nuk është aktiv.",
+      });
+    }
+
+    if (currentSubscription?.planId === requestedPlan.id) {
+      return actionFailure({
+        code: ERROR_CODES.VALIDATION_ERROR,
+        message: "Ky është tashmë plani aktual i biznesit.",
+      });
+    }
+
+    const supportEmail = EMAIL_CONFIG.replyTo;
+
+    if (!supportEmail) {
+      return actionFailure({
+        code: ERROR_CODES.CONFIGURATION_ERROR,
+        message:
+          "Email-i i mbështetjes nuk është konfiguruar. Kontakto administratorin.",
+      });
+    }
+
+    const businessName = business?.name || "Biznes AutoFlow";
+    const requesterName = user?.name || user?.email || "Përdorues biznesi";
+    const requesterEmail = user?.email || "Nuk disponohet";
+    const currentPlanName = currentSubscription?.plan?.name || "Pa plan aktiv";
+
+    const monthlyPrice = new Intl.NumberFormat("sq-AL", {
+      style: "currency",
+      currency: "ALL",
+      maximumFractionDigits: 0,
+    }).format(Number(requestedPlan.monthlyPrice || 0));
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:640px;margin:auto;padding:32px">
+        <h2>Kërkesë për ndryshim plani</h2>
+        <p>Është dërguar një kërkesë e re nga AutoFlow.</p>
+        <table style="width:100%;border-collapse:collapse;margin-top:24px">
+          <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Biznesi</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(businessName)}</td></tr>
+          <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Kërkuesi</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(requesterName)}</td></tr>
+          <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Email</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(requesterEmail)}</td></tr>
+          <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Plani aktual</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(currentPlanName)}</td></tr>
+          <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Plani i kërkuar</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(requestedPlan.name)}</td></tr>
+          <tr><td style="padding:10px"><strong>Çmimi mujor</strong></td><td style="padding:10px">${escapeHtml(monthlyPrice)}</td></tr>
+        </table>
+        <p style="margin-top:28px;font-size:12px;color:#666">AutoFlow</p>
+      </div>
+    `;
+
+    await sendEmail({
+      to: supportEmail,
+      replyTo: user?.email || undefined,
+      subject: `Kërkesë për planin ${requestedPlan.name} - ${businessName}`,
+      html,
+    });
+
+    revalidatePath("/dashboard/settings/subscription");
+
+    return actionSuccess({
+      message:
+        "Kërkesa u dërgua me sukses. Administratori do të të kontaktojë për pagesën dhe aktivizimin.",
+      data: {
+        planId: requestedPlan.id,
+        planName: requestedPlan.name,
+      },
+    });
+  } catch (error) {
+    logServerError("requestSubscriptionPlanAction", error, { planId });
+
+    return errorFailure(error, {
+      fallbackCode: ERROR_CODES.INTERNAL_ERROR,
+      fallbackMessage:
+        "Kërkesa nuk u dërgua. Provo përsëri pas pak.",
+    });
+  }
+}
