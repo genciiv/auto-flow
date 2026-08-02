@@ -13,7 +13,7 @@ export default async function SettingsPage() {
     PERMISSIONS.SETTINGS_VIEW,
   );
 
-  const [profile, business] = await Promise.all([
+  const [profile, business, subscription] = await Promise.all([
     db.user.findUnique({
       where: {
         id: userId,
@@ -49,11 +49,45 @@ export default async function SettingsPage() {
         isActive: true,
       },
     }),
+
+    db.subscription.findFirst({
+      where: {
+        businessId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        status: true,
+        billingInterval: true,
+        price: true,
+        trialStartsAt: true,
+        trialEndsAt: true,
+        currentPeriodStart: true,
+        currentPeriodEnd: true,
+        cancelAtPeriodEnd: true,
+        plan: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            monthlyPrice: true,
+            yearlyPrice: true,
+          },
+        },
+      },
+    }),
   ]);
 
   const canUpdateSettings = hasPermission(
     businessRole,
     PERMISSIONS.SETTINGS_UPDATE,
+  );
+
+  const canManageBilling = hasPermission(
+    businessRole,
+    PERMISSIONS.BILLING_MANAGE,
   );
 
   return (
@@ -92,7 +126,11 @@ export default async function SettingsPage() {
 
         <div className="grid gap-6 xl:grid-cols-2">
           <SettingsNotifications canUpdate={canUpdateSettings} />
-          <SettingsBilling />
+          <SettingsBilling
+            subscription={subscription}
+            currency={business?.currency || "ALL"}
+            canManage={canManageBilling}
+          />
         </div>
       </div>
     </DashboardLayout>
