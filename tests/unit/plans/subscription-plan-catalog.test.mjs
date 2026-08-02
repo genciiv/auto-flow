@@ -26,6 +26,7 @@ test("çmimet ruhen në Lekë dhe Professional bashkon paketat bazë", () => {
   assert.equal(professional.monthlyPrice, 3900);
   assert.equal(professional.yearlyPrice, 39000);
   assert.deepEqual(professional.features, PLAN_FEATURES_BY_TIER.professional);
+  assert.ok(professional.features.includes("staffRoles"));
   assert.deepEqual(professional.features, [
     "appointments",
     "customers",

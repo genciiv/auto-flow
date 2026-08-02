@@ -46,6 +46,13 @@ enum BusinessRole {
   ACCOUNTANT
 }
 
+enum StaffInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 enum ServiceStatus {
   PENDING
   IN_PROGRESS
@@ -232,6 +239,7 @@ model User {
   notifications        Notification[]
   auditLogs            AuditLog[]
   authTokens           AuthToken[]
+  staffInvitationsSent StaffInvitation[] @relation("StaffInvitationInviter")
 
   @@index([email])
   @@index([phone])
@@ -300,6 +308,7 @@ model Business {
   auditLogs           AuditLog[]
   subscriptions       Subscription[]
   payments            Payment[]
+  staffInvitations    StaffInvitation[]
 
   @@index([name])
   @@index([city])
@@ -346,6 +355,28 @@ model BusinessUser {
  * | Customer
  * |--------------------------------------------------------------------------
  */
+
+model StaffInvitation {
+  id          String                @id @default(cuid())
+  businessId  String
+  invitedById String
+  email       String
+  role        BusinessRole
+  tokenHash   String                @unique
+  status      StaffInvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  business  Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  invitedBy User     @relation("StaffInvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+  @@index([email, status])
+  @@index([expiresAt])
+}
 
 model Customer {
   id         String   @id @default(cuid())

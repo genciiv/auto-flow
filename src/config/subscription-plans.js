@@ -5,6 +5,7 @@ export const PLAN_FEATURES_BY_TIER = Object.freeze({
     "vehicles",
     "services",
     "invoices",
+    "staffRoles",
   ]),
   business: Object.freeze([
     "appointments",

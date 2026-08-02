@@ -15,6 +15,7 @@ import {
   Settings,
   ShoppingCart,
   Users,
+  UserRoundCog,
   Wrench,
   X,
 } from "lucide-react";
@@ -120,6 +121,12 @@ const sidebarGroups = [
   {
     title: "Sistemi",
     items: [
+      {
+        name: "Stafi",
+        icon: UserRoundCog,
+        href: "/dashboard/staff",
+        permission: PERMISSIONS.STAFF_VIEW,
+      },
       {
         name: "Audit Log",
         icon: ClipboardList,
