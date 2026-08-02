@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 
@@ -14,14 +14,16 @@ function redirectToLogin(request) {
 }
 
 function getAuthenticatedDestination(user) {
+  if (user?.loginPortal === "personal") {
+    return user?.globalRole === "CUSTOMER"
+      ? "/customer/dashboard"
+      : null;
+  }
+
   if (user?.globalRole === "PLATFORM_ADMIN") {
     return "/admin";
   }
 
-  /*
-   * Aksesi nÃ« biznes ka pÃ«rparÃ«si ndaj portalit
-   * tÃ« klientit.
-   */
   if (user?.businessId && user?.businessRole) {
     return "/dashboard";
   }

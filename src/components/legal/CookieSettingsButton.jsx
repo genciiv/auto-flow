@@ -2,12 +2,21 @@
 
 import { Cookie } from "lucide-react";
 
-import { COOKIE_EVENT, STORAGE_KEY } from "@/components/legal/CookieConsent";
+import {
+  COOKIE_EVENT,
+  COOKIE_NAME,
+  STORAGE_KEY,
+} from "@/components/legal/CookieConsent";
 
 export default function CookieSettingsButton({ className = "" }) {
   function reopenSettings() {
-    window.localStorage.removeItem(STORAGE_KEY);
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Cookie pastrohet edhe nëse localStorage është i bllokuar.
+    }
 
+    document.cookie = `${COOKIE_NAME}=; Max-Age=0; Path=/; SameSite=Lax`;
     window.dispatchEvent(new CustomEvent(COOKIE_EVENT));
   }
 

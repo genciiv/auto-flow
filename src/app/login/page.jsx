@@ -19,16 +19,22 @@ export const metadata = {
 };
 
 function getUserDestination(user) {
+  if (user?.loginPortal === "personal") {
+    return user?.globalRole === "CUSTOMER"
+      ? "/customer/dashboard"
+      : null;
+  }
+
   if (user?.globalRole === "PLATFORM_ADMIN") {
     return "/admin";
   }
 
-  if (user?.globalRole === "CUSTOMER") {
-    return "/customer/dashboard";
-  }
-
   if (user?.businessId && user?.businessRole) {
     return "/dashboard";
+  }
+
+  if (user?.globalRole === "CUSTOMER") {
+    return "/customer/dashboard";
   }
 
   return null;

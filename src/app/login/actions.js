@@ -46,12 +46,13 @@ export async function loginAction(previousState, formData) {
     };
   }
 
-  const { email, password } = validationResult.data;
+  const { email, password, portalType } = validationResult.data;
 
   try {
     await signIn("credentials", {
       email,
       password,
+      portalType,
       redirectTo: "/auth/redirect",
     });
 
@@ -73,6 +74,30 @@ export async function loginAction(previousState, formData) {
           code: ERROR_CODES.EMAIL_NOT_VERIFIED,
           message:
             "Email-i yt nuk është verifikuar. Kontrollo email-in ose kërko një link të ri.",
+          email,
+        });
+      }
+
+      if (
+        error.type === "CredentialsSignin" &&
+        error.code === "personal_access_required"
+      ) {
+        return loginFailure({
+          code: "PERSONAL_ACCESS_REQUIRED",
+          message:
+            "Kjo llogari nuk ka akses personal. Zgjidh Login Biznes ose regjistro një llogari personale.",
+          email,
+        });
+      }
+
+      if (
+        error.type === "CredentialsSignin" &&
+        error.code === "business_access_required"
+      ) {
+        return loginFailure({
+          code: "BUSINESS_ACCESS_REQUIRED",
+          message:
+            "Kjo llogari nuk ka akses në një biznes aktiv. Zgjidh Login Personal ose apliko për biznes.",
           email,
         });
       }

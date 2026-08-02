@@ -110,6 +110,10 @@ export const loginSchema = z.object({
   password: z.string().min(1, {
     message: requiredLoginMessage,
   }),
+
+  portalType: z.enum(["personal", "business"], {
+    message: "Zgjidh mënyrën e hyrjes.",
+  }),
 });
 
 export const registerSchema = addPasswordConfirmationValidation(

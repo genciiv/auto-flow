@@ -3,23 +3,21 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 
 function getDestination(user) {
+  if (user?.loginPortal === "personal") {
+    return user?.globalRole === "CUSTOMER"
+      ? "/customer/dashboard"
+      : "/login?error=personal-access";
+  }
+
   if (user?.globalRole === "PLATFORM_ADMIN") {
     return "/admin";
   }
 
-  /*
-   * Aksesi në biznes ka përparësi ndaj portalit
-   * të klientit.
-   */
   if (user?.businessId && user?.businessRole) {
     return "/dashboard";
   }
 
-  if (user?.globalRole === "CUSTOMER") {
-    return "/customer/dashboard";
-  }
-
-  return "/login?error=no-access";
+  return "/login?error=business-access";
 }
 
 export default async function AuthRedirectPage() {

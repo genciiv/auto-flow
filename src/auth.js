@@ -13,6 +13,14 @@ class EmailNotVerifiedError extends CredentialsSignin {
   code = "email_not_verified";
 }
 
+class PersonalAccessRequiredError extends CredentialsSignin {
+  code = "personal_access_required";
+}
+
+class BusinessAccessRequiredError extends CredentialsSignin {
+  code = "business_access_required";
+}
+
 function mapMemberships(memberships = []) {
   return memberships.map((membership) => ({
     id: membership.id,
@@ -48,6 +56,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           label: "Password",
           type: "password",
         },
+
+        portalType: {
+          label: "Portali",
+          type: "text",
+        },
       },
 
       async authorize(credentials, request) {
@@ -58,6 +71,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const password =
           typeof credentials?.password === "string" ? credentials.password : "";
+
+        const portalType =
+          credentials?.portalType === "business" ? "business" : "personal";
 
         if (!email || !password) {
           return null;
@@ -138,13 +154,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const isPlatformAdmin = user.globalRole === "PLATFORM_ADMIN";
-
         const isCustomer = user.globalRole === "CUSTOMER";
-
         const hasBusinessAccess = user.businesses.length > 0;
 
-        if (!isPlatformAdmin && !isCustomer && !hasBusinessAccess) {
-          return null;
+        if (portalType === "personal" && !isCustomer) {
+          throw new PersonalAccessRequiredError();
+        }
+
+        if (
+          portalType === "business" &&
+          !isPlatformAdmin &&
+          !hasBusinessAccess
+        ) {
+          throw new BusinessAccessRequiredError();
         }
 
         await resetFailedLogins(user.id);
@@ -179,6 +201,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           businessRole: primaryMembership?.role ?? null,
 
           memberships,
+          loginPortal: portalType,
         };
       },
     }),
@@ -207,6 +230,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.memberships = Array.isArray(user.memberships)
           ? user.memberships
           : [];
+
+        token.loginPortal = user.loginPortal ?? "personal";
 
         return token;
       }
@@ -345,6 +370,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.memberships = Array.isArray(token.memberships)
           ? token.memberships
           : [];
+
+        session.user.loginPortal = token.loginPortal ?? null;
       }
 
       return session;
