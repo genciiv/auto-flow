@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  LEGACY_PLAN_SLUGS,
   PLAN_FEATURES_BY_TIER,
   SUBSCRIPTION_PLAN_CATALOG,
   TRIAL_CONFIGURATION,
@@ -11,38 +12,52 @@ function getPlan(slug) {
   return SUBSCRIPTION_PLAN_CATALOG.find((plan) => plan.slug === slug);
 }
 
-test("katalogu përmban Starter, Professional, Business dhe Free Trial", () => {
+test("katalogu përmban vetëm planet aktive të reja", () => {
   assert.deepEqual(
     SUBSCRIPTION_PLAN_CATALOG.map((plan) => plan.slug),
-    ["free-trial", "starter", "professional", "business"],
+    ["free-trial", "professional", "business"],
   );
+  assert.deepEqual(LEGACY_PLAN_SLUGS, ["starter"]);
 });
 
-test("Professional përfshin inventory dhe është plani i rekomanduar", () => {
+test("çmimet ruhen në Lekë dhe Professional bashkon paketat bazë", () => {
   const professional = getPlan("professional");
 
-  assert.equal(professional.monthlyPrice, 39);
-  assert.equal(professional.maxUsers, 7);
-  assert.equal(professional.isRecommended, true);
-  assert.ok(professional.features.includes("inventory"));
-  assert.ok(professional.features.includes("marketplace"));
+  assert.equal(professional.monthlyPrice, 3900);
+  assert.equal(professional.yearlyPrice, 39000);
+  assert.deepEqual(professional.features, PLAN_FEATURES_BY_TIER.professional);
+  assert.deepEqual(professional.features, [
+    "appointments",
+    "customers",
+    "vehicles",
+    "services",
+    "invoices",
+  ]);
 });
 
-test("Starter nuk përfshin inventory, ndërsa Business ka limite të pakufizuara", () => {
-  const starter = getPlan("starter");
+test("Premium Business përmban të gjitha funksionet", () => {
   const business = getPlan("business");
 
-  assert.equal(starter.features.includes("inventory"), false);
+  assert.equal(business.name, "Premium Business");
+  assert.equal(business.monthlyPrice, 6900);
+  assert.equal(business.yearlyPrice, 69000);
   assert.equal(business.maxCustomers, null);
   assert.equal(business.maxVehicles, null);
+  assert.deepEqual(business.features, PLAN_FEATURES_BY_TIER.business);
+  assert.ok(business.features.includes("inventory"));
+  assert.ok(business.features.includes("purchases"));
+  assert.ok(business.features.includes("marketplace"));
   assert.ok(business.features.includes("advancedAnalytics"));
+  assert.ok(business.features.includes("reports"));
+  assert.ok(business.features.includes("auditLogs"));
+  assert.ok(business.features.includes("staffRoles"));
+  assert.ok(business.features.includes("prioritySupport"));
 });
 
-test("Free Trial zgjat 14 ditë dhe përdor feature-t e Professional", () => {
+test("Free Trial zgjat 7 ditë dhe përdor funksionet e Professional", () => {
   const trial = getPlan("free-trial");
 
-  assert.equal(TRIAL_CONFIGURATION.durationDays, 14);
+  assert.equal(TRIAL_CONFIGURATION.durationDays, 7);
   assert.equal(TRIAL_CONFIGURATION.planSlug, "free-trial");
   assert.deepEqual(trial.features, PLAN_FEATURES_BY_TIER.professional);
-  assert.equal(trial.maxUsers, 5);
 });

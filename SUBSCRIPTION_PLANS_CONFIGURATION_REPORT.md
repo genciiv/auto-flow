@@ -1,27 +1,58 @@
 # AutoFlow — Subscription Plans Configuration
 
-Ky ndryshim konfiguron vetëm planet dhe trial-in. Nuk ndryshon schema-n Prisma, dashboard-et, autentikimin, email-et, permissions ose të dhënat e moduleve të biznesit.
+Ky konfigurim përdor Lekë shqiptare (ALL), bashkon Starter dhe Professional në një paketë të vetme dhe e vendos Free Trial në 7 ditë.
 
-## Planet
+## Planet aktive
 
-- Starter: 19 €/muaj, 2 përdorues, 150 klientë, 250 automjete.
-- Professional: 39 €/muaj, 7 përdorues, 1,000 klientë, 2,000 automjete; inventory, purchases, marketplace dhe analytics.
-- Business: 69 €/muaj, 20 përdorues, klientë dhe automjete pa limit; funksione të avancuara.
-- Free Trial: 14 ditë, 5 përdorues dhe feature-t e Professional.
+### Free Trial — 7 ditë
+
+- 0 Lekë.
+- 5 përdorues.
+- 1,000 klientë.
+- 2,000 automjete.
+- Menaxhim klientësh.
+- Menaxhim automjetesh.
+- Regjistrim të punëve të servisit.
+- Takime dhe rezervime.
+- Krijim faturash.
+
+### Professional — 3,900 Lekë/muaj
+
+- 39,000 Lekë/vit.
+- 7 përdorues.
+- 1,000 klientë.
+- 2,000 automjete.
+- Menaxhim klientësh.
+- Menaxhim automjetesh.
+- Regjistrim të punëve të servisit.
+- Takime dhe rezervime.
+- Krijim faturash.
+
+### Premium Business — 6,900 Lekë/muaj
+
+- 69,000 Lekë/vit.
+- 20 përdorues.
+- Klientë pa kufi.
+- Automjete pa kufi.
+- Të gjitha funksionet e Professional.
+- Inventar dhe stok.
+- Blerje dhe furnitorë.
+- Marketplace.
+- Analytics dhe raporte të avancuara.
+- Eksporte.
+- Audit logs.
+- Role dhe leje për stafin.
+- Listime të promovuara.
+- Mbështetje prioritare.
+
+## Plani i vjetër Starter
+
+Plani me slug `starter` çaktivizohet, por nuk fshihet. Kjo ruan historikun dhe lidhjet e abonimeve ekzistuese.
 
 ## Aplikimi në databazë
-
-Komanda është idempotente dhe përdor `upsert`, prandaj mund të ekzekutohet përsëri pa krijuar plane dublikatë:
 
 ```powershell
 npm run plans:configure
 ```
 
-Komanda përditëson vetëm planet me slug-et `free-trial`, `starter`, `professional`, `business` dhe konfigurimin `trialEnabled/trialDurationDays`.
-
-## Siguria
-
-- Nuk kryhet migration.
-- Nuk fshihen abonime ose biznese.
-- Abonimet ekzistuese ruajnë lidhjen me planin përkatës.
-- Përpara ekzekutimit në production rekomandohet backup i databazës dhe kontroll i target-it.
+Komanda përdor `upsert`, nuk krijon dublikatë dhe vendos monedhën e platformës në `ALL`.

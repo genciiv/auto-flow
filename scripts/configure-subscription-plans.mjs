@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import {
+  LEGACY_PLAN_SLUGS,
   SUBSCRIPTION_PLAN_CATALOG,
   TRIAL_CONFIGURATION,
 } from "../src/config/subscription-plans.js";
@@ -21,6 +22,14 @@ const adapter = new PrismaPg({
 });
 
 const db = new PrismaClient({ adapter });
+
+function formatLek(value) {
+  return new Intl.NumberFormat("sq-AL", {
+    style: "currency",
+    currency: "ALL",
+    maximumFractionDigits: 0,
+  }).format(Number(value));
+}
 
 async function configurePlans() {
   const results = [];
@@ -50,6 +59,13 @@ async function configurePlans() {
     results.push(savedPlan);
   }
 
+  if (LEGACY_PLAN_SLUGS.length > 0) {
+    await db.plan.updateMany({
+      where: { slug: { in: [...LEGACY_PLAN_SLUGS] } },
+      data: { isActive: false, isRecommended: false },
+    });
+  }
+
   const settings = await db.platformSetting.findFirst({
     orderBy: { createdAt: "asc" },
   });
@@ -60,6 +76,7 @@ async function configurePlans() {
       data: {
         trialEnabled: TRIAL_CONFIGURATION.enabled,
         trialDurationDays: TRIAL_CONFIGURATION.durationDays,
+        defaultCurrency: "ALL",
       },
     });
   } else {
@@ -67,6 +84,7 @@ async function configurePlans() {
       data: {
         trialEnabled: TRIAL_CONFIGURATION.enabled,
         trialDurationDays: TRIAL_CONFIGURATION.durationDays,
+        defaultCurrency: "ALL",
       },
     });
   }
@@ -81,15 +99,25 @@ try {
 
   for (const plan of plans) {
     console.log(
-      `- ${plan.name}: ${plan.monthlyPrice} €/muaj, ${
+      `- ${plan.name}: ${formatLek(plan.monthlyPrice)}/muaj, ${
         plan.maxUsers ?? "pa kufi"
       } përdorues`,
+    );
+  }
+
+  if (LEGACY_PLAN_SLUGS.length > 0) {
+    console.log(
+      `Planet e vjetra u çaktivizuan: ${LEGACY_PLAN_SLUGS.join(", ")}.`,
     );
   }
 
   console.log(
     `Trial: ${TRIAL_CONFIGURATION.durationDays} ditë me planin ${TRIAL_CONFIGURATION.planSlug}.`,
   );
+} catch (error) {
+  console.error("Konfigurimi i planeve dështoi:");
+  console.error(error);
+  process.exitCode = 1;
 } finally {
   await db.$disconnect();
 }

@@ -1,23 +1,10 @@
 export const PLAN_FEATURES_BY_TIER = Object.freeze({
-  starter: Object.freeze([
-    "appointments",
-    "customers",
-    "vehicles",
-    "services",
-    "invoices",
-  ]),
   professional: Object.freeze([
     "appointments",
     "customers",
     "vehicles",
     "services",
     "invoices",
-    "inventory",
-    "purchases",
-    "marketplace",
-    "analytics",
-    "auditLogs",
-    "staffRoles",
   ]),
   business: Object.freeze([
     "appointments",
@@ -43,7 +30,7 @@ export const SUBSCRIPTION_PLAN_CATALOG = Object.freeze([
   Object.freeze({
     name: "Free Trial",
     slug: "free-trial",
-    description: "14 ditë provë me funksionet kryesore të planit Professional.",
+    description: "7 ditë provë falas me funksionet e planit Professional.",
     monthlyPrice: 0,
     yearlyPrice: 0,
     maxUsers: 5,
@@ -55,51 +42,41 @@ export const SUBSCRIPTION_PLAN_CATALOG = Object.freeze([
     sortOrder: 0,
   }),
   Object.freeze({
-    name: "Starter",
-    slug: "starter",
-    description: "Për servise të vogla që duan menaxhimin bazë të punës.",
-    monthlyPrice: 19,
-    yearlyPrice: 190,
-    maxUsers: 2,
-    maxCustomers: 150,
-    maxVehicles: 250,
-    features: PLAN_FEATURES_BY_TIER.starter,
-    isActive: true,
-    isRecommended: false,
-    sortOrder: 1,
-  }),
-  Object.freeze({
     name: "Professional",
     slug: "professional",
-    description: "Për servise në rritje me magazinë, marketplace dhe analiza.",
-    monthlyPrice: 39,
-    yearlyPrice: 390,
+    description:
+      "Për servise që duan të menaxhojnë klientët, automjetet, punët e servisit, takimet dhe faturat.",
+    monthlyPrice: 3900,
+    yearlyPrice: 39000,
     maxUsers: 7,
     maxCustomers: 1000,
     maxVehicles: 2000,
     features: PLAN_FEATURES_BY_TIER.professional,
     isActive: true,
     isRecommended: true,
-    sortOrder: 2,
+    sortOrder: 1,
   }),
   Object.freeze({
-    name: "Business",
+    name: "Premium Business",
     slug: "business",
-    description: "Për servise më të mëdha me analiza dhe raporte të avancuara.",
-    monthlyPrice: 69,
-    yearlyPrice: 690,
+    description:
+      "Për servise të mëdha që duan të gjitha modulet, raporte të avancuara dhe mbështetje prioritare.",
+    monthlyPrice: 6900,
+    yearlyPrice: 69000,
     maxUsers: 20,
     maxCustomers: null,
     maxVehicles: null,
     features: PLAN_FEATURES_BY_TIER.business,
     isActive: true,
     isRecommended: false,
-    sortOrder: 3,
+    sortOrder: 2,
   }),
 ]);
 
+export const LEGACY_PLAN_SLUGS = Object.freeze(["starter"]);
+
 export const TRIAL_CONFIGURATION = Object.freeze({
   enabled: true,
-  durationDays: 14,
+  durationDays: 7,
   planSlug: "free-trial",
 });
