@@ -33,7 +33,8 @@
     "deploy:validate": "node scripts/deploy/validate-env.mjs",
     "deploy:validate:ci": "node scripts/deploy/validate-env.mjs --target=development",
     "deploy:verify": "node scripts/deploy/post-deploy-check.mjs",
-    "audit:deployment": "node scripts/audit-deployment-readiness.mjs"
+    "audit:deployment": "node scripts/audit-deployment-readiness.mjs",
+    "plans:configure": "node scripts/configure-subscription-plans.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
