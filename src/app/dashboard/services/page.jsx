@@ -45,7 +45,16 @@ export default async function ServicesPage() {
     db.vehicle.findMany({
       where: {
         businessId,
-        ...(businessRole === "MECHANIC" ? { assignedUserId: userId } : {}),
+        ...(businessRole === "MECHANIC"
+          ? {
+              services: {
+                some: {
+                  businessId,
+                  assignedUserId: userId,
+                },
+              },
+            }
+          : {}),
       },
       orderBy: {
         plate: "asc",
