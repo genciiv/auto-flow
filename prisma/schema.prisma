@@ -109,6 +109,8 @@ enum InventoryMovementType {
   ADJUSTMENT_OUT
 }
 
+
+
 enum ExpenseStatus {
   DRAFT
   POSTED
@@ -671,7 +673,7 @@ model ServiceRecord {
   statusHistory      ServiceStatusHistory[]
   laborItems         ServiceLaborItem[]
   inventoryMovements InventoryMovement[]
-  appointment        Appointment?           @relation("AppointmentService")
+  appointment        Appointment?        @relation("AppointmentService")
 
   @@index([businessId])
   @@index([vehicleId])
@@ -704,22 +706,22 @@ model ServiceStatusHistory {
  */
 
 model Appointment {
-  id                  String            @id @default(cuid())
-  businessId          String
-  vehicleId           String?
-  customerId          String?
-  assignedUserId      String?
-  serviceId           String?           @unique
-  title               String
-  description         String?
-  date                DateTime
-  durationMinutes     Int               @default(60)
-  status              AppointmentStatus @default(PENDING)
-  customerConfirmedAt DateTime?
-  reminderSentAt      DateTime?
-  cancellationReason  String?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  id                    String            @id @default(cuid())
+  businessId            String
+  vehicleId             String?
+  customerId            String?
+  assignedUserId        String?
+  serviceId             String?           @unique
+  title                 String
+  description           String?
+  date                   DateTime
+  durationMinutes        Int               @default(60)
+  status                 AppointmentStatus @default(PENDING)
+  customerConfirmedAt    DateTime?
+  reminderSentAt         DateTime?
+  cancellationReason     String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
 
   business     Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
   vehicle      Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
@@ -945,6 +947,7 @@ model Invoice {
   @@index([businessId, createdAt])
 }
 
+
 model ExpenseCategory {
   id         String   @id @default(cuid())
   businessId String
@@ -972,9 +975,9 @@ model BusinessExpense {
   amount         Float
   paymentMethod  PaymentMethod @default(CASH)
   expenseDate    DateTime
-  notes          String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   business Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
   category ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
