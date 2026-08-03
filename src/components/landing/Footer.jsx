@@ -28,8 +28,8 @@ const platformLinks = [
 
 const resourceLinks = [
   {
-    label: "Marketplace",
-    href: "/marketplace",
+    label: "Platforma",
+    href: "/",
   },
   {
     label: "Apliko për AutoFlow",
@@ -136,7 +136,7 @@ export default function Footer() {
 
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
                 Menaxho klientët, automjetet, serviset, rezervimet, faturat,
-                magazinën dhe marketplace-in nga një platformë moderne.
+                magazinën dhe financat nga një platformë moderne.
               </p>
             </div>
 

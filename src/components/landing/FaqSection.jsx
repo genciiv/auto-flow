@@ -26,9 +26,9 @@ const faqs = [
       "Po. AutoFlow përfshin menaxhimin e stokut, pjesëve, çmimeve dhe njoftimeve kur stoku është i ulët.",
   },
   {
-    question: "A përfshihet Marketplace?",
+    question: "A përfshihet modulet e biznesit?",
     answer:
-      "Po. Marketplace lejon publikimin dhe kërkimin e automjeteve, pjesëve, pajisjeve dhe shërbimeve automotive.",
+      "Po. modulet e biznesit lejon publikimin dhe kërkimin e automjeteve, pjesëve, pajisjeve dhe shërbimeve automotive.",
   },
   {
     question: "A mund ta përdor nga telefoni?",

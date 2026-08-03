@@ -18,14 +18,12 @@ test("customer dhe vehicle creation zbatojnë limitet brenda transaction", async
   assert.match(vehicles, /database: transaction/);
 });
 
-test("marketplace, inventory dhe analytics zbatojnë feature access në server", async () => {
-  const [marketplace, inventory, analytics] = await Promise.all([
-    read("src/actions/marketplace-actions.js"),
+test("inventory dhe analytics zbatojnë feature access në server", async () => {
+  const [inventory, analytics] = await Promise.all([
     read("src/actions/part-actions.js"),
     read("src/app/dashboard/analytics/page.jsx"),
   ]);
 
-  assert.match(marketplace, /assertPlanFeature\(businessId, PLAN_FEATURES\.MARKETPLACE\)/);
   assert.match(inventory, /assertPlanFeature\(businessId, PLAN_FEATURES\.INVENTORY\)/);
   assert.match(analytics, /requireBusinessFeature\(PLAN_FEATURES\.ANALYTICS\)/);
 });

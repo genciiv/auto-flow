@@ -52,7 +52,6 @@ function revalidateBusinessSettingsPages() {
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard", "layout");
-  revalidatePath("/dashboard/marketplace");
 }
 
 export async function updateProfileSettings(formData) {

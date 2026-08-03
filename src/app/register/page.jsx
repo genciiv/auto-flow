@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { CarFront, Heart, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { CarFront, History, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 
 import { auth } from "@/auth";
 
@@ -9,7 +9,7 @@ import RegisterForm from "./register-form";
 export const metadata = {
   title: "Krijo llogari | AutoFlow",
   description:
-    "Krijo llogarinë tënde AutoFlow dhe menaxho automjetet, kërkesat dhe publikimet.",
+    "Krijo llogarinë tënde AutoFlow dhe menaxho automjetet dhe historikun e shërbimeve.",
 };
 
 function getUserDestination(user) {
@@ -68,12 +68,12 @@ export default async function RegisterPage() {
             </div>
 
             <h1 className="text-4xl font-semibold leading-tight xl:text-5xl">
-              Automjeti, shërbimet dhe Marketplace në një vend.
+              Automjeti, shërbimet dhe AutoFlow në një vend.
             </h1>
 
             <p className="mt-6 max-w-lg text-base leading-7 text-slate-300">
-              Krijo llogarinë për të regjistruar automjetet, për të ruajtur
-              publikimet dhe për të kontaktuar bizneset në Marketplace.
+              Krijo llogarinë për të regjistruar automjetet, për të ndjekur
+              shërbimet dhe për të parë historikun e tyre në AutoFlow.
             </p>
 
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
@@ -88,21 +88,21 @@ export default async function RegisterPage() {
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <Search className="mb-4 size-5 text-slate-300" />
+                <Wrench className="mb-4 size-5 text-slate-300" />
 
-                <p className="text-sm font-medium">Marketplace</p>
+                <p className="text-sm font-medium">Shërbimet</p>
 
                 <p className="mt-1 text-xs text-slate-400">
-                  Gjej makina dhe pjesë
+                  Ndiq punët e servisit
                 </p>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <Heart className="mb-4 size-5 text-slate-300" />
+                <History className="mb-4 size-5 text-slate-300" />
 
-                <p className="text-sm font-medium">Favoritet</p>
+                <p className="text-sm font-medium">Historiku</p>
 
-                <p className="mt-1 text-xs text-slate-400">Ruaj publikimet</p>
+                <p className="mt-1 text-xs text-slate-400">Shiko historikun e automjetit</p>
               </div>
             </div>
           </div>
@@ -142,7 +142,7 @@ export default async function RegisterPage() {
 
                 <p className="mt-3 text-sm leading-6 text-slate-500">
                   Regjistrohu falas për të përdorur portalin e klientit dhe
-                  Marketplace.
+                  AutoFlow.
                 </p>
               </div>
 

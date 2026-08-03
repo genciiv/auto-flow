@@ -6,11 +6,8 @@ import { usePathname } from "next/navigation";
 import {
   CarFront,
   Gauge,
-  Heart,
   LogOut,
-  MessageSquareText,
   Settings,
-  ShoppingBag,
   Wrench,
   X,
 } from "lucide-react";
@@ -19,36 +16,6 @@ import { logoutCustomerAction } from "@/app/customer/actions";
 import CustomerBusinessSwitcher from "@/components/customer/CustomerBusinessSwitcher";
 
 const navigationItems = [
-  {
-    label: "Përmbledhje",
-    href: "/customer/dashboard",
-    icon: Gauge,
-  },
-  {
-    label: "Makinat e mia",
-    href: "/customer/vehicles",
-    icon: CarFront,
-  },
-  {
-    label: "Historiku i serviseve",
-    href: "/customer/services",
-    icon: Wrench,
-  },
-  {
-    label: "Kërkesat e mia",
-    href: "/customer/inquiries",
-    icon: MessageSquareText,
-  },
-  {
-    label: "Favoritet",
-    href: "/customer/favorites",
-    icon: Heart,
-  },
-  {
-    label: "Publikimet e mia",
-    href: "/customer/listings",
-    icon: ShoppingBag,
-  },
   {
     label: "Profili",
     href: "/customer/profile",

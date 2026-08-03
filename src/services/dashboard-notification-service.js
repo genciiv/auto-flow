@@ -31,8 +31,6 @@ export async function getDashboardNotifications(businessId, userId = null) {
   }
 
   const [
-    marketplaceUnreadCount,
-    inquiries,
     vehicleClaimPendingCount,
     vehicleClaims,
     businessNotificationUnreadCount,
@@ -40,44 +38,6 @@ export async function getDashboardNotifications(businessId, userId = null) {
     userNotificationUnreadCount,
     userNotifications,
   ] = await Promise.all([
-    db.marketplaceInquiry.count({
-      where: {
-        isRead: false,
-        listing: { businessId },
-      },
-    }),
-
-    db.marketplaceInquiry.findMany({
-      where: {
-        listing: { businessId },
-      },
-      select: {
-        id: true,
-        name: true,
-        message: true,
-        isRead: true,
-        createdAt: true,
-        listing: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            type: true,
-            images: {
-              orderBy: { position: "asc" },
-              take: 1,
-              select: {
-                id: true,
-                url: true,
-                alt: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
 
     db.vehicleClaim.count({
       where: {
@@ -171,20 +131,6 @@ export async function getDashboardNotifications(businessId, userId = null) {
       : Promise.resolve([]),
   ]);
 
-  const marketplaceNotifications = inquiries.map((inquiry) => ({
-    id: `marketplace-${inquiry.id}`,
-    sourceId: inquiry.id,
-    kind: "MARKETPLACE_INQUIRY",
-    title: inquiry.name || "Vizitor",
-    subtitle: inquiry.listing.title || "Publikim Marketplace",
-    message: inquiry.message,
-    isRead: inquiry.isRead,
-    createdAt: inquiry.createdAt.toISOString(),
-    href: `/dashboard/marketplace/inquiries?inquiry=${inquiry.id}`,
-    image: inquiry.listing.images[0]?.url || null,
-    listingType: inquiry.listing.type,
-  }));
-
   const vehicleClaimNotifications = vehicleClaims.map((claim) => {
     const customerName = getCustomerName(claim);
     const vehicleTitle = getVehicleTitle(claim.vehicle);
@@ -247,7 +193,6 @@ export async function getDashboardNotifications(businessId, userId = null) {
   const notifications = [
     ...personalNotifications,
     ...systemNotifications,
-    ...marketplaceNotifications,
     ...vehicleClaimNotifications,
   ]
     .sort(
@@ -259,7 +204,6 @@ export async function getDashboardNotifications(businessId, userId = null) {
 
   return {
     unreadCount:
-      marketplaceUnreadCount +
       vehicleClaimPendingCount +
       businessNotificationUnreadCount +
       userNotificationUnreadCount,

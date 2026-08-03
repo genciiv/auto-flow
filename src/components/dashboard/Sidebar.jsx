@@ -11,13 +11,11 @@ import {
   Landmark,
   Home,
   Link2,
-  MessageSquareText,
   BriefcaseBusiness,
   LayoutDashboard,
   History,
   Package,
   Settings,
-  ShoppingCart,
   Users,
   UserRoundCog,
   Wrench,
@@ -122,18 +120,6 @@ const sidebarGroups = [
   {
     title: "Rritja",
     items: [
-      {
-        name: "Marketplace",
-        icon: ShoppingCart,
-        href: "/dashboard/marketplace",
-        permission: PERMISSIONS.MARKETPLACE_VIEW,
-      },
-      {
-        name: "Kërkesat Marketplace",
-        icon: MessageSquareText,
-        href: "/dashboard/marketplace/inquiries",
-        permission: PERMISSIONS.MARKETPLACE_VIEW,
-      },
       {
         name: "Financa & Raporte",
         icon: Landmark,

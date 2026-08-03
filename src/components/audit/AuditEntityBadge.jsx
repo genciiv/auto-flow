@@ -5,8 +5,6 @@ const ENTITY_LABELS = {
   SERVICE_RECORD: "Shërbim",
   INVOICE: "Faturë",
   PAYMENT: "Pagesë",
-  MARKETPLACE: "Marketplace",
-  MARKETPLACE_LISTING: "Produkt Marketplace",
   APPOINTMENT: "Termin",
   BUSINESS: "Biznes",
   PURCHASE_ORDER: "Porosi",

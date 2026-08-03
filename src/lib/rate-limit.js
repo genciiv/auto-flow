@@ -10,7 +10,6 @@ export const RATE_LIMIT_POLICIES = Object.freeze({
   resendVerification: { limit: 4, windowSeconds: 3600, blockSeconds: 3600 },
   activateAccount: { limit: 10, windowSeconds: 3600, blockSeconds: 3600 },
   businessApplication: { limit: 5, windowSeconds: 86400, blockSeconds: 86400 },
-  marketplaceInquiry: { limit: 10, windowSeconds: 3600, blockSeconds: 3600 },
   search: { limit: 120, windowSeconds: 60, blockSeconds: 60 },
 });
 

@@ -85,7 +85,7 @@ export default function HeroSection() {
 
           <p className="mt-8 max-w-xl text-base leading-8 text-slate-600 sm:text-lg sm:leading-9">
             AutoFlow lidh klientët, automjetet, serviset, rezervimet, magazinën,
-            faturat, pagesat dhe marketplace-in në një platformë të vetme
+            faturat, pagesat dhe platformë-in në një platformë të vetme
             profesionale.
           </p>
 

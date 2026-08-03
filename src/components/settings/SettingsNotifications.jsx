@@ -2,7 +2,7 @@ const options = [
   "Njoftime për termine",
   "Njoftime për stok të ulët",
   "Njoftime për fatura të papaguara",
-  "Njoftime për marketplace",
+  "Njoftime për njoftimet operative",
 ];
 
 export default function SettingsNotifications() {

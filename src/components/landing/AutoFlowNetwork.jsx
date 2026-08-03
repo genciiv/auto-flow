@@ -12,8 +12,8 @@ import { motion, useReducedMotion } from "motion/react";
 
 const nodes = [
   {
-    id: "marketplace",
-    label: "Marketplace",
+    id: "klientë",
+    label: "Klientë",
     description: "Produkte, pjesë dhe automjete",
     icon: Store,
     className: "left-1/2 top-0 -translate-x-1/2 md:left-1/2 md:top-2",

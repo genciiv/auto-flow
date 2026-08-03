@@ -170,7 +170,6 @@ const requiredUiFiles = [
   "src/app/admin/error.jsx",
   "src/app/dashboard/error.jsx",
   "src/app/customer/error.jsx",
-  "src/app/marketplace/error.jsx",
 ];
 
 for (const requiredFile of requiredUiFiles) {

@@ -146,41 +146,6 @@ export async function notifySubscriptionUpdated({
   });
 }
 
-/*
-|--------------------------------------------------------------------------
-| MARKETPLACE
-|--------------------------------------------------------------------------
-*/
-
-export async function notifyMarketplaceListingPublished({
-  businessId,
-  listingId,
-  listingTitle,
-}) {
-  return createBusinessNotification({
-    businessId,
-    title: "Produkti u publikua",
-    message: `"${listingTitle}" u publikua në Marketplace.`,
-    type: "SUCCESS",
-    entityType: "MARKETPLACE",
-    entityId: listingId,
-  });
-}
-
-export async function notifyMarketplaceInquiry({
-  businessId,
-  listingId,
-  senderName,
-}) {
-  return createBusinessNotification({
-    businessId,
-    title: "Interesim i ri",
-    message: `${senderName} dërgoi një kërkesë për produktin tuaj.`,
-    type: "INFO",
-    entityType: "MARKETPLACE",
-    entityId: listingId,
-  });
-}
 
 /*
 |--------------------------------------------------------------------------

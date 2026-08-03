@@ -15,7 +15,6 @@ export const PLAN_FEATURES_BY_TIER = Object.freeze({
     "invoices",
     "inventory",
     "purchases",
-    "marketplace",
     "analytics",
     "advancedAnalytics",
     "reports",
@@ -23,7 +22,6 @@ export const PLAN_FEATURES_BY_TIER = Object.freeze({
     "auditLogs",
     "staffRoles",
     "prioritySupport",
-    "featuredListings",
   ]),
 });
 

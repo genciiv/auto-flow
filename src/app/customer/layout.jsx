@@ -17,7 +17,6 @@ export default async function CustomerPortalLayout({ children }) {
     <CustomerLayout
       userName={user.name}
       userEmail={user.email}
-      favoriteCount={user._count?.marketplaceFavorites ?? 0}
     >
       {children}
     </CustomerLayout>

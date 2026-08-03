@@ -42,7 +42,7 @@ export default function PrivacyPage() {
       <p>
         Kjo politikë zbatohet për vizitorët e faqes, bizneset që aplikojnë për
         përdorimin e AutoFlow, pronarët e bizneseve, anëtarët e stafit,
-        klientët, përdoruesit e marketplace-it dhe personat e tjerë që
+        klientët, përdoruesit e platformë-it dhe personat e tjerë që
         ndërveprojnë me platformën.
       </p>
 
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
         <li>Shënime të vendosura nga biznesi.</li>
       </ul>
 
-      <h3>3.4 Të dhëna të marketplace-it</h3>
+      <h3>3.4 Të dhëna të platformë-it</h3>
 
       <ul>
         <li>Titulli dhe përshkrimi i publikimit;</li>
@@ -113,7 +113,7 @@ export default function PrivacyPage() {
         <li>Ofrimin e funksioneve të platformës;</li>
         <li>Menaxhimin e klientëve, automjeteve dhe serviseve;</li>
         <li>Menaxhimin e rezervimeve, faturave dhe stokut;</li>
-        <li>Publikimin dhe administrimin e marketplace-it;</li>
+        <li>Publikimin dhe administrimin e platformë-it;</li>
         <li>Dërgimin e njoftimeve që lidhen me shërbimin;</li>
         <li>Parandalimin e abuzimit dhe incidenteve të sigurisë;</li>
         <li>Përmbushjen e detyrimeve ligjore;</li>

@@ -9,7 +9,7 @@ for(const token of ["model RateLimitBucket","failedLoginAttempts","lockedUntil"]
 for(const token of ["loginIp","loginIdentifier","recordFailedLogin","resetFailedLogins","isAccountLocked"]) if(!auth.includes(token)) failures.push(`auth: mungon ${token}`);
 for(const token of ["sha256","consumeRateLimit","RATE_LIMIT_POLICIES"]) if(!limiter.includes(token)) failures.push(`rate-limit: mungon ${token}`);
 if(!migration.includes('CREATE TABLE "RateLimitBucket"')) failures.push("migration: mungon RateLimitBucket");
-for(const file of ["src/app/register/actions.js","src/app/forgot-password/actions.js","src/app/resend-verification/actions.js","src/app/activate-account/actions.js","src/app/apply/actions.js","src/app/marketplace/[slug]/actions.js"]) {
+for(const file of ["src/app/register/actions.js","src/app/forgot-password/actions.js","src/app/resend-verification/actions.js","src/app/activate-account/actions.js","src/app/apply/actions.js"]) {
   if(!requireFile(file).includes("protectPublicAction")) failures.push(`${file}: mungon rate limiting.`);
 }
 if(failures.length){ console.error("Rate limiting audit: FAILED\n- "+failures.join("\n- ")); process.exit(1); }

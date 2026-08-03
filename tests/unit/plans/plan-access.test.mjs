@@ -25,14 +25,14 @@ const access = {
 test("feature registry mbështet labels ekzistuese dhe keys standarde", () => {
   assert.equal(planIncludesFeature(access.plan.features, PLAN_FEATURES.INVENTORY), true);
   assert.equal(planIncludesFeature(access.plan.features, PLAN_FEATURES.ANALYTICS), true);
-  assert.equal(planIncludesFeature(access.plan.features, PLAN_FEATURES.MARKETPLACE), false);
-  assert.equal(planIncludesFeature(null, PLAN_FEATURES.MARKETPLACE), true);
+  assert.equal(planIncludesFeature(access.plan.features, PLAN_FEATURES.STAFF), false);
+  assert.equal(planIncludesFeature(null, PLAN_FEATURES.STAFF), true);
   assert.deepEqual(normalizePlanFeatures(null), null);
 });
 
 test("assertPlanFeature bllokon feature që nuk përfshihet", async () => {
   await assert.rejects(
-    () => assertPlanFeature("business_1", PLAN_FEATURES.MARKETPLACE, { access }),
+    () => assertPlanFeature("business_1", PLAN_FEATURES.STAFF, { access }),
     (error) => error.code === "PLAN_FEATURE_NOT_INCLUDED" && error.status === 403,
   );
 });

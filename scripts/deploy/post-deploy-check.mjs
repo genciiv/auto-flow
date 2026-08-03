@@ -7,7 +7,6 @@ const checks = [
   ["/api/health/live", 200],
   ["/api/health/ready", 200],
   ["/login", 200],
-  ["/marketplace", 200],
 ];
 
 for (const [path, expected] of checks) {

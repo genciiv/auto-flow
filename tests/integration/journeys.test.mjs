@@ -32,12 +32,6 @@ test("owner journey mbron customer, vehicle, service dhe invoice mutations", asy
   }
 });
 
-test("marketplace journey kërkon feature access dhe izolon listing-un", async () => {
-  const code = await source("src/actions/marketplace-actions.js");
-  assert.match(code, /PLAN_FEATURES\.MARKETPLACE|["']marketplace["']/);
-  assert.match(code, /assertPlanFeature/);
-  assert.match(code, /businessId/);
-});
 
 test("proxy ndan admin, owner dhe customer routes", async () => {
   const code = await source("src/proxy.js");

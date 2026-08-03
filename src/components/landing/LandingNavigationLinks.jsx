@@ -12,8 +12,8 @@ export const landingNavigationItems = [
     targetId: "how-it-works",
   },
   {
-    label: "Marketplace",
-    href: "/marketplace",
+    label: "Funksionet",
+    targetId: "features",
   },
   {
     label: "Çmimet",

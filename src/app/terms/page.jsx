@@ -10,7 +10,7 @@ export default function TermsPage() {
     <LegalPageLayout
       eyebrow="Marrëveshja e përdorimit"
       title="Kushtet e Përdorimit"
-      description="Këto kushte rregullojnë aksesin dhe përdorimin e faqes, platformës, dashboard-eve, moduleve dhe marketplace-it AutoFlow."
+      description="Këto kushte rregullojnë aksesin dhe përdorimin e faqes, platformës, dashboard-eve, moduleve dhe platformës-it AutoFlow."
     >
       <div className="legal-notice">
         Duke krijuar një llogari, duke aplikuar për platformën ose duke vazhduar
@@ -26,7 +26,7 @@ export default function TermsPage() {
         </li>
         <li>
           “Përdorues” nënkupton çdo vizitor, klient, staf, pronar biznesi,
-          administrator ose përdorues marketplace-i.
+          administrator ose përdorues platformës-i.
         </li>
         <li>
           “Biznes” nënkupton një servis ose subjekt automotive që përdor
@@ -136,10 +136,10 @@ export default function TermsPage() {
         <li>Shkelja e privatësisë ose pronësisë intelektuale të të tjerëve.</li>
       </ul>
 
-      <h2>9. Marketplace</h2>
+      <h2>9. platformës</h2>
 
       <p>
-        Marketplace-i mundëson publikimin dhe zbulimin e automjeteve, pjesëve,
+        platformës-i mundëson publikimin dhe zbulimin e automjeteve, pjesëve,
         pajisjeve dhe shërbimeve nga biznese ose përdorues të ndryshëm.
       </p>
 
@@ -231,7 +231,7 @@ export default function TermsPage() {
       <p>
         AutoFlow nuk garanton rezultatin ekonomik të biznesit, numrin e
         klientëve, shitjet, cilësinë e shërbimeve të bizneseve ose vlefshmërinë
-        e çdo oferte të publikuar në marketplace.
+        e çdo oferte të publikuar në platformës.
       </p>
 
       <p>

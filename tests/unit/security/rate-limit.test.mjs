@@ -28,7 +28,7 @@ test("account lock kontrollon lockedUntil", () => {
 });
 
 test("politikat kritike ekzistojnë", () => {
-  for (const key of ["loginIp", "loginIdentifier", "register", "forgotPassword", "resendVerification", "activateAccount", "businessApplication", "marketplaceInquiry", "search"]) {
+  for (const key of ["loginIp", "loginIdentifier", "register", "forgotPassword", "resendVerification", "activateAccount", "businessApplication", "search"]) {
     assert.ok(RATE_LIMIT_POLICIES[key]);
   }
 });

@@ -30,7 +30,7 @@ export const plans = [
     features: [
       "Deri në 20 përdorues",
       "Klientë dhe automjete pa kufi",
-      "Inventar, blerje dhe marketplace",
+      "Inventar, blerje dhe menaxhim stoku",
       "Analitika, raporte dhe audit logs",
       "Role stafi dhe mbështetje prioritare",
     ],

@@ -12,7 +12,6 @@ test("business mutations marrin businessId nga server context", async () => {
     "src/actions/vehicle-actions.js",
     "src/actions/service-actions.js",
     "src/actions/invoice-actions.js",
-    "src/actions/marketplace-actions.js",
   ];
 
   for (const file of files) {
@@ -29,7 +28,6 @@ test("queries kritike filtrojnë resurset me businessId", async () => {
     ["src/actions/vehicle-actions.js", /where:\s*\{[\s\S]{0,180}businessId/],
     ["src/actions/invoice-actions.js", /where:\s*\{[\s\S]{0,180}businessId/],
     ["src/actions/service-actions.js", /where:\s*\{[\s\S]{0,180}businessId/],
-    ["src/actions/marketplace-actions.js", /businessId/],
   ];
 
   for (const [file, pattern] of expectations) {
@@ -39,10 +37,8 @@ test("queries kritike filtrojnë resurset me businessId", async () => {
 
 test("customer portal izolon të dhënat me profileId nga session context", async () => {
   const files = [
-    "src/app/customer/listings/actions.js",
     "src/app/customer/vehicles/actions.js",
     "src/app/customer/vehicles/claim-actions.js",
-    "src/app/customer/favorites/actions.js",
   ];
 
   for (const file of files) {

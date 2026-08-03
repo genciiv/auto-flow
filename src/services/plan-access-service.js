@@ -4,7 +4,6 @@ import { getBusinessSubscriptionAccess } from "@/services/subscription-access-se
 
 export const PLAN_FEATURES = Object.freeze({
   INVENTORY: "inventory",
-  MARKETPLACE: "marketplace",
   ANALYTICS: "analytics",
   STAFF: "staff",
 });
@@ -17,7 +16,6 @@ export const PLAN_RESOURCES = Object.freeze({
 
 const FEATURE_ALIASES = Object.freeze({
   inventory: ["inventory", "inventar", "magazine", "magazina", "stock"],
-  marketplace: ["marketplace", "treg", "publikime"],
   analytics: ["analytics", "analitika", "raporte", "reports"],
   staff: ["staff", "punonjes", "punonjës", "users", "perdorues", "përdorues"],
 });

@@ -46,7 +46,6 @@ const ENTITY_LABELS = {
   SERVICE: "Shërbim",
   APPOINTMENT: "Termin",
   INVOICE: "Faturë",
-  MARKETPLACE_LISTING: "Marketplace",
 };
 
 function formatDateTime(value) {

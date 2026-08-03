@@ -42,7 +42,7 @@ const industries = [
     icon: ShieldCheck,
   },
   {
-    label: "Marketplace",
+    label: "Menaxhim biznesi",
     icon: Store,
   },
 ];

@@ -59,14 +59,6 @@ export async function requireCustomerContext() {
       emailVerified: true,
       lastLoginAt: true,
       createdAt: true,
-
-      _count: {
-        select: {
-          marketplaceFavorites: true,
-          marketplaceInquiries: true,
-          marketplaceListings: true,
-        },
-      },
     },
   });
 

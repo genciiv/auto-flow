@@ -16,10 +16,6 @@ export const features = [
     description: "Fatura dhe pagesa.",
   },
   {
-    title: "Marketplace",
-    description: "Pjesë këmbimi.",
-  },
-  {
     title: "Analytics",
     description: "Raporte biznesi.",
   },

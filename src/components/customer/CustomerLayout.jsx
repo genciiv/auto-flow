@@ -9,7 +9,6 @@ export default function CustomerLayout({
   children,
   userName,
   userEmail,
-  favoriteCount = 0,
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -25,7 +24,6 @@ export default function CustomerLayout({
       <div className="min-h-screen lg:pl-72">
         <CustomerTopbar
           userName={userName}
-          favoriteCount={favoriteCount}
           onOpenMenu={() => setSidebarOpen(true)}
         />
 

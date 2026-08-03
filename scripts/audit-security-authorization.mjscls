@@ -92,7 +92,6 @@ const protectedActionFiles = [
   "src/actions/appointment-actions.js",
   "src/actions/customer-actions.js",
   "src/actions/invoice-actions.js",
-  "src/actions/marketplace-actions.js",
   "src/actions/part-actions.js",
   "src/actions/purchase-actions.js",
   "src/actions/purchase-item-actions.js",

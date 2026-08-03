@@ -20,7 +20,6 @@ test("public actions kritike përdorin protection helper", async () => {
     "src/app/resend-verification/actions.js",
     "src/app/activate-account/actions.js",
     "src/app/apply/actions.js",
-    "src/app/marketplace/[slug]/actions.js",
   ];
   for (const file of files) assert.match(await read(file), /protectPublicAction/);
 });

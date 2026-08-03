@@ -14,9 +14,6 @@ import {
 function revalidateNotificationPaths() {
   revalidatePath("/customer", "layout");
   revalidatePath("/customer/dashboard");
-  revalidatePath("/customer/favorites");
-  revalidatePath("/customer/listings");
-  revalidatePath("/customer/inquiries");
   revalidatePath("/customer/services");
   revalidatePath("/customer/vehicles");
 }

@@ -15,7 +15,6 @@ const FEATURE_LABELS = {
   invoices: "Krijim faturash",
   inventory: "Inventar dhe stok",
   purchases: "Blerje dhe furnitorë",
-  marketplace: "Marketplace",
   analytics: "Analitika",
   advancedAnalytics: "Analitika të avancuara",
   reports: "Raporte të avancuara",
@@ -23,7 +22,6 @@ const FEATURE_LABELS = {
   auditLogs: "Audit logs",
   staffRoles: "Role dhe leje për stafin",
   prioritySupport: "Mbështetje prioritare",
-  featuredListings: "Listime të promovuara",
 };
 
 function formatMoney(value) {

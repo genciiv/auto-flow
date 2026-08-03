@@ -28,9 +28,6 @@ export function getNotificationUrl(notification) {
     case "SUBSCRIPTION":
       return `/dashboard/subscriptions/${entityId}`;
 
-    case "MARKETPLACE":
-      return `/marketplace/${entityId}`;
-
     case "DOCUMENT":
       return `/dashboard/documents/${entityId}`;
 

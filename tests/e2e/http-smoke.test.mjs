@@ -9,7 +9,7 @@ async function request(path, options = {}) {
 }
 
 test("public routes pÃ«rgjigjen dhe security headers janÃ« aktive", { skip: !enabled }, async () => {
-  for (const path of ["/", "/login", "/register", "/forgot-password", "/marketplace", "/privacy", "/terms"]) {
+  for (const path of ["/", "/login", "/register", "/forgot-password", "/privacy", "/terms"]) {
     const response = await request(path);
     assert.ok([200, 301, 302, 307, 308].includes(response.status), `${path}: ${response.status}`);
   }

@@ -47,7 +47,6 @@ test("Premium Business përmban të gjitha funksionet", () => {
   assert.deepEqual(business.features, PLAN_FEATURES_BY_TIER.business);
   assert.ok(business.features.includes("inventory"));
   assert.ok(business.features.includes("purchases"));
-  assert.ok(business.features.includes("marketplace"));
   assert.ok(business.features.includes("advancedAnalytics"));
   assert.ok(business.features.includes("reports"));
   assert.ok(business.features.includes("auditLogs"));

@@ -4,7 +4,6 @@ import IndustryMarquee from "@/components/landing/IndustryMarquee";
 import AutoFlowNetwork from "@/components/landing/AutoFlowNetwork";
 import HowItWorksSection from "@/components/landing/HowItWorksSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
-import MarketplaceSection from "@/components/landing/MarketplaceSection";
 import AiSection from "@/components/landing/AiSection";
 import PricingSection from "@/components/landing/PricingSection";
 import FaqSection from "@/components/landing/FaqSection";
@@ -27,7 +26,6 @@ export default function Home() {
 
       <FeaturesSection />
 
-      <MarketplaceSection />
 
       <AiSection />
 
