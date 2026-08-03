@@ -191,6 +191,13 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+enum SubscriptionPlanRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
 enum PaymentStatus {
   PENDING
   PAID
@@ -240,6 +247,8 @@ model User {
   auditLogs            AuditLog[]
   authTokens           AuthToken[]
   staffInvitationsSent StaffInvitation[] @relation("StaffInvitationInviter")
+  subscriptionPlanRequestsCreated  SubscriptionPlanRequest[] @relation("SubscriptionPlanRequestRequester")
+  subscriptionPlanRequestsReviewed SubscriptionPlanRequest[] @relation("SubscriptionPlanRequestReviewer")
 
   @@index([email])
   @@index([phone])
@@ -309,6 +318,7 @@ model Business {
   subscriptions       Subscription[]
   payments            Payment[]
   staffInvitations    StaffInvitation[]
+  subscriptionPlanRequests SubscriptionPlanRequest[]
 
   @@index([name])
   @@index([city])
@@ -791,6 +801,7 @@ model Plan {
   updatedAt DateTime @updatedAt
 
   subscriptions Subscription[]
+  subscriptionPlanRequests SubscriptionPlanRequest[]
 
   @@index([name])
   @@index([isActive])
@@ -824,6 +835,7 @@ model Subscription {
   plan     Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
 
   payments Payment[]
+  planRequests SubscriptionPlanRequest[]
 
   @@index([businessId])
   @@index([planId])
@@ -831,6 +843,40 @@ model Subscription {
   @@index([trialEndsAt])
   @@index([currentPeriodEnd])
   @@index([businessId, status])
+}
+
+model SubscriptionPlanRequest {
+  id              String                        @id @default(cuid())
+  businessId      String
+  requestedPlanId String
+  requestedById   String
+  reviewedById    String?
+  subscriptionId  String?
+
+  status          SubscriptionPlanRequestStatus @default(PENDING)
+  billingInterval BillingInterval               @default(MONTHLY)
+  requestedPrice  Float
+  currentPlanName String?
+  notes           String?
+  rejectionReason String?
+
+  reviewedAt DateTime?
+  paidAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  requestedPlan Plan          @relation(fields: [requestedPlanId], references: [id], onDelete: Restrict)
+  requestedBy   User          @relation("SubscriptionPlanRequestRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy    User?         @relation("SubscriptionPlanRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  subscription  Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, status])
+  @@index([requestedPlanId])
+  @@index([requestedById])
+  @@index([reviewedById])
+  @@index([subscriptionId])
+  @@index([status, createdAt])
 }
 
 model Payment {

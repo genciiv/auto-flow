@@ -36,6 +36,7 @@ export async function getAdminNotificationSummary({
 
   const [
     pendingApplications,
+    pendingPlanRequests,
     pendingPayments,
     expiringTrials,
     expiredSubscriptions,
@@ -50,6 +51,31 @@ export async function getAdminNotificationSummary({
         ownerName: true,
         email: true,
         createdAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take,
+    }),
+
+    db.subscriptionPlanRequest.findMany({
+      where: {
+        status: "PENDING",
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        business: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        requestedPlan: {
+          select: {
+            name: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -159,6 +185,17 @@ export async function getAdminNotificationSummary({
       priority: 1,
     })),
 
+    ...pendingPlanRequests.map((request) => ({
+      id: `plan-request-${request.id}`,
+      kind: "PLAN_REQUEST",
+      title: "Kërkesë për plan",
+      subtitle: request.business.name,
+      message: `Biznesi kërkon planin ${request.requestedPlan.name}.`,
+      href: "/admin/plan-requests",
+      createdAt: request.createdAt,
+      priority: 2,
+    })),
+
     ...pendingPayments.map((payment) => ({
       id: `payment-${payment.id}`,
       kind: "PAYMENT_PENDING",
@@ -171,7 +208,7 @@ export async function getAdminNotificationSummary({
       } pret konfirmim.`,
       href: `/admin/payments/${payment.id}`,
       createdAt: payment.createdAt,
-      priority: 2,
+      priority: 3,
     })),
 
     ...expiringTrials.map((subscription) => {
@@ -188,7 +225,7 @@ export async function getAdminNotificationSummary({
             : `Trial-i përfundon pas ${daysRemaining} ditësh.`,
         href: `/admin/subscriptions/${subscription.id}`,
         createdAt: subscription.trialEndsAt,
-        priority: 3,
+        priority: 5,
       };
     }),
 
@@ -225,6 +262,7 @@ export async function getAdminNotificationSummary({
     unreadCount: notifications.length,
     counts: {
       applications: pendingApplications.length,
+      planRequests: pendingPlanRequests.length,
       payments: pendingPayments.length,
       expiringTrials: expiringTrials.length,
       expiredSubscriptions: expiredSubscriptions.length,

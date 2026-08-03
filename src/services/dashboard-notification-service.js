@@ -35,21 +35,19 @@ export async function getDashboardNotifications(businessId) {
     inquiries,
     vehicleClaimPendingCount,
     vehicleClaims,
+    businessNotificationUnreadCount,
+    businessNotifications,
   ] = await Promise.all([
     db.marketplaceInquiry.count({
       where: {
         isRead: false,
-        listing: {
-          businessId,
-        },
+        listing: { businessId },
       },
     }),
 
     db.marketplaceInquiry.findMany({
       where: {
-        listing: {
-          businessId,
-        },
+        listing: { businessId },
       },
       select: {
         id: true,
@@ -64,9 +62,7 @@ export async function getDashboardNotifications(businessId) {
             slug: true,
             type: true,
             images: {
-              orderBy: {
-                position: "asc",
-              },
+              orderBy: { position: "asc" },
               take: 1,
               select: {
                 id: true,
@@ -77,27 +73,21 @@ export async function getDashboardNotifications(businessId) {
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
       take: 8,
     }),
 
     db.vehicleClaim.count({
       where: {
         status: "PENDING",
-        vehicle: {
-          businessId,
-        },
+        vehicle: { businessId },
       },
     }),
 
     db.vehicleClaim.findMany({
       where: {
         status: "PENDING",
-        vehicle: {
-          businessId,
-        },
+        vehicle: { businessId },
       },
       select: {
         id: true,
@@ -114,9 +104,7 @@ export async function getDashboardNotifications(businessId) {
                 firstName: true,
                 lastName: true,
                 user: {
-                  select: {
-                    name: true,
-                  },
+                  select: { name: true },
                 },
               },
             },
@@ -131,9 +119,30 @@ export async function getDashboardNotifications(businessId) {
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    }),
+
+    db.notification.count({
+      where: {
+        businessId,
+        isRead: false,
       },
+    }),
+
+    db.notification.findMany({
+      where: { businessId },
+      select: {
+        id: true,
+        title: true,
+        message: true,
+        type: true,
+        entityType: true,
+        entityId: true,
+        isRead: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
       take: 8,
     }),
   ]);
@@ -167,7 +176,7 @@ export async function getDashboardNotifications(businessId) {
         `${customerName} kërkon të lidhë ${vehicleTitle} – ${claim.vehicle.plate}.`,
       isRead: false,
       createdAt: claim.createdAt.toISOString(),
-      href: `/dashboard/vehicle-claims`,
+      href: "/dashboard/vehicle-claims",
       image: null,
       vehicle: {
         title: vehicleTitle,
@@ -176,7 +185,26 @@ export async function getDashboardNotifications(businessId) {
     };
   });
 
+  const systemNotifications = businessNotifications.map((notification) => ({
+    id: `business-notification-${notification.id}`,
+    sourceId: notification.id,
+    kind: "SYSTEM_NOTIFICATION",
+    title: notification.title,
+    subtitle:
+      notification.entityType === "SUBSCRIPTION" ? "Abonimi" : "AutoFlow",
+    message: notification.message,
+    isRead: notification.isRead,
+    createdAt: notification.createdAt.toISOString(),
+    href:
+      notification.entityType === "SUBSCRIPTION"
+        ? "/dashboard/settings/subscription"
+        : "/dashboard",
+    image: null,
+    notificationType: notification.type,
+  }));
+
   const notifications = [
+    ...systemNotifications,
     ...marketplaceNotifications,
     ...vehicleClaimNotifications,
   ]
@@ -188,7 +216,10 @@ export async function getDashboardNotifications(businessId) {
     .slice(0, 8);
 
   return {
-    unreadCount: marketplaceUnreadCount + vehicleClaimPendingCount,
+    unreadCount:
+      marketplaceUnreadCount +
+      vehicleClaimPendingCount +
+      businessNotificationUnreadCount,
     vehicleClaimPendingCount,
     notifications,
   };

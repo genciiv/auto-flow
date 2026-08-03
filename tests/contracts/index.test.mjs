@@ -8,3 +8,5 @@ import "./plans/plan-enforcement.test.mjs";
 import "./observability/observability-contracts.test.mjs";
 
 import "./deployment/deployment-readiness.test.mjs";
+
+import "./subscription-plan-requests.test.mjs";

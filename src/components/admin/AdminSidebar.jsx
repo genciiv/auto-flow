@@ -6,6 +6,7 @@ import {
   Building2,
   ClipboardList,
   CreditCard,
+  Inbox,
   FileBarChart,
   History,
   Home,
@@ -51,6 +52,11 @@ const sidebarGroups = [
         name: "Abonimet",
         icon: CreditCard,
         href: "/admin/subscriptions",
+      },
+      {
+        name: "Kërkesat e planeve",
+        icon: Inbox,
+        href: "/admin/plan-requests",
       },
       {
         name: "Pagesat",

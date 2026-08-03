@@ -3,15 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   CarFront,
   ChevronRight,
   Inbox,
   MessageSquareText,
+  CircleAlert,
+  CircleCheck,
+  Info,
 } from "lucide-react";
 
 import useNotificationRefresh from "@/hooks/useNotificationRefresh";
+import { markBusinessNotificationAsReadAction } from "@/app/dashboard/actions/notifications";
 
 function getTypeLabel(type) {
   const labels = {
@@ -67,6 +72,21 @@ function truncateText(value, maxLength = 82) {
 }
 
 function NotificationIcon({ notification }) {
+  if (notification.kind === "SYSTEM_NOTIFICATION") {
+    const Icon =
+      notification.notificationType === "SUCCESS"
+        ? CircleCheck
+        : notification.notificationType === "WARNING"
+          ? CircleAlert
+          : Info;
+
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-blue-50 text-blue-600">
+        <Icon size={20} />
+      </div>
+    );
+  }
+
   if (notification.kind === "VEHICLE_CLAIM") {
     return (
       <div className="flex h-full w-full items-center justify-center bg-blue-50 text-blue-600">
@@ -100,6 +120,7 @@ export default function NotificationDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const router = useRouter();
 
   useNotificationRefresh();
 
@@ -127,6 +148,19 @@ export default function NotificationDropdown({
 
   const visibleUnreadCount = unreadCount > 99 ? "99+" : unreadCount;
 
+  async function handleNotificationClick(notification) {
+    setOpen(false);
+
+    if (
+      notification.kind === "SYSTEM_NOTIFICATION" &&
+      notification.sourceId &&
+      !notification.isRead
+    ) {
+      await markBusinessNotificationAsReadAction(notification.sourceId);
+      router.refresh();
+    }
+  }
+
   return (
     <div ref={dropdownRef} className="relative">
       <button
@@ -152,7 +186,7 @@ export default function NotificationDropdown({
               <p className="font-bold text-slate-950">Njoftimet</p>
 
               <p className="mt-1 text-xs text-slate-500">
-                Marketplace dhe kërkesat për automjete
+                Njoftime të biznesit, marketplace dhe automjete
               </p>
             </div>
 
@@ -183,7 +217,7 @@ export default function NotificationDropdown({
                 <Link
                   key={notification.id}
                   href={notification.href}
-                  onClick={() => setOpen(false)}
+                  onClick={() => handleNotificationClick(notification)}
                   className={`group flex gap-3 rounded-2xl p-3 transition ${
                     notification.isRead
                       ? "hover:bg-slate-50"
@@ -219,9 +253,11 @@ export default function NotificationDropdown({
 
                     <div className="mt-2 flex items-center justify-between gap-3">
                       <span className="text-[11px] font-medium text-slate-400">
-                        {notification.kind === "VEHICLE_CLAIM"
-                          ? "Lidhje automjeti"
-                          : getTypeLabel(notification.listingType)}
+                        {notification.kind === "SYSTEM_NOTIFICATION"
+                          ? notification.subtitle || "AutoFlow"
+                          : notification.kind === "VEHICLE_CLAIM"
+                            ? "Lidhje automjeti"
+                            : getTypeLabel(notification.listingType)}
                         {" · "}
                         {getRelativeTime(notification.createdAt)}
                       </span>
