@@ -1,7 +1,8 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import { FileSearch, Wrench } from "lucide-react";
+import Link from "next/link";
+import { FileSearch, Wrench, ClipboardList } from "lucide-react";
 
 import AddServicePartModal from "@/components/services/AddServicePartModal";
 import ServiceFilters from "@/components/services/ServiceFilters";
@@ -10,6 +11,7 @@ import ServiceRowActions from "@/components/services/ServiceRowActions";
 import { formatCurrency } from "@/lib/formatters";
 
 const statusConfig = {
+  DRAFT: { label: "Draft", className: "border-slate-200 bg-slate-50 text-slate-700" },
   PENDING: {
     label: "Në pritje",
     className: "border-amber-200 bg-amber-50 text-amber-700",
@@ -18,10 +20,13 @@ const statusConfig = {
     label: "Në proces",
     className: "border-blue-200 bg-blue-50 text-blue-700",
   },
+  WAITING_FOR_PARTS: { label: "Në pritje të pjesëve", className: "border-orange-200 bg-orange-50 text-orange-700" },
+  READY_FOR_PICKUP: { label: "Gati për dorëzim", className: "border-violet-200 bg-violet-50 text-violet-700" },
   COMPLETED: {
     label: "Përfunduar",
     className: "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
+  DELIVERED: { label: "Dorëzuar", className: "border-teal-200 bg-teal-50 text-teal-700" },
   CANCELLED: {
     label: "Anuluar",
     className: "border-red-200 bg-red-50 text-red-700",
@@ -101,6 +106,9 @@ export default function ServicesTable({
   services = [],
   vehicles = [],
   parts = [],
+  canUpdateService = false,
+  canDeleteService = false,
+  canManageServiceParts = false,
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -282,14 +290,16 @@ export default function ServicesTable({
 
                       <td className="whitespace-nowrap px-6 py-5">
                         <div className="flex justify-end gap-2">
-                          <AddServicePartModal
-                            serviceId={service.id}
-                            parts={parts}
-                          />
+                          <Link href={`/dashboard/services/${service.id}`} className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700" title="Hap urdhër-punën"><ClipboardList size={17} /></Link>
+                          {canManageServiceParts ? (
+                            <AddServicePartModal serviceId={service.id} parts={parts} />
+                          ) : null}
 
                           <ServiceRowActions
                             service={service}
                             vehicles={vehicles}
+                            canUpdate={canUpdateService}
+                            canDelete={canDeleteService}
                           />
                         </div>
                       </td>

@@ -3,9 +3,13 @@ import { z } from "zod";
 import { normalizeTrimmedString } from "./common-schema";
 
 export const SERVICE_STATUSES = [
+  "DRAFT",
   "PENDING",
   "IN_PROGRESS",
+  "WAITING_FOR_PARTS",
+  "READY_FOR_PICKUP",
   "COMPLETED",
+  "DELIVERED",
   "CANCELLED",
 ];
 

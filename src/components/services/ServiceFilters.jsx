@@ -91,9 +91,13 @@ export default function ServiceFilters({
             className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
           >
             <option value="ALL">Të gjitha statuset</option>
+            <option value="DRAFT">Draft</option>
             <option value="PENDING">Në pritje</option>
             <option value="IN_PROGRESS">Në proces</option>
+            <option value="WAITING_FOR_PARTS">Në pritje të pjesëve</option>
+            <option value="READY_FOR_PICKUP">Gati për dorëzim</option>
             <option value="COMPLETED">Përfunduar</option>
+            <option value="DELIVERED">Dorëzuar</option>
             <option value="CANCELLED">Anuluar</option>
           </select>
         </div>

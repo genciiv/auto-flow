@@ -105,22 +105,7 @@ export default function CreateServiceModal({ vehicles = [] }) {
                 />
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Statusi
-                </label>
-
-                <select
-                  name="status"
-                  defaultValue="PENDING"
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                >
-                  <option value="PENDING">Në pritje</option>
-                  <option value="IN_PROGRESS">Në proces</option>
-                  <option value="COMPLETED">Përfunduar</option>
-                  <option value="CANCELLED">Anuluar</option>
-                </select>
-              </div>
+              <input type="hidden" name="status" value="PENDING" />
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">

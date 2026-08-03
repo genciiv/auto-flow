@@ -2,19 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Ban,
-  CheckCircle2,
-  Clock3,
   Edit,
   Loader2,
   MoreHorizontal,
-  PlayCircle,
   Trash2,
 } from "lucide-react";
 
 import EditServiceModal from "@/components/services/EditServiceModal";
 import DeleteServiceModal from "@/components/services/DeleteServiceModal";
-import { updateServiceStatus } from "@/actions/service-actions";
 
 export default function ServiceRowActions({
   service,
@@ -56,28 +51,6 @@ export default function ServiceRowActions({
     };
   }, []);
 
-  async function changeStatus(status) {
-    if (!canUpdate) {
-      return;
-    }
-
-    try {
-      setMenuOpen(false);
-      setIsUpdatingStatus(true);
-      setError("");
-
-      const result = await updateServiceStatus(service.id, status);
-
-      if (!result?.success) {
-        setError(result?.message || "Statusi nuk mund të përditësohet.");
-      }
-    } catch (error) {
-      console.error(error);
-      setError("Ndodhi një gabim gjatë ndryshimit të statusit.");
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  }
 
   if (!hasAvailableActions) {
     return null;
@@ -123,54 +96,7 @@ export default function ServiceRowActions({
                 </button>
 
                 <div className="my-1 border-t border-slate-100" />
-
-                {service.status !== "PENDING" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => changeStatus("PENDING")}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-amber-700 transition hover:bg-amber-50"
-                  >
-                    <Clock3 size={16} />
-                    Kalo në pritje
-                  </button>
-                )}
-
-                {service.status !== "IN_PROGRESS" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => changeStatus("IN_PROGRESS")}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
-                  >
-                    <PlayCircle size={16} />
-                    Fillo shërbimin
-                  </button>
-                )}
-
-                {service.status !== "COMPLETED" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => changeStatus("COMPLETED")}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
-                  >
-                    <CheckCircle2 size={16} />
-                    Shëno si përfunduar
-                  </button>
-                )}
-
-                {service.status !== "CANCELLED" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => changeStatus("CANCELLED")}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                  >
-                    <Ban size={16} />
-                    Anulo shërbimin
-                  </button>
-                )}
+                <p className="px-3 py-2 text-xs leading-5 text-slate-500">Statusi ndryshohet në faqen e urdhër-punës.</p>
               </>
             )}
 

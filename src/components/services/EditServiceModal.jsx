@@ -113,21 +113,9 @@ export default function EditServiceModal({ service, vehicles = [], onClose }) {
 
           <div className="grid gap-5 md:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-bold text-slate-700">
-                Statusi
-              </label>
-
-              <select
-                name="status"
-                required
-                defaultValue={service.status || "PENDING"}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500"
-              >
-                <option value="PENDING">Në pritje</option>
-                <option value="IN_PROGRESS">Në proces</option>
-                <option value="COMPLETED">Përfunduar</option>
-                <option value="CANCELLED">Anuluar</option>
-              </select>
+              <label className="mb-2 block text-sm font-bold text-slate-700">Statusi</label>
+              <input type="hidden" name="status" value={service.status} />
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">Ndrysho statusin nga faqja e urdhër-punës.</div>
             </div>
 
             <div>

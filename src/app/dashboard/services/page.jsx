@@ -27,6 +27,7 @@ export default async function ServicesPage() {
           },
         },
         business: true,
+        assignedUser: { select: { id: true, name: true, email: true } },
         partsUsed: {
           where: {
             part: {

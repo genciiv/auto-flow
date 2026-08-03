@@ -52,10 +52,9 @@ function getServiceAuditValues(service) {
 
 function getStatusLabel(status) {
   const labels = {
-    PENDING: "Në pritje",
-    IN_PROGRESS: "Në proces",
-    COMPLETED: "Përfunduar",
-    CANCELLED: "Anuluar",
+    DRAFT: "Draft", PENDING: "Në pritje", IN_PROGRESS: "Në proces",
+    WAITING_FOR_PARTS: "Në pritje të pjesëve", READY_FOR_PICKUP: "Gati për dorëzim",
+    COMPLETED: "Përfunduar", DELIVERED: "Dorëzuar", CANCELLED: "Anuluar",
   };
 
   return labels[status] || status;

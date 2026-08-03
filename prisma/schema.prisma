@@ -54,9 +54,13 @@ enum StaffInvitationStatus {
 }
 
 enum ServiceStatus {
+  DRAFT
   PENDING
   IN_PROGRESS
+  WAITING_FOR_PARTS
+  READY_FOR_PICKUP
   COMPLETED
+  DELIVERED
   CANCELLED
 }
 
@@ -249,6 +253,8 @@ model User {
   staffInvitationsSent StaffInvitation[] @relation("StaffInvitationInviter")
   subscriptionPlanRequestsCreated  SubscriptionPlanRequest[] @relation("SubscriptionPlanRequestRequester")
   subscriptionPlanRequestsReviewed SubscriptionPlanRequest[] @relation("SubscriptionPlanRequestReviewer")
+  assignedServices ServiceRecord[] @relation("ServiceAssignedUser")
+  serviceStatusChanges ServiceStatusHistory[] @relation("ServiceStatusChangedBy")
 
   @@index([email])
   @@index([phone])
@@ -577,25 +583,53 @@ model ServiceRecord {
   businessId  String
   vehicleId   String
   customerId  String?
+  assignedUserId String?
   title       String
   description String?
+  diagnosis   String?
+  internalNotes String?
+  customerApprovalRequired Boolean @default(false)
+  customerApprovedAt DateTime?
   status      ServiceStatus @default(PENDING)
   total       Float         @default(0)
+  startedAt   DateTime?
+  readyAt     DateTime?
+  completedAt DateTime?
+  deliveredAt DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   vehicle  Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  assignedUser User? @relation("ServiceAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
 
   invoice          Invoice?
   partsUsed        ServicePartUsage[]
   maintenanceItems MaintenanceItem[]
+  statusHistory    ServiceStatusHistory[]
 
   @@index([businessId])
   @@index([vehicleId])
   @@index([customerId])
   @@index([businessId, status])
   @@index([businessId, createdAt])
+  @@index([assignedUserId])
+}
+
+model ServiceStatusHistory {
+  id String @id @default(cuid())
+  serviceId String
+  changedById String?
+  fromStatus ServiceStatus?
+  toStatus ServiceStatus
+  note String?
+  createdAt DateTime @default(now())
+
+  service ServiceRecord @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  changedBy User? @relation("ServiceStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([serviceId, createdAt])
+  @@index([changedById])
 }
 
 /**
