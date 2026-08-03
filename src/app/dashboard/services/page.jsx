@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 export default async function ServicesPage() {
-  const { businessId, businessRole } = await requireBusinessPermission(
+  const { businessId, businessRole, userId } = await requireBusinessPermission(
     PERMISSIONS.SERVICES_VIEW,
   );
 
@@ -16,6 +16,7 @@ export default async function ServicesPage() {
     db.serviceRecord.findMany({
       where: {
         businessId,
+        ...(businessRole === "MECHANIC" ? { assignedUserId: userId } : {}),
       },
       orderBy: {
         createdAt: "desc",
@@ -44,6 +45,7 @@ export default async function ServicesPage() {
     db.vehicle.findMany({
       where: {
         businessId,
+        ...(businessRole === "MECHANIC" ? { assignedUserId: userId } : {}),
       },
       orderBy: {
         plate: "asc",
@@ -115,7 +117,9 @@ export default async function ServicesPage() {
             </h1>
 
             <p className="mt-2 text-slate-500">
-              Menaxho riparimet, statuset dhe punët aktive.
+              {businessRole === "MECHANIC"
+                ? "Shiko vetëm punët që të janë caktuar."
+                : "Menaxho riparimet, statuset dhe punët aktive."}
             </p>
           </div>
 

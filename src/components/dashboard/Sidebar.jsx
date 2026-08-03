@@ -11,6 +11,7 @@ import {
   Home,
   Link2,
   MessageSquareText,
+  BriefcaseBusiness,
   Package,
   Settings,
   ShoppingCart,
@@ -62,6 +63,13 @@ const sidebarGroups = [
         icon: Wrench,
         href: "/dashboard/services",
         permission: PERMISSIONS.SERVICES_VIEW,
+      },
+      {
+        name: "Punët e mia",
+        icon: BriefcaseBusiness,
+        href: "/dashboard/my-work",
+        permission: PERMISSIONS.SERVICES_VIEW,
+        roles: ["OWNER", "MANAGER", "MECHANIC"],
       },
       {
         name: "Faturat",
@@ -159,7 +167,10 @@ export default function Sidebar({
     .map((group) => ({
       ...group,
       items: group.items
-        .filter((item) => hasPermission(businessRole, item.permission))
+        .filter((item) =>
+          hasPermission(businessRole, item.permission) &&
+          (!item.roles || item.roles.includes(businessRole)),
+        )
         .map((item) => ({
           ...item,
           badge: item.badgeKey ? Number(badgeCounts[item.badgeKey] || 0) : 0,

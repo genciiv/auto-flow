@@ -10,10 +10,10 @@ const labels = { DRAFT:"Draft", PENDING:"Në pritje", IN_PROGRESS:"Në proces", 
 
 export default async function ServiceDetailsPage({ params }) {
   const { id } = await params;
-  const { businessId } = await requireBusinessPermission(PERMISSIONS.SERVICES_VIEW);
+  const { businessId, businessRole, userId } = await requireBusinessPermission(PERMISSIONS.SERVICES_VIEW);
   const [service, members] = await Promise.all([
     db.serviceRecord.findFirst({
-      where: { id, businessId },
+      where: { id, businessId, ...(businessRole === "MECHANIC" ? { assignedUserId: userId } : {}) },
       include: {
         vehicle: { include: { customer: true } },
         assignedUser: { select: { id:true, name:true, email:true } },
@@ -30,7 +30,9 @@ export default async function ServiceDetailsPage({ params }) {
   ]);
   if (!service) notFound();
   const serializable = JSON.parse(JSON.stringify(service));
-  const staff = members.map((member) => ({ id:member.user.id, name:member.user.name, email:member.user.email, role:member.role }));
+  const staff = members.filter((member) => member.role === "MECHANIC").map((member) => ({ id:member.user.id, name:member.user.name, email:member.user.email, role:member.role }));
+  const canManageAssignment = ["OWNER", "MANAGER"].includes(businessRole);
+  const canManageApproval = ["OWNER", "MANAGER", "RECEPTIONIST"].includes(businessRole);
 
   return <DashboardLayout><div className="space-y-6">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -40,7 +42,7 @@ export default async function ServiceDetailsPage({ params }) {
     <div className="grid gap-4 md:grid-cols-4">
       <Info label="Klienti" value={service.vehicle.customer?.name || "Pa klient"}/><Info label="Mekaniku" value={service.assignedUser?.name || "Pa caktuar"}/><Info label="Totali" value={formatCurrency(service.total)}/><Info label="Pjesë të përdorura" value={String(service.partsUsed.length)}/>
     </div>
-    <ServiceWorkflowPanel service={serializable} staff={staff}/>
+    <ServiceWorkflowPanel service={serializable} staff={staff} businessRole={businessRole} canManageAssignment={canManageAssignment} canManageApproval={canManageApproval}/>
   </div></DashboardLayout>;
 }
 function Info({label,value}) { return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-base font-bold text-slate-950">{value}</p></div>; }

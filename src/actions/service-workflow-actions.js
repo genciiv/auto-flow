@@ -43,7 +43,7 @@ function refresh(serviceId) {
 export async function updateServiceWorkflowAction(formData) {
   try {
     const context = await requireBusinessActionPermission(PERMISSIONS.SERVICES_UPDATE);
-    const { businessId, userId } = context;
+    const { businessId, userId, businessRole } = context;
     const serviceId = clean(formData.get("serviceId"));
     const assignedUserId = clean(formData.get("assignedUserId"));
     const diagnosis = clean(formData.get("diagnosis"));
@@ -59,6 +59,14 @@ export async function updateServiceWorkflowAction(formData) {
     });
     if (!service) return { success: false, message: "Urdhër-puna nuk u gjet." };
 
+    if (businessRole === "MECHANIC" && service.assignedUserId !== userId) {
+      return { success: false, message: "Mund të përditësosh vetëm punët që të janë caktuar." };
+    }
+
+    if (businessRole === "MECHANIC" && assignedUserId !== service.assignedUserId) {
+      return { success: false, message: "Mekaniku nuk mund të ndryshojë caktimin e punës." };
+    }
+
     if (assignedUserId) {
       const member = await db.businessUser.findFirst({
         where: { businessId, userId: assignedUserId, isActive: true },
@@ -73,8 +81,12 @@ export async function updateServiceWorkflowAction(formData) {
         assignedUserId,
         diagnosis,
         internalNotes,
-        customerApprovalRequired,
-        customerApprovedAt: customerApprovalRequired && customerApproved ? (service.customerApprovedAt || new Date()) : null,
+        customerApprovalRequired: businessRole === "MECHANIC" ? service.customerApprovalRequired : customerApprovalRequired,
+        customerApprovedAt: businessRole === "MECHANIC"
+          ? service.customerApprovedAt
+          : customerApprovalRequired && customerApproved
+            ? (service.customerApprovedAt || new Date())
+            : null,
       },
     });
 
@@ -100,13 +112,16 @@ export async function updateServiceWorkflowAction(formData) {
 export async function transitionServiceAction(serviceId, toStatus, note = null) {
   try {
     const context = await requireBusinessActionPermission(PERMISSIONS.SERVICES_UPDATE);
-    const { businessId, userId } = context;
+    const { businessId, userId, businessRole } = context;
     const target = clean(toStatus);
     const service = await db.serviceRecord.findFirst({
       where: { id: clean(serviceId), businessId },
       include: { vehicle: { select: { plate: true } } },
     });
     if (!service) return { success: false, message: "Urdhër-puna nuk u gjet." };
+    if (businessRole === "MECHANIC" && service.assignedUserId !== userId) {
+      return { success: false, message: "Mund të ndryshosh vetëm statusin e punëve që të janë caktuar." };
+    }
     if (!target || !TRANSITIONS[service.status]?.includes(target)) {
       return { success: false, message: `Kalimi nga “${LABELS[service.status]}” në “${LABELS[target] || target}” nuk lejohet.` };
     }
