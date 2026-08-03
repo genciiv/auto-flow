@@ -9,6 +9,7 @@ import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
 import { addPartToServiceSchema } from "@/schemas/inventory-schema";
 
 import { createActionError } from "@/lib/errors";
+import { notifyLowStock } from "@/services/operational-notification-service";
 function refreshServicePartPages(serviceId = null) {
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard/inventory");
@@ -79,6 +80,7 @@ export async function addPartToService(formData) {
           name: true,
           stock: true,
           sellPrice: true,
+          minStock: true,
         },
       });
 
@@ -161,6 +163,18 @@ export async function addPartToService(formData) {
           },
         },
       });
+
+      const stockAfter = Number(part.stock) - quantity;
+      if (stockAfter <= Number(part.minStock || 0)) {
+        await notifyLowStock({
+          database: transaction,
+          businessId,
+          partId: part.id,
+          partName: part.name,
+          stock: stockAfter,
+          minStock: Number(part.minStock || 0),
+        });
+      }
     });
 
     refreshServicePartPages(serviceId);

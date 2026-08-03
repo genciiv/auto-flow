@@ -21,7 +21,7 @@ function getVehicleTitle(vehicle) {
   );
 }
 
-export async function getDashboardNotifications(businessId) {
+export async function getDashboardNotifications(businessId, userId = null) {
   if (!businessId) {
     return {
       unreadCount: 0,
@@ -37,6 +37,8 @@ export async function getDashboardNotifications(businessId) {
     vehicleClaims,
     businessNotificationUnreadCount,
     businessNotifications,
+    userNotificationUnreadCount,
+    userNotifications,
   ] = await Promise.all([
     db.marketplaceInquiry.count({
       where: {
@@ -145,6 +147,28 @@ export async function getDashboardNotifications(businessId) {
       orderBy: { createdAt: "desc" },
       take: 8,
     }),
+
+    userId
+      ? db.notification.count({ where: { userId, isRead: false } })
+      : Promise.resolve(0),
+
+    userId
+      ? db.notification.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            title: true,
+            message: true,
+            type: true,
+            entityType: true,
+            entityId: true,
+            isRead: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+          take: 12,
+        })
+      : Promise.resolve([]),
   ]);
 
   const marketplaceNotifications = inquiries.map((inquiry) => ({
@@ -185,25 +209,43 @@ export async function getDashboardNotifications(businessId) {
     };
   });
 
-  const systemNotifications = businessNotifications.map((notification) => ({
-    id: `business-notification-${notification.id}`,
-    sourceId: notification.id,
-    kind: "SYSTEM_NOTIFICATION",
-    title: notification.title,
-    subtitle:
-      notification.entityType === "SUBSCRIPTION" ? "Abonimi" : "AutoFlow",
-    message: notification.message,
-    isRead: notification.isRead,
-    createdAt: notification.createdAt.toISOString(),
-    href:
-      notification.entityType === "SUBSCRIPTION"
-        ? "/dashboard/settings/subscription"
-        : "/dashboard",
-    image: null,
-    notificationType: notification.type,
-  }));
+  function getNotificationHref(notification) {
+    if (notification.entityType === "SUBSCRIPTION") return "/dashboard/settings/subscription";
+    if (notification.entityType === "SERVICE" && notification.entityId) return `/dashboard/services/${notification.entityId}`;
+    if (notification.entityType === "APPOINTMENT") return "/dashboard/appointments";
+    if (notification.entityType === "PAYMENT" && notification.entityId) return `/dashboard/invoices/${notification.entityId}`;
+    if (notification.entityType === "SYSTEM") return "/dashboard/inventory";
+    if (notification.entityType === "CUSTOMER") return "/dashboard/customers";
+    if (notification.entityType === "VEHICLE") return "/dashboard/vehicles";
+    return "/dashboard";
+  }
+
+  function mapSystemNotification(notification, scope) {
+    return {
+      id: `${scope}-notification-${notification.id}`,
+      sourceId: notification.id,
+      notificationScope: scope,
+      kind: "SYSTEM_NOTIFICATION",
+      title: notification.title,
+      subtitle: notification.entityType === "SUBSCRIPTION" ? "Abonimi" : "AutoFlow",
+      message: notification.message,
+      isRead: notification.isRead,
+      createdAt: notification.createdAt.toISOString(),
+      href: getNotificationHref(notification),
+      image: null,
+      notificationType: notification.type,
+    };
+  }
+
+  const systemNotifications = businessNotifications.map((notification) =>
+    mapSystemNotification(notification, "business"),
+  );
+  const personalNotifications = userNotifications.map((notification) =>
+    mapSystemNotification(notification, "user"),
+  );
 
   const notifications = [
+    ...personalNotifications,
     ...systemNotifications,
     ...marketplaceNotifications,
     ...vehicleClaimNotifications,
@@ -219,7 +261,8 @@ export async function getDashboardNotifications(businessId) {
     unreadCount:
       marketplaceUnreadCount +
       vehicleClaimPendingCount +
-      businessNotificationUnreadCount,
+      businessNotificationUnreadCount +
+      userNotificationUnreadCount,
     vehicleClaimPendingCount,
     notifications,
   };

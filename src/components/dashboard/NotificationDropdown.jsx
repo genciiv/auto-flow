@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import useNotificationRefresh from "@/hooks/useNotificationRefresh";
-import { markBusinessNotificationAsReadAction } from "@/app/dashboard/actions/notifications";
+import { markDashboardNotificationAsReadAction } from "@/app/dashboard/actions/notifications";
 
 function getTypeLabel(type) {
   const labels = {
@@ -156,7 +156,10 @@ export default function NotificationDropdown({
       notification.sourceId &&
       !notification.isRead
     ) {
-      await markBusinessNotificationAsReadAction(notification.sourceId);
+      await markDashboardNotificationAsReadAction(
+        notification.sourceId,
+        notification.notificationScope || "business",
+      );
       router.refresh();
     }
   }

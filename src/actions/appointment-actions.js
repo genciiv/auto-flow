@@ -19,6 +19,7 @@ import {
 } from "@/schemas/appointment-schema";
 
 import { createActionError } from "@/lib/errors";
+import { notifyUsersByRoles } from "@/services/operational-notification-service";
 function revalidateAppointmentPages() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/appointments");
@@ -131,7 +132,7 @@ export async function createAppointment(formData) {
       return relationsResult;
     }
 
-    await db.appointment.create({
+    const appointment = await db.appointment.create({
       data: {
         businessId,
         customerId,
@@ -141,6 +142,16 @@ export async function createAppointment(formData) {
         date,
         status,
       },
+    });
+
+    await notifyUsersByRoles({
+      businessId,
+      roles: ["OWNER", "MANAGER", "RECEPTIONIST"],
+      title: "Termin i ri",
+      message: `${title} u planifikua për ${new Intl.DateTimeFormat("sq-AL", { dateStyle: "short", timeStyle: "short" }).format(date)}.`,
+      type: "INFO",
+      entityType: "APPOINTMENT",
+      entityId: appointment.id,
     });
 
     revalidateAppointmentPages();

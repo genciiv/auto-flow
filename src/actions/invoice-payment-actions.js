@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { createActionError } from "@/lib/errors";
 import { PERMISSIONS } from "@/lib/permissions";
 import { logCreate, logPayment } from "@/services/audit-events";
+import { notifyPartialPayment } from "@/services/operational-notification-service";
 
 async function nextInvoiceNumber(transaction, businessId) {
   const year = new Date().getFullYear();
@@ -88,6 +89,16 @@ export async function recordCustomerPaymentAction(formData) {
       });
       const newPaid = paid + amount;
       await transaction.invoice.update({ where: { id: invoiceId }, data: { status: newPaid + 0.001 >= Number(invoice.total) ? "PAID" : "UNPAID" } });
+      const remainingAfter = Math.max(Number(invoice.total) - newPaid, 0);
+      if (remainingAfter > 0.001) {
+        await notifyPartialPayment({
+          database: transaction,
+          businessId: context.businessId,
+          invoiceId,
+          invoiceNumber: invoice.number,
+          remaining: remainingAfter,
+        });
+      }
       await logPayment({
         context,
         entityType: "INVOICE",

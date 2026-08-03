@@ -6,6 +6,11 @@ import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { logStatusChange, logUpdate } from "@/services/audit-events";
+import {
+  notifyAssignedMechanic,
+  notifyServiceReadyForPickup,
+  notifyServiceWaitingForParts,
+} from "@/services/operational-notification-service";
 
 const TRANSITIONS = {
   DRAFT: ["PENDING", "CANCELLED"],
@@ -55,7 +60,7 @@ export async function updateServiceWorkflowAction(formData) {
 
     const service = await db.serviceRecord.findFirst({
       where: { id: serviceId, businessId },
-      select: { id: true, title: true, assignedUserId: true, diagnosis: true, internalNotes: true, customerApprovalRequired: true, customerApprovedAt: true },
+      select: { id: true, title: true, assignedUserId: true, diagnosis: true, internalNotes: true, customerApprovalRequired: true, customerApprovedAt: true, vehicle: { select: { plate: true } } },
     });
     if (!service) return { success: false, message: "Urdhër-puna nuk u gjet." };
 
@@ -89,6 +94,16 @@ export async function updateServiceWorkflowAction(formData) {
             : null,
       },
     });
+
+    if (assignedUserId && assignedUserId !== service.assignedUserId) {
+      await notifyAssignedMechanic({
+        businessId,
+        mechanicUserId: assignedUserId,
+        serviceId: service.id,
+        serviceTitle: service.title,
+        plate: service.vehicle?.plate || null,
+      });
+    }
 
     await logUpdate({
       context,
@@ -151,6 +166,24 @@ export async function transitionServiceAction(serviceId, toStatus, note = null) 
         metadata: { source: "service-workflow-actions", operation: "transitionServiceAction", vehiclePlate: service.vehicle?.plate || null },
         database: tx,
       });
+      if (target === "WAITING_FOR_PARTS") {
+        await notifyServiceWaitingForParts({
+          database: tx,
+          businessId,
+          serviceId: service.id,
+          serviceTitle: service.title,
+          plate: service.vehicle?.plate || null,
+        });
+      }
+      if (target === "READY_FOR_PICKUP") {
+        await notifyServiceReadyForPickup({
+          database: tx,
+          businessId,
+          serviceId: service.id,
+          serviceTitle: service.title,
+          plate: service.vehicle?.plate || null,
+        });
+      }
       if (["READY_FOR_PICKUP", "COMPLETED", "DELIVERED"].includes(target)) {
         await tx.notification.create({
           data: {
