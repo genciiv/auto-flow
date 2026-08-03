@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import {
   ChevronDown,
   CreditCard,
@@ -17,17 +18,20 @@ const menuItems = [
   {
     title: "Profili",
     icon: User,
-    href: "/dashboard/settings",
+    href: "/dashboard/settings#profile",
+    permission: PERMISSIONS.SETTINGS_VIEW,
   },
   {
     title: "Cilësimet",
     icon: Settings,
     href: "/dashboard/settings",
+    permission: PERMISSIONS.SETTINGS_VIEW,
   },
   {
     title: "Abonimi",
     icon: CreditCard,
-    href: "/dashboard/settings#billing",
+    href: "/dashboard/settings/subscription",
+    permission: PERMISSIONS.BILLING_VIEW,
   },
   {
     title: "Ndihmë",
@@ -151,7 +155,13 @@ export default function ProfileMenu({
             </div>
 
             <div className="mt-2 space-y-1">
-              {menuItems.map((item) => {
+              {menuItems
+                .filter(
+                  (item) =>
+                    !item.permission ||
+                    hasPermission(businessRole, item.permission),
+                )
+                .map((item) => {
                 const Icon = item.icon;
 
                 return (
