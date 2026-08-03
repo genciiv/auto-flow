@@ -20,7 +20,7 @@ const ACTIONS = {
   RECEPTIONIST: [["Regjistro klient", "/dashboard/customers", Users], ["Regjistro automjet", "/dashboard/vehicles", Wrench], ["Krijo termin", "/dashboard/appointments", Calendar], ["Faturat", "/dashboard/invoices", ReceiptText]],
   MECHANIC: [["Punët e mia", "/dashboard/my-work", Wrench], ["Shërbimet", "/dashboard/services", ClipboardList], ["Inventari", "/dashboard/inventory", Package]],
   WAREHOUSE: [["Inventari", "/dashboard/inventory", Package], ["Lëvizjet e stokut", "/dashboard/inventory/movements", ClipboardList], ["Porositë", "/dashboard/purchases", ReceiptText]],
-  ACCOUNTANT: [["Faturat", "/dashboard/invoices", ReceiptText], ["Pagesat", "/dashboard/invoices", Coins], ["Analytics", "/dashboard/analytics", ClipboardList], ["Audit Log", "/dashboard/audit-log", ClipboardList]],
+  ACCOUNTANT: [["Faturat", "/dashboard/invoices", ReceiptText], ["Pagesat", "/dashboard/invoices", Coins], ["Financa & Raporte", "/dashboard/finance", Coins], ["Audit Log", "/dashboard/audit-log", ClipboardList]],
 };
 
 export default async function WorkspacePage() {

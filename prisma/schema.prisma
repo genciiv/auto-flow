@@ -100,6 +100,38 @@ enum InventoryMovementType {
   ADJUSTMENT_OUT
 }
 
+
+
+enum ExpenseStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum InventoryCountStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  POSTED
+  CANCELLED
+}
+
+enum FinancialPeriodType {
+  MONTHLY
+  QUARTERLY
+  SIX_MONTHS
+  YEARLY
+  CUSTOM
+}
+
+enum FinancialReportType {
+  SUMMARY
+  INCOME_EXPENSES
+  INVENTORY
+  RECEIVABLES
+  FULL
+}
+
 enum InvoiceStatus {
   DRAFT
   PAID
@@ -343,6 +375,10 @@ model Business {
   subscriptionPlanRequests SubscriptionPlanRequest[]
   inventoryMovements       InventoryMovement[]
   customerPayments         CustomerPayment[]
+  expenseCategories        ExpenseCategory[]
+  businessExpenses         BusinessExpense[]
+  inventoryCounts          InventoryCount[]
+  financialReportExports   FinancialReportExport[]
 
   @@index([name])
   @@index([city])
@@ -888,6 +924,113 @@ model Invoice {
   @@index([vehicleId])
   @@index([businessId, status])
   @@index([businessId, createdAt])
+}
+
+
+model ExpenseCategory {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  expenses BusinessExpense[]
+
+  @@unique([businessId, name])
+  @@index([businessId, isActive])
+}
+
+model BusinessExpense {
+  id             String        @id @default(cuid())
+  businessId     String
+  categoryId     String?
+  recordedById   String?
+  status         ExpenseStatus @default(POSTED)
+  description    String
+  supplier       String?
+  documentNumber String?
+  amount         Float
+  paymentMethod  PaymentMethod @default(CASH)
+  expenseDate    DateTime
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  business Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, expenseDate])
+  @@index([businessId, status])
+  @@index([categoryId])
+  @@index([recordedById])
+}
+
+model InventoryCount {
+  id           String               @id @default(cuid())
+  businessId   String
+  createdById  String?
+  approvedById String?
+  name         String
+  periodType   FinancialPeriodType  @default(MONTHLY)
+  status       InventoryCountStatus @default(DRAFT)
+  countDate    DateTime
+  notes        String?
+  submittedAt  DateTime?
+  approvedAt   DateTime?
+  postedAt     DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  business Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  items    InventoryCountItem[]
+
+  @@index([businessId, countDate])
+  @@index([businessId, status])
+  @@index([createdById])
+}
+
+model InventoryCountItem {
+  id               String   @id @default(cuid())
+  inventoryCountId String
+  partId           String
+  partName         String
+  partCode         String?
+  expectedQuantity Int
+  actualQuantity   Int?
+  difference       Int?
+  unitCost         Float    @default(0)
+  expectedValue    Float    @default(0)
+  actualValue      Float?
+  differenceValue  Float?
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  inventoryCount InventoryCount @relation(fields: [inventoryCountId], references: [id], onDelete: Cascade)
+
+  @@unique([inventoryCountId, partId])
+  @@index([inventoryCountId])
+  @@index([partId])
+}
+
+model FinancialReportExport {
+  id          String              @id @default(cuid())
+  businessId  String
+  userId      String?
+  reportType  FinancialReportType
+  periodStart DateTime
+  periodEnd   DateTime
+  format      String              @default("XLSX")
+  fileName    String
+  createdAt   DateTime            @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([businessId, reportType])
+  @@index([userId])
 }
 
 model BusinessApplication {

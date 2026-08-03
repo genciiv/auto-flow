@@ -8,6 +8,7 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
+  Landmark,
   Home,
   Link2,
   MessageSquareText,
@@ -132,6 +133,12 @@ const sidebarGroups = [
         icon: MessageSquareText,
         href: "/dashboard/marketplace/inquiries",
         permission: PERMISSIONS.MARKETPLACE_VIEW,
+      },
+      {
+        name: "Financa & Raporte",
+        icon: Landmark,
+        href: "/dashboard/finance",
+        permission: PERMISSIONS.FINANCE_VIEW,
       },
       {
         name: "Analytics",
