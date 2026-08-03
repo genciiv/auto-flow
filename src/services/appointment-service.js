@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 
-const VALID_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+const VALID_STATUSES = ["PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "NO_SHOW"];
 
 function getStartOfDay(date) {
   const value = new Date(date);

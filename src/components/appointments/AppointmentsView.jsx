@@ -10,6 +10,7 @@ export default function AppointmentsView({
   appointments = [],
   customers = [],
   vehicles = [],
+  staff = [],
   canUpdateAppointment = false,
   canDeleteAppointment = false,
   canStartService = false,
@@ -63,6 +64,7 @@ export default function AppointmentsView({
           appointments={appointments}
           customers={customers}
           vehicles={vehicles}
+          staff={staff}
           canUpdateAppointment={canUpdateAppointment}
           canDeleteAppointment={canDeleteAppointment}
           canStartService={canStartService}
@@ -72,6 +74,7 @@ export default function AppointmentsView({
           appointments={appointments}
           customers={customers}
           vehicles={vehicles}
+          staff={staff}
           canUpdateAppointment={canUpdateAppointment}
           canDeleteAppointment={canDeleteAppointment}
           canStartService={canStartService}

@@ -16,6 +16,7 @@ import {
   deleteAppointmentSchema,
   startAppointmentServiceSchema,
   updateAppointmentSchema,
+  rescheduleAppointmentSchema,
 } from "@/schemas/appointment-schema";
 
 import { createActionError } from "@/lib/errors";
@@ -39,9 +40,11 @@ async function validateAppointmentRelations({
   businessId,
   customerId,
   vehicleId,
+  assignedUserId,
 }) {
   let customer = null;
   let vehicle = null;
+  let assignedUser = null;
 
   if (customerId) {
     customer = await db.customer.findFirst({
@@ -91,10 +94,30 @@ async function validateAppointmentRelations({
     }
   }
 
+
+  if (assignedUserId) {
+    const membership = await db.businessUser.findFirst({
+      where: {
+        businessId,
+        userId: assignedUserId,
+        isActive: true,
+        role: { in: ["OWNER", "MANAGER", "MECHANIC", "RECEPTIONIST"] },
+      },
+      select: { user: { select: { id: true, name: true } } },
+    });
+
+    if (!membership) {
+      return { success: false, message: "Punonjësi i zgjedhur nuk është aktiv në këtë biznes." };
+    }
+
+    assignedUser = membership.user;
+  }
+
   return {
     success: true,
     customer,
     vehicle,
+    assignedUser,
   };
 }
 
@@ -119,13 +142,14 @@ export async function createAppointment(formData) {
       };
     }
 
-    const { title, description, customerId, vehicleId, date, status } =
+    const { title, description, customerId, vehicleId, assignedUserId, durationMinutes, date, status } =
       validationResult.data;
 
     const relationsResult = await validateAppointmentRelations({
       businessId,
       customerId,
       vehicleId,
+      assignedUserId,
     });
 
     if (!relationsResult.success) {
@@ -137,10 +161,13 @@ export async function createAppointment(formData) {
         businessId,
         customerId,
         vehicleId,
+        assignedUserId,
+        durationMinutes,
         title,
         description,
         date,
         status,
+        customerConfirmedAt: status === "CONFIRMED" ? new Date() : null,
       },
     });
 
@@ -197,6 +224,8 @@ export async function updateAppointment(formData) {
       description,
       customerId,
       vehicleId,
+      assignedUserId,
+      durationMinutes,
       date,
       status,
     } = validationResult.data;
@@ -223,6 +252,7 @@ export async function updateAppointment(formData) {
       businessId,
       customerId,
       vehicleId,
+      assignedUserId,
     });
 
     if (!relationsResult.success) {
@@ -237,10 +267,13 @@ export async function updateAppointment(formData) {
       data: {
         customerId,
         vehicleId,
+        assignedUserId,
+        durationMinutes,
         title,
         description,
         date,
         status,
+        customerConfirmedAt: status === "CONFIRMED" ? new Date() : null,
       },
     });
 
@@ -371,6 +404,7 @@ export async function updateAppointmentStatus(appointmentId, status) {
 
       data: {
         status: validatedStatus,
+        customerConfirmedAt: validatedStatus === "CONFIRMED" ? new Date() : undefined,
       },
     });
 
@@ -455,6 +489,10 @@ export async function startServiceFromAppointment(appointmentId) {
         throw createActionError("Servisi për këtë termin është nisur tashmë.");
       }
 
+      if (appointment.status === "NO_SHOW") {
+        throw createActionError("Termini i shënuar si mosparaqitje nuk mund të nisë servis.");
+      }
+
       const vehicle = await transaction.vehicle.findFirst({
         where: {
           id: appointment.vehicleId,
@@ -499,7 +537,7 @@ export async function startServiceFromAppointment(appointmentId) {
         where: {
           id: appointment.id,
           businessId,
-          status: "PENDING",
+          status: { in: ["PENDING", "CONFIRMED"] },
         },
 
         data: {
@@ -513,7 +551,7 @@ export async function startServiceFromAppointment(appointmentId) {
         );
       }
 
-      return transaction.serviceRecord.create({
+      const createdService = await transaction.serviceRecord.create({
         data: {
           businessId,
           vehicleId: appointment.vehicleId,
@@ -524,6 +562,13 @@ export async function startServiceFromAppointment(appointmentId) {
           total: 0,
         },
       });
+
+      await transaction.appointment.update({
+        where: { id: appointment.id },
+        data: { serviceId: createdService.id },
+      });
+
+      return createdService;
     });
 
     revalidateAppointmentPages();
@@ -540,5 +585,25 @@ export async function startServiceFromAppointment(appointmentId) {
       success: false,
       message: getErrorMessage(error, "Servisi nuk mund të fillohej."),
     };
+  }
+}
+
+export async function rescheduleAppointment(formData) {
+  try {
+    const { businessId } = await requireBusinessActionPermission(PERMISSIONS.APPOINTMENTS_UPDATE);
+    const validationResult = validateFormData(rescheduleAppointmentSchema, formData);
+    if (!validationResult.success) {
+      return { success: false, message: getFirstValidationMessage(validationResult.error, "Termini nuk mund të riplanifikohej.") };
+    }
+    const { appointmentId, date } = validationResult.data;
+    const appointment = await db.appointment.findFirst({ where: { id: appointmentId, businessId }, select: { id: true, status: true } });
+    if (!appointment) return { success: false, message: "Termini nuk u gjet." };
+    if (["COMPLETED", "CANCELLED", "NO_SHOW"].includes(appointment.status)) return { success: false, message: "Ky termin nuk mund të riplanifikohet." };
+    await db.appointment.update({ where: { id: appointment.id }, data: { date, reminderSentAt: null } });
+    revalidateAppointmentPages();
+    return { success: true, message: "Termini u riplanifikua me sukses." };
+  } catch (error) {
+    console.error("Gabim gjatë riplanifikimit të terminit:", error);
+    return { success: false, message: getErrorMessage(error, "Termini nuk mund të riplanifikohej.") };
   }
 }

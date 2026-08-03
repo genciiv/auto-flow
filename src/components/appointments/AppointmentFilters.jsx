@@ -97,9 +97,11 @@ export default function AppointmentFilters({
           >
             <option value="ALL">Të gjitha statuset</option>
             <option value="PENDING">Në pritje</option>
+            <option value="CONFIRMED">Konfirmuar</option>
             <option value="IN_PROGRESS">Në proces</option>
             <option value="COMPLETED">Përfunduar</option>
             <option value="CANCELLED">Anuluar</option>
+            <option value="NO_SHOW">Nuk u paraqit</option>
           </select>
         </div>
 

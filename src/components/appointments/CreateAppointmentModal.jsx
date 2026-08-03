@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { CalendarPlus, Loader2, X } from "lucide-react";
 import { createAppointment } from "@/actions/appointment-actions";
 
-export default function CreateAppointmentModal({ customers, vehicles }) {
+export default function CreateAppointmentModal({ customers, vehicles, staff = [] }) {
   const [open, setOpen] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -182,6 +182,28 @@ export default function CreateAppointmentModal({ customers, vehicles }) {
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Kohëzgjatja
+                </label>
+                <select name="durationMinutes" defaultValue="60" disabled={isSaving} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 disabled:bg-slate-50">
+                  <option value="30">30 minuta</option>
+                  <option value="45">45 minuta</option>
+                  <option value="60">1 orë</option>
+                  <option value="90">1 orë e 30 minuta</option>
+                  <option value="120">2 orë</option>
+                  <option value="180">3 orë</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">Punonjësi / mekaniku</label>
+                <select name="assignedUserId" defaultValue="" disabled={isSaving} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 disabled:bg-slate-50">
+                  <option value="">Pa caktuar</option>
+                  {staff.map((member) => <option key={member.user.id} value={member.user.id}>{member.user.name} · {member.role}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Statusi
                 </label>
 
@@ -192,9 +214,11 @@ export default function CreateAppointmentModal({ customers, vehicles }) {
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 disabled:bg-slate-50"
                 >
                   <option value="PENDING">Në pritje</option>
+                  <option value="CONFIRMED">Konfirmuar</option>
                   <option value="IN_PROGRESS">Në proces</option>
                   <option value="COMPLETED">Përfunduar</option>
                   <option value="CANCELLED">Anuluar</option>
+                  <option value="NO_SHOW">Nuk u paraqit</option>
                 </select>
               </div>
 

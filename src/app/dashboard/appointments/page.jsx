@@ -12,7 +12,7 @@ export default async function AppointmentsPage() {
     PERMISSIONS.APPOINTMENTS_VIEW,
   );
 
-  const [appointments, customers, vehicles] = await Promise.all([
+  const [appointments, customers, vehicles, staff] = await Promise.all([
     db.appointment.findMany({
       where: {
         businessId,
@@ -24,6 +24,8 @@ export default async function AppointmentsPage() {
         vehicle: true,
         customer: true,
         business: true,
+        assignedUser: { select: { id: true, name: true, email: true } },
+        service: { select: { id: true, status: true } },
       },
     }),
 
@@ -54,6 +56,19 @@ export default async function AppointmentsPage() {
         plate: true,
         brand: true,
         model: true,
+      },
+    }),
+
+    db.businessUser.findMany({
+      where: {
+        businessId,
+        isActive: true,
+        role: { in: ["OWNER", "MANAGER", "MECHANIC", "RECEPTIONIST"] },
+      },
+      orderBy: { user: { name: "asc" } },
+      select: {
+        role: true,
+        user: { select: { id: true, name: true, email: true } },
       },
     }),
   ]);
@@ -114,7 +129,7 @@ export default async function AppointmentsPage() {
           </div>
 
           {canCreateAppointment ? (
-            <CreateAppointmentModal customers={customers} vehicles={vehicles} />
+            <CreateAppointmentModal customers={customers} vehicles={vehicles} staff={staff} />
           ) : null}
         </div>
 
@@ -124,6 +139,7 @@ export default async function AppointmentsPage() {
           appointments={appointments}
           customers={customers}
           vehicles={vehicles}
+          staff={staff}
           canUpdateAppointment={canUpdateAppointment}
           canDeleteAppointment={canDeleteAppointment}
           canStartService={canUpdateAppointment && canCreateService}

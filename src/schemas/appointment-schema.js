@@ -4,9 +4,11 @@ import { normalizeTrimmedString } from "./common-schema";
 
 export const APPOINTMENT_STATUSES = [
   "PENDING",
+  "CONFIRMED",
   "IN_PROGRESS",
   "COMPLETED",
   "CANCELLED",
+  "NO_SHOW",
 ];
 
 function normalizeOptionalString(value) {
@@ -98,10 +100,17 @@ const requiredAppointmentStatusSchema = z.preprocess(
   appointmentStatusValueSchema,
 );
 
+const durationMinutesSchema = z.preprocess(
+  (value) => Number(value || 60),
+  z.number().int().min(15, "Kohëzgjatja minimale është 15 minuta.").max(720, "Kohëzgjatja maksimale është 12 orë."),
+);
+
 const appointmentBaseSchema = {
   description: optionalDescriptionSchema,
   customerId: optionalRelationIdSchema,
   vehicleId: optionalRelationIdSchema,
+  assignedUserId: optionalRelationIdSchema,
+  durationMinutes: durationMinutesSchema,
 };
 
 export const createAppointmentSchema = z
@@ -176,4 +185,16 @@ export const changeAppointmentStatusSchema = z.object({
 
 export const startAppointmentServiceSchema = z.object({
   appointmentId: appointmentIdSchema,
+});
+
+export const rescheduleAppointmentSchema = z.object({
+  appointmentId: appointmentIdSchema,
+  date: requiredAppointmentDateSchema,
+}).transform((data, context) => {
+  const parsedDate = appointmentDateSchema.safeParse(data.date);
+  if (!parsedDate.success) {
+    context.addIssue({ code: "custom", path: ["date"], message: "Data e re nuk është e vlefshme." });
+    return z.NEVER;
+  }
+  return { ...data, date: parsedDate.data };
 });

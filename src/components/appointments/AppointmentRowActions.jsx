@@ -27,6 +27,7 @@ export default function AppointmentRowActions({
   appointment,
   customers = [],
   vehicles = [],
+  staff = [],
   canUpdate = false,
   canDelete = false,
   canStartService = false,
@@ -46,7 +47,7 @@ export default function AppointmentRowActions({
 
   const serviceCanStart =
     canStartService &&
-    appointment.status === "PENDING" &&
+    ["PENDING", "CONFIRMED"].includes(appointment.status) &&
     Boolean(appointment.vehicleId);
 
   useEffect(() => {
@@ -195,6 +196,17 @@ export default function AppointmentRowActions({
                 <button
                   type="button"
                   role="menuitem"
+                  onClick={() => handleStatusChange("CONFIRMED")}
+                  disabled={appointment.status === "CONFIRMED"}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <CheckCircle2 size={17} className="text-cyan-600" />
+                  Konfirmuar
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => handleStatusChange("IN_PROGRESS")}
                   disabled={appointment.status === "IN_PROGRESS"}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -212,6 +224,17 @@ export default function AppointmentRowActions({
                 >
                   <CheckCircle2 size={17} className="text-emerald-600" />
                   Përfunduar
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => handleStatusChange("NO_SHOW")}
+                  disabled={appointment.status === "NO_SHOW"}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <CircleX size={17} className="text-slate-600" />
+                  Nuk u paraqit
                 </button>
 
                 <button
@@ -289,6 +312,7 @@ export default function AppointmentRowActions({
           appointment={appointment}
           customers={customers}
           vehicles={vehicles}
+          staff={staff}
           onClose={() => setEditOpen(false)}
         />
       )}

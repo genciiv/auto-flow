@@ -11,6 +11,10 @@ const statusConfig = {
     label: "Në pritje",
     className: "border-amber-200 bg-amber-50 text-amber-700",
   },
+  CONFIRMED: {
+    label: "Konfirmuar",
+    className: "border-cyan-200 bg-cyan-50 text-cyan-700",
+  },
   IN_PROGRESS: {
     label: "Në proces",
     className: "border-blue-200 bg-blue-50 text-blue-700",
@@ -18,6 +22,10 @@ const statusConfig = {
   COMPLETED: {
     label: "Përfunduar",
     className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  },
+  NO_SHOW: {
+    label: "Nuk u paraqit",
+    className: "border-slate-300 bg-slate-100 text-slate-700",
   },
   CANCELLED: {
     label: "Anuluar",
@@ -140,6 +148,7 @@ export default function AppointmentsTable({
   appointments = [],
   customers = [],
   vehicles = [],
+  staff = [],
   canUpdateAppointment = false,
   canDeleteAppointment = false,
   canStartService = false,
@@ -361,6 +370,7 @@ export default function AppointmentsTable({
                             appointment={appointment}
                             customers={customers}
                             vehicles={vehicles}
+                            staff={staff}
                             canUpdate={canUpdateAppointment}
                             canDelete={canDeleteAppointment}
                             canStartService={canStartService}
