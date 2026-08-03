@@ -114,6 +114,8 @@ export const loginSchema = z.object({
   portalType: z.enum(["personal", "business"], {
     message: "Zgjidh mënyrën e hyrjes.",
   }),
+
+  callbackUrl: z.string().optional(),
 });
 
 export const registerSchema = addPasswordConfirmationValidation(

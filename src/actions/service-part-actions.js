@@ -21,9 +21,10 @@ function refreshServicePartPages(serviceId = null) {
 
 export async function addPartToService(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const context = await requireBusinessActionPermission(
       PERMISSIONS.SERVICES_MANAGE_PARTS,
     );
+    const { businessId, businessRole, userId } = context;
 
     const validationResult = validateFormData(addPartToServiceSchema, formData);
 
@@ -44,6 +45,7 @@ export async function addPartToService(formData) {
         where: {
           id: serviceId,
           businessId,
+          ...(businessRole === "MECHANIC" ? { assignedUserId: userId } : {}),
         },
 
         select: {
@@ -119,13 +121,32 @@ export async function addPartToService(formData) {
         throw createActionError("Stoku ka ndryshuar. Nuk ka më sasi të mjaftueshme.");
       }
 
-      await transaction.servicePartUsage.create({
+      const existingUsage = await transaction.servicePartUsage.findUnique({
+        where: { serviceId_partId: { serviceId: service.id, partId: part.id } },
+      });
+
+      if (existingUsage) {
+        await transaction.servicePartUsage.update({
+          where: { id: existingUsage.id },
+          data: { quantity: { increment: quantity }, total: { increment: total } },
+        });
+      } else {
+        await transaction.servicePartUsage.create({
+          data: { serviceId: service.id, partId: part.id, quantity, unitPrice, total },
+        });
+      }
+
+      await transaction.inventoryMovement.create({
         data: {
-          serviceId: service.id,
+          businessId,
           partId: part.id,
+          serviceId: service.id,
+          userId,
+          type: "SERVICE_OUT",
           quantity,
-          unitPrice,
-          total,
+          stockBefore: Number(part.stock),
+          stockAfter: Number(part.stock) - quantity,
+          note: `Pjesë e përdorur në urdhër-punë nga ${context.user.name || context.user.email}`,
         },
       });
 

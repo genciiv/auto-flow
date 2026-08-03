@@ -12,6 +12,8 @@ import {
   Link2,
   MessageSquareText,
   BriefcaseBusiness,
+  LayoutDashboard,
+  History,
   Package,
   Settings,
   ShoppingCart,
@@ -29,6 +31,12 @@ const sidebarGroups = [
   {
     title: "Kryesore",
     items: [
+      {
+        name: "Workspace im",
+        icon: LayoutDashboard,
+        href: "/dashboard/workspace",
+        permission: PERMISSIONS.DASHBOARD_VIEW,
+      },
       {
         name: "Dashboard",
         icon: Home,
@@ -94,6 +102,13 @@ const sidebarGroups = [
         icon: Package,
         href: "/dashboard/inventory",
         permission: PERMISSIONS.INVENTORY_VIEW,
+      },
+      {
+        name: "Lëvizjet e stokut",
+        icon: History,
+        href: "/dashboard/inventory/movements",
+        permission: PERMISSIONS.INVENTORY_VIEW,
+        roles: ["OWNER", "MANAGER", "WAREHOUSE"],
       },
       {
         name: "Porositë",

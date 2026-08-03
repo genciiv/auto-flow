@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ServiceWorkflowPanel from "@/components/services/ServiceWorkflowPanel";
+import ServiceOperationsPanel from "@/components/services/ServiceOperationsPanel";
 import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -11,13 +12,14 @@ const labels = { DRAFT:"Draft", PENDING:"Në pritje", IN_PROGRESS:"Në proces", 
 export default async function ServiceDetailsPage({ params }) {
   const { id } = await params;
   const { businessId, businessRole, userId } = await requireBusinessPermission(PERMISSIONS.SERVICES_VIEW);
-  const [service, members] = await Promise.all([
+  const [service, members, parts] = await Promise.all([
     db.serviceRecord.findFirst({
       where: { id, businessId, ...(businessRole === "MECHANIC" ? { assignedUserId: userId } : {}) },
       include: {
         vehicle: { include: { customer: true } },
         assignedUser: { select: { id:true, name:true, email:true } },
-        partsUsed: { include: { part:true } },
+        partsUsed: { include: { part:true }, orderBy: { createdAt:"asc" } },
+        laborItems: { include: { createdBy: { select: { id:true, name:true } } }, orderBy: { createdAt:"asc" } },
         statusHistory: { orderBy: { createdAt:"desc" }, include: { changedBy: { select:{ name:true } } } },
         invoice: { select: { id:true, number:true, status:true, total:true } },
       },
@@ -27,12 +29,15 @@ export default async function ServiceDetailsPage({ params }) {
       include: { user: { select: { id:true, name:true, email:true } } },
       orderBy: { createdAt:"asc" },
     }),
+    db.part.findMany({ where: { businessId, stock: { gt: 0 } }, orderBy: { name:"asc" }, select: { id:true, name:true, stock:true, sellPrice:true } }),
   ]);
   if (!service) notFound();
   const serializable = JSON.parse(JSON.stringify(service));
   const staff = members.filter((member) => member.role === "MECHANIC").map((member) => ({ id:member.user.id, name:member.user.name, email:member.user.email, role:member.role }));
   const canManageAssignment = ["OWNER", "MANAGER"].includes(businessRole);
   const canManageApproval = ["OWNER", "MANAGER", "RECEPTIONIST"].includes(businessRole);
+  const canManageParts = ["OWNER", "MANAGER", "MECHANIC", "WAREHOUSE"].includes(businessRole);
+  const canCreateInvoice = ["OWNER", "MANAGER", "RECEPTIONIST", "ACCOUNTANT"].includes(businessRole) && ["READY_FOR_PICKUP", "COMPLETED", "DELIVERED"].includes(service.status);
 
   return <DashboardLayout><div className="space-y-6">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -43,6 +48,7 @@ export default async function ServiceDetailsPage({ params }) {
       <Info label="Klienti" value={service.vehicle.customer?.name || "Pa klient"}/><Info label="Mekaniku" value={service.assignedUser?.name || "Pa caktuar"}/><Info label="Totali" value={formatCurrency(service.total)}/><Info label="Pjesë të përdorura" value={String(service.partsUsed.length)}/>
     </div>
     <ServiceWorkflowPanel service={serializable} staff={staff} businessRole={businessRole} canManageAssignment={canManageAssignment} canManageApproval={canManageApproval}/>
+    <ServiceOperationsPanel service={serializable} parts={parts} canManageParts={canManageParts} canCreateInvoice={canCreateInvoice}/>
   </div></DashboardLayout>;
 }
 function Info({label,value}) { return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-base font-bold text-slate-950">{value}</p></div>; }

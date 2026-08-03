@@ -30,13 +30,35 @@ export async function updateStaffRoleAction(previousState, formData) {
     const membershipId = String(formData.get("membershipId") || "");
     const role = String(formData.get("role") || "");
     if (!STAFF_ROLES.includes(role)) return actionFailure({ code: ERROR_CODES.VALIDATION_ERROR, message: "Roli nuk është i vlefshëm." });
-    const member = await db.businessUser.findFirst({ where: { id: membershipId, businessId: context.businessId }, include: { user: { select: { email: true } } } });
+    const member = await db.businessUser.findFirst({ where: { id: membershipId, businessId: context.businessId }, include: { user: { select: { id: true, email: true } } } });
     if (!member || member.role === "OWNER") return actionFailure({ code: ERROR_CODES.FORBIDDEN, message: "Pronari nuk mund të ndryshohet nga kjo faqe." });
     const oldRole = member.role;
-    await db.businessUser.update({ where: { id: member.id }, data: { role } });
+
+    if (oldRole === role) {
+      return actionSuccess({ message: "Ky përdorues e ka tashmë këtë rol." });
+    }
+
+    await db.$transaction([
+      db.businessUser.update({
+        where: { id: member.id },
+        data: { role },
+      }),
+      db.user.update({
+        where: { id: member.user.id },
+        data: { sessionVersion: { increment: 1 } },
+      }),
+    ]);
+
     await createAuditLog({ businessId: context.businessId, userId: context.userId, action: "UPDATE", entityType: "BusinessUser", entityId: member.id, title: "U ndryshua roli i stafit", description: `${member.user.email}: ${STAFF_ROLE_LABELS[oldRole]} → ${STAFF_ROLE_LABELS[role]}.`, oldValues: { role: oldRole }, newValues: { role } });
+
     revalidatePath("/dashboard/staff");
-    return actionSuccess({ message: "Roli u përditësua." });
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/workspace");
+    revalidatePath("/dashboard/my-work");
+
+    return actionSuccess({
+      message: "Roli u përditësua. Përdoruesi duhet të hyjë përsëri që të marrë aksesin e ri.",
+    });
   } catch (error) { return errorFailure(error); }
 }
 

@@ -87,6 +87,19 @@ enum MaintenanceStatus {
   OVERDUE
 }
 
+enum ServiceLineType {
+  LABOR
+  PART
+}
+
+enum InventoryMovementType {
+  SERVICE_OUT
+  SERVICE_RETURN
+  PURCHASE_IN
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+}
+
 enum InvoiceStatus {
   DRAFT
   PAID
@@ -224,37 +237,40 @@ enum PaymentMethod {
  */
 
 model User {
-  id             String    @id @default(cuid())
-  name           String
-  email          String    @unique
-  phone          String?
-  passwordHash   String?
-  globalRole     UserRole?
-  isActive       Boolean   @default(true)
-  emailVerified  DateTime?
-  lastLoginAt          DateTime?
-  failedLoginAttempts  Int       @default(0)
-  lastFailedLoginAt    DateTime?
-  lockedUntil          DateTime?
-  sessionVersion       Int       @default(0)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  name                String
+  email               String    @unique
+  phone               String?
+  passwordHash        String?
+  globalRole          UserRole?
+  isActive            Boolean   @default(true)
+  emailVerified       DateTime?
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int       @default(0)
+  lastFailedLoginAt   DateTime?
+  lockedUntil         DateTime?
+  sessionVersion      Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   businesses BusinessUser[]
 
   customerProfile CustomerProfile?
 
-  marketplaceListings  MarketplaceListing[]  @relation("MarketplaceUserListings")
-  marketplaceFavorites MarketplaceFavorite[]
-  marketplaceInquiries MarketplaceInquiry[]  @relation("MarketplaceInquirySender")
-  notifications        Notification[]
-  auditLogs            AuditLog[]
-  authTokens           AuthToken[]
-  staffInvitationsSent StaffInvitation[] @relation("StaffInvitationInviter")
+  marketplaceListings              MarketplaceListing[]      @relation("MarketplaceUserListings")
+  marketplaceFavorites             MarketplaceFavorite[]
+  marketplaceInquiries             MarketplaceInquiry[]      @relation("MarketplaceInquirySender")
+  notifications                    Notification[]
+  auditLogs                        AuditLog[]
+  authTokens                       AuthToken[]
+  staffInvitationsSent             StaffInvitation[]         @relation("StaffInvitationInviter")
   subscriptionPlanRequestsCreated  SubscriptionPlanRequest[] @relation("SubscriptionPlanRequestRequester")
   subscriptionPlanRequestsReviewed SubscriptionPlanRequest[] @relation("SubscriptionPlanRequestReviewer")
-  assignedServices ServiceRecord[] @relation("ServiceAssignedUser")
-  serviceStatusChanges ServiceStatusHistory[] @relation("ServiceStatusChangedBy")
+  assignedServices                 ServiceRecord[]           @relation("ServiceAssignedUser")
+  serviceStatusChanges             ServiceStatusHistory[]    @relation("ServiceStatusChangedBy")
+  serviceLaborItemsCreated         ServiceLaborItem[]        @relation("ServiceLaborItemCreator")
+  inventoryMovements               InventoryMovement[]       @relation("InventoryMovementUser")
+  customerPaymentsRecorded         CustomerPayment[]         @relation("CustomerPaymentRecorder")
 
   @@index([email])
   @@index([phone])
@@ -310,21 +326,23 @@ model Business {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  users               BusinessUser[]
-  customers           Customer[]
-  vehicles            Vehicle[]
-  services            ServiceRecord[]
-  appointments        Appointment[]
-  parts               Part[]
-  invoices            Invoice[]
-  purchaseOrders      PurchaseOrder[]
-  marketplaceListings MarketplaceListing[] @relation("MarketplaceBusinessListings")
-  notifications       Notification[]
-  auditLogs           AuditLog[]
-  subscriptions       Subscription[]
-  payments            Payment[]
-  staffInvitations    StaffInvitation[]
+  users                    BusinessUser[]
+  customers                Customer[]
+  vehicles                 Vehicle[]
+  services                 ServiceRecord[]
+  appointments             Appointment[]
+  parts                    Part[]
+  invoices                 Invoice[]
+  purchaseOrders           PurchaseOrder[]
+  marketplaceListings      MarketplaceListing[]      @relation("MarketplaceBusinessListings")
+  notifications            Notification[]
+  auditLogs                AuditLog[]
+  subscriptions            Subscription[]
+  payments                 Payment[]
+  staffInvitations         StaffInvitation[]
   subscriptionPlanRequests SubscriptionPlanRequest[]
+  inventoryMovements       InventoryMovement[]
+  customerPayments         CustomerPayment[]
 
   @@index([name])
   @@index([city])
@@ -579,34 +597,36 @@ model MaintenanceItem {
  */
 
 model ServiceRecord {
-  id          String        @id @default(cuid())
-  businessId  String
-  vehicleId   String
-  customerId  String?
-  assignedUserId String?
-  title       String
-  description String?
-  diagnosis   String?
-  internalNotes String?
-  customerApprovalRequired Boolean @default(false)
-  customerApprovedAt DateTime?
-  status      ServiceStatus @default(PENDING)
-  total       Float         @default(0)
-  startedAt   DateTime?
-  readyAt     DateTime?
-  completedAt DateTime?
-  deliveredAt DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id                       String        @id @default(cuid())
+  businessId               String
+  vehicleId                String
+  customerId               String?
+  assignedUserId           String?
+  title                    String
+  description              String?
+  diagnosis                String?
+  internalNotes            String?
+  customerApprovalRequired Boolean       @default(false)
+  customerApprovedAt       DateTime?
+  status                   ServiceStatus @default(PENDING)
+  total                    Float         @default(0)
+  startedAt                DateTime?
+  readyAt                  DateTime?
+  completedAt              DateTime?
+  deliveredAt              DateTime?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  vehicle  Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  assignedUser User? @relation("ServiceAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  assignedUser User?    @relation("ServiceAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
 
-  invoice          Invoice?
-  partsUsed        ServicePartUsage[]
-  maintenanceItems MaintenanceItem[]
-  statusHistory    ServiceStatusHistory[]
+  invoice            Invoice?
+  partsUsed          ServicePartUsage[]
+  maintenanceItems   MaintenanceItem[]
+  statusHistory      ServiceStatusHistory[]
+  laborItems         ServiceLaborItem[]
+  inventoryMovements InventoryMovement[]
 
   @@index([businessId])
   @@index([vehicleId])
@@ -617,16 +637,16 @@ model ServiceRecord {
 }
 
 model ServiceStatusHistory {
-  id String @id @default(cuid())
-  serviceId String
+  id          String         @id @default(cuid())
+  serviceId   String
   changedById String?
-  fromStatus ServiceStatus?
-  toStatus ServiceStatus
-  note String?
-  createdAt DateTime @default(now())
+  fromStatus  ServiceStatus?
+  toStatus    ServiceStatus
+  note        String?
+  createdAt   DateTime       @default(now())
 
-  service ServiceRecord @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  changedBy User? @relation("ServiceStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  service   ServiceRecord @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  changedBy User?         @relation("ServiceStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
 
   @@index([serviceId, createdAt])
   @@index([changedById])
@@ -681,8 +701,9 @@ model Part {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  business      Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  serviceUsages ServicePartUsage[]
+  business           Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  serviceUsages      ServicePartUsage[]
+  inventoryMovements InventoryMovement[]
 
   @@unique([businessId, code])
   @@index([businessId])
@@ -758,6 +779,84 @@ model ServicePartUsage {
   @@index([partId])
 }
 
+model ServiceLaborItem {
+  id          String   @id @default(cuid())
+  serviceId   String
+  createdById String?
+  description String
+  quantity    Float    @default(1)
+  unitPrice   Float    @default(0)
+  total       Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  service   ServiceRecord @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  createdBy User?         @relation("ServiceLaborItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([serviceId])
+  @@index([createdById])
+}
+
+model InventoryMovement {
+  id          String                @id @default(cuid())
+  businessId  String
+  partId      String
+  serviceId   String?
+  userId      String?
+  type        InventoryMovementType
+  quantity    Int
+  stockBefore Int
+  stockAfter  Int
+  note        String?
+  createdAt   DateTime              @default(now())
+
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  part     Part           @relation(fields: [partId], references: [id], onDelete: Cascade)
+  service  ServiceRecord? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  user     User?          @relation("InventoryMovementUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+  @@index([partId, createdAt])
+  @@index([serviceId])
+  @@index([userId])
+}
+
+model InvoiceItem {
+  id          String          @id @default(cuid())
+  invoiceId   String
+  type        ServiceLineType
+  description String
+  quantity    Float           @default(1)
+  unitPrice   Float           @default(0)
+  total       Float           @default(0)
+  createdAt   DateTime        @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model CustomerPayment {
+  id           String        @id @default(cuid())
+  businessId   String
+  invoiceId    String
+  recordedById String?
+  amount       Float
+  method       PaymentMethod @default(CASH)
+  reference    String?
+  notes        String?
+  paidAt       DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  recordedBy User?    @relation("CustomerPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([businessId, paidAt])
+  @@index([invoiceId, paidAt])
+  @@index([recordedById])
+}
+
 /**
  * |--------------------------------------------------------------------------
  * | Invoice
@@ -776,10 +875,12 @@ model Invoice {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
-  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  customer Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  vehicle  Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  service  ServiceRecord? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  vehicle          Vehicle?          @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  service          ServiceRecord?    @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  items            InvoiceItem[]
+  customerPayments CustomerPayment[]
 
   @@unique([businessId, number])
   @@index([businessId])
@@ -834,7 +935,7 @@ model Plan {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  subscriptions Subscription[]
+  subscriptions            Subscription[]
   subscriptionPlanRequests SubscriptionPlanRequest[]
 
   @@index([name])
@@ -868,7 +969,7 @@ model Subscription {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   plan     Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
 
-  payments Payment[]
+  payments     Payment[]
   planRequests SubscriptionPlanRequest[]
 
   @@index([businessId])
@@ -880,7 +981,7 @@ model Subscription {
 }
 
 model SubscriptionPlanRequest {
-  id              String                        @id @default(cuid())
+  id              String  @id @default(cuid())
   businessId      String
   requestedPlanId String
   requestedById   String
@@ -896,8 +997,8 @@ model SubscriptionPlanRequest {
 
   reviewedAt DateTime?
   paidAt     DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   requestedPlan Plan          @relation(fields: [requestedPlanId], references: [id], onDelete: Restrict)
@@ -1153,17 +1254,16 @@ model AuthToken {
   @@index([userId, type, usedAt])
 }
 
-
 model RateLimitBucket {
-  id          String   @id @default(cuid())
-  keyHash     String   @unique
-  scope       String
-  count       Int      @default(0)
-  windowStart DateTime
-  expiresAt   DateTime
+  id           String    @id @default(cuid())
+  keyHash      String    @unique
+  scope        String
+  count        Int       @default(0)
+  windowStart  DateTime
+  expiresAt    DateTime
   blockedUntil DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([scope, expiresAt])
   @@index([blockedUntil])

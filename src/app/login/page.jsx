@@ -172,7 +172,7 @@ export default async function LoginPage({ searchParams }) {
                 </div>
               ) : null}
 
-              <LoginForm />
+              <LoginForm callbackUrl={params?.callbackUrl ?? ""} />
 
               <div className="mt-6 border-t border-slate-100 pt-6 text-center">
                 <p className="text-sm text-slate-500">

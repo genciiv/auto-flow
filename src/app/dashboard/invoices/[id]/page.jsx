@@ -2,12 +2,13 @@ import { notFound } from "next/navigation";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import InvoiceDetails from "@/components/invoices/details/InvoiceDetails";
+import CustomerPaymentsPanel from "@/components/invoices/CustomerPaymentsPanel";
 
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 
 export default async function InvoiceDetailsPage({ params }) {
-  const { businessId } = await requireBusinessContext();
+  const { businessId, businessRole } = await requireBusinessContext();
   const { id } = await params;
 
   if (!id) {
@@ -27,9 +28,12 @@ export default async function InvoiceDetailsPage({ params }) {
           customer: true,
         },
       },
+      items: { orderBy: { createdAt: "asc" } },
+      customerPayments: { orderBy: { paidAt: "desc" }, include: { recordedBy: { select: { id:true, name:true } } } },
       service: {
         include: {
           vehicle: true,
+          laborItems: { orderBy: { createdAt: "asc" } },
           partsUsed: {
             orderBy: {
               createdAt: "asc",
@@ -94,6 +98,7 @@ export default async function InvoiceDetailsPage({ params }) {
         vehicles={vehicles}
         services={services}
       />
+      <div className="mt-8"><CustomerPaymentsPanel invoice={JSON.parse(JSON.stringify(invoice))} canRecordPayment={["OWNER","MANAGER","RECEPTIONIST","ACCOUNTANT"].includes(businessRole)} /></div>
     </DashboardLayout>
   );
 }

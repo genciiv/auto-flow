@@ -46,14 +46,21 @@ export async function loginAction(previousState, formData) {
     };
   }
 
-  const { email, password, portalType } = validationResult.data;
+  const { email, password, portalType, callbackUrl } = validationResult.data;
+
+  const safeRedirectTo =
+    typeof callbackUrl === "string" &&
+    callbackUrl.startsWith("/") &&
+    !callbackUrl.startsWith("//")
+      ? callbackUrl
+      : "/auth/redirect";
 
   try {
     await signIn("credentials", {
       email,
       password,
       portalType,
-      redirectTo: "/auth/redirect",
+      redirectTo: safeRedirectTo,
     });
 
     /*

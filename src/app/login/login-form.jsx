@@ -38,7 +38,7 @@ const portals = [
   },
 ];
 
-export default function LoginForm() {
+export default function LoginForm({ callbackUrl = "" }) {
   const [showPassword, setShowPassword] = useState(false);
   const [portalType, setPortalType] = useState("personal");
   const [state, formAction, isPending] = useActionState(
@@ -87,6 +87,7 @@ export default function LoginForm() {
 
       <form action={formAction} className="mt-6 space-y-5">
         <input type="hidden" name="portalType" value={portalType} />
+        <input type="hidden" name="callbackUrl" value={callbackUrl} />
 
         <div>
           <label
