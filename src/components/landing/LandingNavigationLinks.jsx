@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export const landingNavigationItems = [
   {
@@ -25,11 +26,11 @@ export const landingNavigationItems = [
   },
 ];
 
-export function scrollToLandingSection(targetId) {
+export function scrollToLandingSection(targetId, router) {
   const element = document.getElementById(targetId);
 
   if (!element) {
-    window.location.assign(`/#${targetId}`);
+    router.push(`/#${targetId}`);
     return;
   }
 
@@ -45,6 +46,8 @@ export function scrollToLandingSection(targetId) {
 }
 
 export default function LandingNavigationLinks() {
+  const router = useRouter();
+
   return (
     <>
       {landingNavigationItems.map((item) =>
@@ -60,7 +63,7 @@ export default function LandingNavigationLinks() {
           <button
             key={item.label}
             type="button"
-            onClick={() => scrollToLandingSection(item.targetId)}
+            onClick={() => scrollToLandingSection(item.targetId, router)}
             className="rounded-full px-4 py-2.5 text-sm font-semibold text-slate-600 transition duration-200 hover:bg-white hover:text-slate-950 hover:shadow-sm"
           >
             {item.label}
