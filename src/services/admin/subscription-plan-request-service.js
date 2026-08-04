@@ -1,8 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { createActionError } from "@/lib/errors";
 
 const PAGE_SIZE = 20;
+
 const VALID_STATUSES = ["all", "PENDING", "APPROVED", "REJECTED", "PAID"];
 
 function normalizeStatus(status) {
@@ -11,6 +13,7 @@ function normalizeStatus(status) {
 
 function normalizePage(page) {
   const parsed = Number.parseInt(page, 10);
+
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
@@ -20,32 +23,54 @@ export async function getSubscriptionPlanRequests({
   page = 1,
 } = {}) {
   const normalizedStatus = normalizeStatus(status);
+
   const normalizedSearch = String(search || "").trim();
+
   const currentPage = normalizePage(page);
 
   const where = {
-    ...(normalizedStatus !== "all" ? { status: normalizedStatus } : {}),
+    ...(normalizedStatus !== "all"
+      ? {
+          status: normalizedStatus,
+        }
+      : {}),
+
     ...(normalizedSearch
       ? {
           OR: [
             {
               business: {
-                name: { contains: normalizedSearch, mode: "insensitive" },
+                name: {
+                  contains: normalizedSearch,
+                  mode: "insensitive",
+                },
               },
             },
+
             {
               business: {
-                email: { contains: normalizedSearch, mode: "insensitive" },
+                email: {
+                  contains: normalizedSearch,
+                  mode: "insensitive",
+                },
               },
             },
+
             {
               requestedPlan: {
-                name: { contains: normalizedSearch, mode: "insensitive" },
+                name: {
+                  contains: normalizedSearch,
+                  mode: "insensitive",
+                },
               },
             },
+
             {
               requestedBy: {
-                email: { contains: normalizedSearch, mode: "insensitive" },
+                email: {
+                  contains: normalizedSearch,
+                  mode: "insensitive",
+                },
               },
             },
           ],
@@ -53,50 +78,109 @@ export async function getSubscriptionPlanRequests({
       : {}),
   };
 
-  const [requests, total, pending, approved, rejected, paid] = await Promise.all([
-    db.subscriptionPlanRequest.findMany({
-      where,
-      include: {
-        business: {
-          select: { id: true, name: true, email: true, phone: true },
-        },
-        requestedPlan: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            monthlyPrice: true,
-            yearlyPrice: true,
+  const [requests, total, pending, approved, rejected, paid] =
+    await Promise.all([
+      db.subscriptionPlanRequest.findMany({
+        where,
+
+        include: {
+          business: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+
+          requestedPlan: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              monthlyPrice: true,
+              yearlyPrice: true,
+            },
+          },
+
+          requestedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+
+          reviewedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+
+          subscription: {
+            select: {
+              id: true,
+              status: true,
+              currentPeriodEnd: true,
+            },
           },
         },
-        requestedBy: {
-          select: { id: true, name: true, email: true },
+
+        orderBy: {
+          createdAt: "desc",
         },
-        reviewedBy: {
-          select: { id: true, name: true, email: true },
+
+        skip: (currentPage - 1) * PAGE_SIZE,
+
+        take: PAGE_SIZE,
+      }),
+
+      db.subscriptionPlanRequest.count({
+        where,
+      }),
+
+      db.subscriptionPlanRequest.count({
+        where: {
+          status: "PENDING",
         },
-        subscription: {
-          select: { id: true, status: true, currentPeriodEnd: true },
+      }),
+
+      db.subscriptionPlanRequest.count({
+        where: {
+          status: "APPROVED",
         },
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (currentPage - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-    db.subscriptionPlanRequest.count({ where }),
-    db.subscriptionPlanRequest.count({ where: { status: "PENDING" } }),
-    db.subscriptionPlanRequest.count({ where: { status: "APPROVED" } }),
-    db.subscriptionPlanRequest.count({ where: { status: "REJECTED" } }),
-    db.subscriptionPlanRequest.count({ where: { status: "PAID" } }),
-  ]);
+      }),
+
+      db.subscriptionPlanRequest.count({
+        where: {
+          status: "REJECTED",
+        },
+      }),
+
+      db.subscriptionPlanRequest.count({
+        where: {
+          status: "PAID",
+        },
+      }),
+    ]);
 
   return {
     requests,
-    counts: { pending, approved, rejected, paid },
+
+    counts: {
+      pending,
+      approved,
+      rejected,
+      paid,
+    },
+
     filters: {
       status: normalizedStatus,
       search: normalizedSearch,
     },
+
     pagination: {
       currentPage,
       total,
@@ -112,20 +196,28 @@ export async function approveSubscriptionPlanRequest({
   notes = null,
 }) {
   const existing = await db.subscriptionPlanRequest.findUnique({
-    where: { id: requestId },
-    select: { status: true },
+    where: {
+      id: requestId,
+    },
+
+    select: {
+      status: true,
+    },
   });
 
   if (!existing) {
-    throw new Error("Kërkesa nuk u gjet.");
+    throw createActionError("Kërkesa nuk u gjet.");
   }
 
   if (existing.status !== "PENDING") {
-    throw new Error("Vetëm kërkesat në pritje mund të aprovohen.");
+    throw createActionError("Vetëm kërkesat në pritje mund të aprovohen.");
   }
 
   return db.subscriptionPlanRequest.update({
-    where: { id: requestId },
+    where: {
+      id: requestId,
+    },
+
     data: {
       status: "APPROVED",
       reviewedById,
@@ -133,6 +225,7 @@ export async function approveSubscriptionPlanRequest({
       notes: notes || null,
       rejectionReason: null,
     },
+
     include: {
       business: true,
       requestedPlan: true,
@@ -147,26 +240,35 @@ export async function rejectSubscriptionPlanRequest({
   reason,
 }) {
   const existing = await db.subscriptionPlanRequest.findUnique({
-    where: { id: requestId },
-    select: { status: true },
+    where: {
+      id: requestId,
+    },
+
+    select: {
+      status: true,
+    },
   });
 
   if (!existing) {
-    throw new Error("Kërkesa nuk u gjet.");
+    throw createActionError("Kërkesa nuk u gjet.");
   }
 
   if (!["PENDING", "APPROVED"].includes(existing.status)) {
-    throw new Error("Kjo kërkesë nuk mund të refuzohet.");
+    throw createActionError("Kjo kërkesë nuk mund të refuzohet.");
   }
 
   return db.subscriptionPlanRequest.update({
-    where: { id: requestId },
+    where: {
+      id: requestId,
+    },
+
     data: {
       status: "REJECTED",
       reviewedById,
       reviewedAt: new Date(),
       rejectionReason: reason,
     },
+
     include: {
       business: true,
       requestedPlan: true,
@@ -181,7 +283,10 @@ export async function markSubscriptionPlanRequestPaid({
 }) {
   return db.$transaction(async (transaction) => {
     const request = await transaction.subscriptionPlanRequest.findUnique({
-      where: { id: requestId },
+      where: {
+        id: requestId,
+      },
+
       include: {
         business: true,
         requestedPlan: true,
@@ -190,14 +295,15 @@ export async function markSubscriptionPlanRequestPaid({
     });
 
     if (!request) {
-      throw new Error("Kërkesa nuk u gjet.");
+      throw createActionError("Kërkesa nuk u gjet.");
     }
 
     if (!["PENDING", "APPROVED"].includes(request.status)) {
-      throw new Error("Kjo kërkesë nuk mund të aktivizohet.");
+      throw createActionError("Kjo kërkesë nuk mund të aktivizohet.");
     }
 
     const periodStart = new Date();
+
     const periodEnd = new Date(periodStart);
 
     if (request.billingInterval === "YEARLY") {
@@ -209,8 +315,12 @@ export async function markSubscriptionPlanRequestPaid({
     await transaction.subscription.updateMany({
       where: {
         businessId: request.businessId,
-        status: { in: ["TRIALING", "ACTIVE", "PAST_DUE"] },
+
+        status: {
+          in: ["TRIALING", "ACTIVE", "PAST_DUE"],
+        },
       },
+
       data: {
         status: "CANCELLED",
         cancelledAt: new Date(),
@@ -221,21 +331,32 @@ export async function markSubscriptionPlanRequestPaid({
     const subscription = await transaction.subscription.create({
       data: {
         businessId: request.businessId,
+
         planId: request.requestedPlanId,
+
         status: "ACTIVE",
+
         billingInterval: request.billingInterval,
+
         price: request.requestedPrice,
+
         trialStartsAt: null,
         trialEndsAt: null,
+
         currentPeriodStart: periodStart,
+
         currentPeriodEnd: periodEnd,
+
         cancelledAt: null,
         cancelAtPeriodEnd: false,
       },
     });
 
     return transaction.subscriptionPlanRequest.update({
-      where: { id: request.id },
+      where: {
+        id: request.id,
+      },
+
       data: {
         status: "PAID",
         reviewedById,
@@ -244,6 +365,7 @@ export async function markSubscriptionPlanRequestPaid({
         subscriptionId: subscription.id,
         rejectionReason: null,
       },
+
       include: {
         business: true,
         requestedPlan: true,

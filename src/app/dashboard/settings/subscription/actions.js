@@ -1,18 +1,25 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import {
   actionFailure,
   actionSuccess,
   errorFailure,
+  validationFailure,
 } from "@/lib/action-result";
 import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { EMAIL_CONFIG, sendEmail } from "@/lib/email";
 import { ERROR_CODES, logServerError } from "@/lib/errors";
 import { PERMISSIONS } from "@/lib/permissions";
+import { validateFormData } from "@/lib/validation";
 import { createBusinessNotification } from "@/services/notification-service";
+
+const requestSubscriptionPlanSchema = z.object({
+  planId: z.string().trim().min(1, "Plani i zgjedhur nuk është i vlefshëm."),
+});
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -32,14 +39,18 @@ function formatLek(value) {
 }
 
 export async function requestSubscriptionPlanAction(previousState, formData) {
-  const planId = String(formData.get("planId") ?? "").trim();
+  const validationResult = validateFormData(
+    requestSubscriptionPlanSchema,
+    formData,
+  );
 
-  if (!planId) {
-    return actionFailure({
-      code: ERROR_CODES.VALIDATION_ERROR,
+  if (!validationResult.success) {
+    return validationFailure(validationResult.error, {
       message: "Plani i zgjedhur nuk është i vlefshëm.",
     });
   }
+
+  const { planId } = validationResult.data;
 
   try {
     const { businessId, business, user } = await requireBusinessPermission(
@@ -52,7 +63,9 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
           where: {
             id: planId,
             isActive: true,
-            slug: { not: "free-trial" },
+            slug: {
+              not: "free-trial",
+            },
           },
           select: {
             id: true,
@@ -61,21 +74,34 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
             yearlyPrice: true,
           },
         }),
+
         db.subscription.findFirst({
-          where: { businessId },
-          orderBy: { createdAt: "desc" },
+          where: {
+            businessId,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
           select: {
             planId: true,
-            plan: { select: { name: true } },
+            plan: {
+              select: {
+                name: true,
+              },
+            },
           },
         }),
+
         db.subscriptionPlanRequest.findFirst({
           where: {
             businessId,
             requestedPlanId: planId,
             status: { in: ["PENDING", "APPROVED"] },
           },
-          select: { id: true, status: true },
+          select: {
+            id: true,
+            status: true,
+          },
         }),
       ]);
 
@@ -102,6 +128,7 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
     }
 
     const currentPlanName = currentSubscription?.plan?.name || "Pa plan aktiv";
+
     const request = await db.subscriptionPlanRequest.create({
       data: {
         businessId,
@@ -116,7 +143,9 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
     await createBusinessNotification({
       businessId,
       title: "Kërkesa për ndryshim plani u regjistrua",
-      message: `Kërkesa për planin ${requestedPlan.name} po pret shqyrtimin e administratorit.`,
+      message:
+        `Kërkesa për planin ${requestedPlan.name} ` +
+        "po pret shqyrtimin e administratorit.",
       type: "INFO",
       entityType: "SUBSCRIPTION",
       entityId: request.id,
@@ -126,22 +155,90 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
 
     if (supportEmail) {
       const businessName = business?.name || "Biznes AutoFlow";
+
       const requesterName = user?.name || user?.email || "Përdorues biznesi";
+
       const requesterEmail = user?.email || "Nuk disponohet";
 
       const html = `
         <div style="font-family:Arial,sans-serif;max-width:640px;margin:auto;padding:32px">
           <h2>Kërkesë e re për ndryshim plani</h2>
-          <p>Kërkesa u ruajt në panelin Admin të AutoFlow.</p>
-          <table style="width:100%;border-collapse:collapse;margin-top:24px">
-            <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Biznesi</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(businessName)}</td></tr>
-            <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Kërkuesi</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(requesterName)}</td></tr>
-            <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Email</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(requesterEmail)}</td></tr>
-            <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Plani aktual</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(currentPlanName)}</td></tr>
-            <tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>Plani i kërkuar</strong></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(requestedPlan.name)}</td></tr>
-            <tr><td style="padding:10px"><strong>Çmimi mujor</strong></td><td style="padding:10px">${escapeHtml(formatLek(requestedPlan.monthlyPrice))}</td></tr>
+
+          <p>
+            Kërkesa u ruajt në panelin Admin të AutoFlow.
+          </p>
+
+          <table
+            style="
+              width:100%;
+              border-collapse:collapse;
+              margin-top:24px;
+            "
+          >
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                <strong>Biznesi</strong>
+              </td>
+
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                ${escapeHtml(businessName)}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                <strong>Kërkuesi</strong>
+              </td>
+
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                ${escapeHtml(requesterName)}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                <strong>Email</strong>
+              </td>
+
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                ${escapeHtml(requesterEmail)}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                <strong>Plani aktual</strong>
+              </td>
+
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                ${escapeHtml(currentPlanName)}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                <strong>Plani i kërkuar</strong>
+              </td>
+
+              <td style="padding:10px;border-bottom:1px solid #e5e7eb">
+                ${escapeHtml(requestedPlan.name)}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:10px">
+                <strong>Çmimi mujor</strong>
+              </td>
+
+              <td style="padding:10px">
+                ${escapeHtml(formatLek(requestedPlan.monthlyPrice))}
+              </td>
+            </tr>
           </table>
-          <p style="margin-top:24px">Hape panelin Admin → Kërkesat e planeve.</p>
+
+          <p style="margin-top:24px">
+            Hape panelin Admin → Kërkesat e planeve.
+          </p>
         </div>
       `;
 
@@ -149,7 +246,8 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
         await sendEmail({
           to: supportEmail,
           replyTo: user?.email || undefined,
-          subject: `Kërkesë për planin ${requestedPlan.name} - ${businessName}`,
+          subject:
+            `Kërkesë për planin ${requestedPlan.name} ` + `- ${businessName}`,
           html,
         });
       } catch (emailError) {
@@ -161,6 +259,7 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
     }
 
     revalidatePath("/dashboard/settings/subscription");
+
     revalidatePath("/admin/plan-requests");
 
     return actionSuccess({
@@ -173,12 +272,13 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
       },
     });
   } catch (error) {
-    logServerError("requestSubscriptionPlanAction", error, { planId });
+    logServerError("requestSubscriptionPlanAction", error, {
+      planId,
+    });
 
     return errorFailure(error, {
       fallbackCode: ERROR_CODES.INTERNAL_ERROR,
-      fallbackMessage:
-        "Kërkesa nuk u regjistrua. Provo përsëri pas pak.",
+      fallbackMessage: "Kërkesa nuk u regjistrua. Provo përsëri pas pak.",
     });
   }
 }

@@ -1,30 +1,46 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
+import {
+  actionSuccess,
+  errorFailure,
+  validationFailure,
+} from "@/lib/action-result";
 import { requirePlatformAdmin } from "@/lib/auth-guard";
 import { EMAIL_CONFIG, sendEmail } from "@/lib/email";
-import { createActionError, logServerError } from "@/lib/errors";
-import { createBusinessNotification } from "@/services/notification-service";
+import { logServerError } from "@/lib/errors";
+import { validateFormData } from "@/lib/validation";
 import { createPlatformAuditLog } from "@/services/admin/activity-log-service";
 import {
   approveSubscriptionPlanRequest,
   markSubscriptionPlanRequestPaid,
   rejectSubscriptionPlanRequest,
 } from "@/services/admin/subscription-plan-request-service";
+import { createBusinessNotification } from "@/services/notification-service";
+
+const requestIdSchema = z.string().trim().min(1, "ID-ja e kërkesës mungon.");
+
+const approvePlanRequestSchema = z.object({
+  requestId: requestIdSchema,
+  notes: z
+    .string()
+    .trim()
+    .transform((value) => value || null),
+});
+
+const rejectPlanRequestSchema = z.object({
+  requestId: requestIdSchema,
+  reason: z.string().trim().min(3, "Shkruaj arsyen e refuzimit."),
+});
+
+const markPlanRequestPaidSchema = z.object({
+  requestId: requestIdSchema,
+});
 
 function getAdminUserId(admin) {
   return admin?.user?.id ?? admin?.id ?? null;
-}
-
-function cleanId(formData) {
-  const requestId = String(formData.get("requestId") ?? "").trim();
-
-  if (!requestId) {
-    throw createActionError("ID-ja e kërkesës mungon.");
-  }
-
-  return requestId;
 }
 
 function revalidatePages() {
@@ -59,7 +75,9 @@ async function notifyBusiness(request, { title, message, type }) {
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px">
           <h2>${title}</h2>
           <p>${message}</p>
-          <p style="margin-top:28px;font-size:12px;color:#64748b">AutoFlow</p>
+          <p style="margin-top:28px;font-size:12px;color:#64748b">
+            AutoFlow
+          </p>
         </div>
       `,
     });
@@ -72,105 +90,195 @@ async function notifyBusiness(request, { title, message, type }) {
 }
 
 export async function approvePlanRequestAction(formData) {
-  const admin = await requirePlatformAdmin();
-  const adminUserId = getAdminUserId(admin);
-  const requestId = cleanId(formData);
-  const notes = String(formData.get("notes") ?? "").trim();
+  const validationResult = validateFormData(approvePlanRequestSchema, formData);
 
-  const request = await approveSubscriptionPlanRequest({
-    requestId,
-    reviewedById: adminUserId,
-    notes,
-  });
+  if (!validationResult.success) {
+    return validationFailure(validationResult.error, {
+      message: "Kërkesa nuk mund të aprovohej.",
+    });
+  }
 
-  await createPlatformAuditLog({
-    userId: adminUserId,
-    businessId: request.businessId,
-    action: "STATUS_CHANGE",
-    entityType: "SUBSCRIPTION_PLAN_REQUEST",
-    entityId: request.id,
-    title: "Kërkesa e planit u aprovua",
-    description: `${request.business.name} kërkoi planin ${request.requestedPlan.name}.`,
-    newValues: { status: "APPROVED", notes: notes || null },
-  });
+  try {
+    const admin = await requirePlatformAdmin();
+    const adminUserId = getAdminUserId(admin);
 
-  await notifyBusiness(request, {
-    title: "Kërkesa për plan u aprovua",
-    message: `Kërkesa për planin ${request.requestedPlan.name} u aprovua. Aktivizimi kryhet pasi pagesa të konfirmohet.`,
-    type: "SUCCESS",
-  });
+    const { requestId, notes } = validationResult.data;
 
-  revalidatePages();
+    const request = await approveSubscriptionPlanRequest({
+      requestId,
+      reviewedById: adminUserId,
+      notes,
+    });
+
+    await createPlatformAuditLog({
+      userId: adminUserId,
+      businessId: request.businessId,
+      action: "STATUS_CHANGE",
+      entityType: "SUBSCRIPTION_PLAN_REQUEST",
+      entityId: request.id,
+      title: "Kërkesa e planit u aprovua",
+      description:
+        `${request.business.name} kërkoi planin ` +
+        `${request.requestedPlan.name}.`,
+      newValues: {
+        status: "APPROVED",
+        notes,
+      },
+    });
+
+    await notifyBusiness(request, {
+      title: "Kërkesa për plan u aprovua",
+      message:
+        `Kërkesa për planin ${request.requestedPlan.name} ` +
+        "u aprovua. Aktivizimi kryhet pasi pagesa të konfirmohet.",
+      type: "SUCCESS",
+    });
+
+    revalidatePages();
+
+    return actionSuccess({
+      message: "Kërkesa e planit u aprovua me sukses.",
+      data: {
+        requestId: request.id,
+        status: "APPROVED",
+      },
+    });
+  } catch (error) {
+    logServerError("approvePlanRequestAction", error);
+
+    return errorFailure(error, {
+      fallbackMessage: "Kërkesa nuk mund të aprovohej.",
+    });
+  }
 }
 
 export async function rejectPlanRequestAction(formData) {
-  const admin = await requirePlatformAdmin();
-  const adminUserId = getAdminUserId(admin);
-  const requestId = cleanId(formData);
-  const reason = String(formData.get("reason") ?? "").trim();
+  const validationResult = validateFormData(rejectPlanRequestSchema, formData);
 
-  if (reason.length < 3) {
-    throw createActionError("Shkruaj arsyen e refuzimit.");
+  if (!validationResult.success) {
+    return validationFailure(validationResult.error, {
+      message: "Kërkesa nuk mund të refuzohej.",
+    });
   }
 
-  const request = await rejectSubscriptionPlanRequest({
-    requestId,
-    reviewedById: adminUserId,
-    reason,
-  });
+  try {
+    const admin = await requirePlatformAdmin();
+    const adminUserId = getAdminUserId(admin);
 
-  await createPlatformAuditLog({
-    userId: adminUserId,
-    businessId: request.businessId,
-    action: "STATUS_CHANGE",
-    entityType: "SUBSCRIPTION_PLAN_REQUEST",
-    entityId: request.id,
-    title: "Kërkesa e planit u refuzua",
-    description: `${request.business.name} — ${request.requestedPlan.name}.`,
-    newValues: { status: "REJECTED", rejectionReason: reason },
-  });
+    const { requestId, reason } = validationResult.data;
 
-  await notifyBusiness(request, {
-    title: "Kërkesa për plan u refuzua",
-    message: `Kërkesa për planin ${request.requestedPlan.name} u refuzua. Arsyeja: ${reason}`,
-    type: "WARNING",
-  });
+    const request = await rejectSubscriptionPlanRequest({
+      requestId,
+      reviewedById: adminUserId,
+      reason,
+    });
 
-  revalidatePages();
+    await createPlatformAuditLog({
+      userId: adminUserId,
+      businessId: request.businessId,
+      action: "STATUS_CHANGE",
+      entityType: "SUBSCRIPTION_PLAN_REQUEST",
+      entityId: request.id,
+      title: "Kërkesa e planit u refuzua",
+      description:
+        `${request.business.name} — ` + `${request.requestedPlan.name}.`,
+      newValues: {
+        status: "REJECTED",
+        rejectionReason: reason,
+      },
+    });
+
+    await notifyBusiness(request, {
+      title: "Kërkesa për plan u refuzua",
+      message:
+        `Kërkesa për planin ${request.requestedPlan.name} ` +
+        `u refuzua. Arsyeja: ${reason}`,
+      type: "WARNING",
+    });
+
+    revalidatePages();
+
+    return actionSuccess({
+      message: "Kërkesa e planit u refuzua.",
+      data: {
+        requestId: request.id,
+        status: "REJECTED",
+      },
+    });
+  } catch (error) {
+    logServerError("rejectPlanRequestAction", error);
+
+    return errorFailure(error, {
+      fallbackMessage: "Kërkesa nuk mund të refuzohej.",
+    });
+  }
 }
 
 export async function markPlanRequestPaidAction(formData) {
-  const admin = await requirePlatformAdmin();
-  const adminUserId = getAdminUserId(admin);
-  const requestId = cleanId(formData);
+  const validationResult = validateFormData(
+    markPlanRequestPaidSchema,
+    formData,
+  );
 
-  const request = await markSubscriptionPlanRequestPaid({
-    requestId,
-    reviewedById: adminUserId,
-  });
+  if (!validationResult.success) {
+    return validationFailure(validationResult.error, {
+      message: "Pagesa nuk mund të konfirmohej.",
+    });
+  }
 
-  await createPlatformAuditLog({
-    userId: adminUserId,
-    businessId: request.businessId,
-    action: "PAYMENT",
-    entityType: "SUBSCRIPTION_PLAN_REQUEST",
-    entityId: request.id,
-    title: "Plani u pagua dhe u aktivizua",
-    description: `${request.business.name} kaloi në planin ${request.requestedPlan.name}.`,
-    newValues: {
-      status: "PAID",
-      subscriptionId: request.subscriptionId,
-      planId: request.requestedPlanId,
-      price: request.requestedPrice,
-      billingInterval: request.billingInterval,
-    },
-  });
+  try {
+    const admin = await requirePlatformAdmin();
+    const adminUserId = getAdminUserId(admin);
 
-  await notifyBusiness(request, {
-    title: "Plani i ri u aktivizua",
-    message: `Pagesa u konfirmua dhe plani ${request.requestedPlan.name} është aktiv.`,
-    type: "SUCCESS",
-  });
+    const { requestId } = validationResult.data;
 
-  revalidatePages();
+    const request = await markSubscriptionPlanRequestPaid({
+      requestId,
+      reviewedById: adminUserId,
+    });
+
+    await createPlatformAuditLog({
+      userId: adminUserId,
+      businessId: request.businessId,
+      action: "PAYMENT",
+      entityType: "SUBSCRIPTION_PLAN_REQUEST",
+      entityId: request.id,
+      title: "Plani u pagua dhe u aktivizua",
+      description:
+        `${request.business.name} kaloi në planin ` +
+        `${request.requestedPlan.name}.`,
+      newValues: {
+        status: "PAID",
+        subscriptionId: request.subscriptionId,
+        planId: request.requestedPlanId,
+        price: request.requestedPrice,
+        billingInterval: request.billingInterval,
+      },
+    });
+
+    await notifyBusiness(request, {
+      title: "Plani i ri u aktivizua",
+      message:
+        `Pagesa u konfirmua dhe plani ` +
+        `${request.requestedPlan.name} është aktiv.`,
+      type: "SUCCESS",
+    });
+
+    revalidatePages();
+
+    return actionSuccess({
+      message: "Pagesa u konfirmua dhe plani u aktivizua.",
+      data: {
+        requestId: request.id,
+        status: "PAID",
+        subscriptionId: request.subscriptionId,
+      },
+    });
+  } catch (error) {
+    logServerError("markPlanRequestPaidAction", error);
+
+    return errorFailure(error, {
+      fallbackMessage: "Pagesa nuk mund të konfirmohej.",
+    });
+  }
 }
