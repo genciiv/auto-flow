@@ -1,9 +1,16 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 import { apiError } from "@/lib/api-response";
 import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { parseFinancePeriod } from "@/lib/finance-period";
+import {
+  addMoney,
+  moneyToNumber,
+  multiplyMoney,
+  subtractMoney,
+  toMoney,
+} from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getRequestId } from "@/lib/request-context";
 import { buildXlsx } from "@/lib/xlsx-writer";
@@ -13,171 +20,244 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString("sq-AL");
 }
 
+function nonNegativeMoney(value) {
+  const decimalValue = toMoney(value);
+
+  return decimalValue.lt(0) ? toMoney(0) : decimalValue;
+}
+
 export async function GET(request) {
   const requestId = getRequestId(request);
 
   try {
-    const context = await requireBusinessPermission(PERMISSIONS.FINANCE_EXPORT);
+    const context = await requireBusinessPermission(
+      PERMISSIONS.FINANCE_EXPORT,
+    );
 
     const url = new URL(request.url);
 
-    const period = parseFinancePeriod(Object.fromEntries(url.searchParams));
+    const period = parseFinancePeriod(
+      Object.fromEntries(url.searchParams),
+    );
 
-    const [payments, expenses, invoices, parts, purchases, movements] =
-      await Promise.all([
-        db.customerPayment.findMany({
-          where: {
-            businessId: context.businessId,
-            paidAt: {
-              gte: period.start,
-              lte: period.end,
-            },
-          },
-          include: {
-            invoice: {
-              select: {
-                number: true,
-              },
-            },
-            recordedBy: {
-              select: {
-                name: true,
-              },
-            },
-          },
-          orderBy: {
-            paidAt: "asc",
-          },
-        }),
+    const [
+      payments,
+      expenses,
+      invoices,
+      parts,
+      purchases,
+      movements,
+    ] = await Promise.all([
+      db.customerPayment.findMany({
+        where: {
+          businessId: context.businessId,
 
-        db.businessExpense.findMany({
-          where: {
-            businessId: context.businessId,
-            status: "POSTED",
-            expenseDate: {
-              gte: period.start,
-              lte: period.end,
+          paidAt: {
+            gte: period.start,
+            lte: period.end,
+          },
+        },
+
+        include: {
+          invoice: {
+            select: {
+              number: true,
             },
           },
-          include: {
-            category: true,
-          },
-          orderBy: {
-            expenseDate: "asc",
-          },
-        }),
 
-        db.invoice.findMany({
-          where: {
-            businessId: context.businessId,
-            createdAt: {
-              gte: period.start,
-              lte: period.end,
+          recordedBy: {
+            select: {
+              name: true,
             },
           },
-          include: {
-            customer: true,
-            vehicle: true,
-            customerPayments: true,
-          },
-          orderBy: {
-            createdAt: "asc",
-          },
-        }),
+        },
 
-        db.part.findMany({
-          where: {
-            businessId: context.businessId,
-          },
-          orderBy: {
-            name: "asc",
-          },
-        }),
+        orderBy: {
+          paidAt: "asc",
+        },
+      }),
 
-        db.purchaseOrder.findMany({
-          where: {
-            businessId: context.businessId,
-            createdAt: {
-              gte: period.start,
-              lte: period.end,
+      db.businessExpense.findMany({
+        where: {
+          businessId: context.businessId,
+          status: "POSTED",
+
+          expenseDate: {
+            gte: period.start,
+            lte: period.end,
+          },
+        },
+
+        include: {
+          category: true,
+        },
+
+        orderBy: {
+          expenseDate: "asc",
+        },
+      }),
+
+      db.invoice.findMany({
+        where: {
+          businessId: context.businessId,
+
+          createdAt: {
+            gte: period.start,
+            lte: period.end,
+          },
+        },
+
+        include: {
+          customer: true,
+          vehicle: true,
+          customerPayments: true,
+        },
+
+        orderBy: {
+          createdAt: "asc",
+        },
+      }),
+
+      db.part.findMany({
+        where: {
+          businessId: context.businessId,
+        },
+
+        orderBy: {
+          name: "asc",
+        },
+      }),
+
+      db.purchaseOrder.findMany({
+        where: {
+          businessId: context.businessId,
+
+          createdAt: {
+            gte: period.start,
+            lte: period.end,
+          },
+        },
+
+        orderBy: {
+          createdAt: "asc",
+        },
+      }),
+
+      db.inventoryMovement.findMany({
+        where: {
+          businessId: context.businessId,
+
+          createdAt: {
+            gte: period.start,
+            lte: period.end,
+          },
+        },
+
+        include: {
+          part: true,
+
+          user: {
+            select: {
+              name: true,
             },
           },
-          orderBy: {
-            createdAt: "asc",
-          },
-        }),
+        },
 
-        db.inventoryMovement.findMany({
-          where: {
-            businessId: context.businessId,
-            createdAt: {
-              gte: period.start,
-              lte: period.end,
-            },
-          },
-          include: {
-            part: true,
-            user: {
-              select: {
-                name: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: "asc",
-          },
-        }),
-      ]);
+        orderBy: {
+          createdAt: "asc",
+        },
+      }),
+    ]);
 
-    const income = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const income = payments.reduce(
+      (sum, payment) => addMoney(sum, payment.amount),
+      toMoney(0),
+    );
 
     const expenseTotal = expenses.reduce(
-      (sum, expense) => sum + expense.amount,
-      0,
+      (sum, expense) => addMoney(sum, expense.amount),
+      toMoney(0),
     );
 
     const purchaseTotal = purchases
       .filter((purchase) => purchase.status === "RECEIVED")
-      .reduce((sum, purchase) => sum + purchase.total, 0);
+      .reduce(
+        (sum, purchase) => addMoney(sum, purchase.total),
+        toMoney(0),
+      );
 
     const inventoryValue = parts.reduce(
-      (sum, part) => sum + part.stock * part.buyPrice,
-      0,
+      (sum, part) =>
+        addMoney(
+          sum,
+          multiplyMoney(part.buyPrice, part.stock),
+        ),
+      toMoney(0),
     );
 
     const receivables = invoices.reduce((sum, invoice) => {
       const paid = invoice.customerPayments.reduce(
-        (paymentSum, payment) => paymentSum + payment.amount,
-        0,
+        (paymentSum, payment) =>
+          addMoney(paymentSum, payment.amount),
+        toMoney(0),
       );
 
-      return sum + Math.max(0, invoice.total - paid);
-    }, 0);
+      const remaining = nonNegativeMoney(
+        subtractMoney(invoice.total, paid),
+      );
+
+      return addMoney(sum, remaining);
+    }, toMoney(0));
+
+    const operatingResult = subtractMoney(
+      subtractMoney(income, expenseTotal),
+      purchaseTotal,
+    );
 
     const sheets = [
       {
         name: "Përmbledhje",
+
         rows: [
           ["AutoFlow - Raport financiar", context.business.name],
+
           [
             "Periudha",
             `${formatDate(period.start)} - ${formatDate(period.end)}`,
           ],
-          ["Të ardhura", income],
-          ["Shpenzime operative", expenseTotal],
-          ["Blerje të pranuara", purchaseTotal],
-          ["Rezultati", income - expenseTotal - purchaseTotal],
-          ["Vlera aktuale e inventarit", inventoryValue],
-          ["Detyrime klientësh", receivables],
-          ["Eksportuar nga", context.user.name || context.user.email],
-          ["Data e eksportit", new Date().toLocaleString("sq-AL")],
+
+          ["Të ardhura", moneyToNumber(income)],
+          ["Shpenzime operative", moneyToNumber(expenseTotal)],
+          ["Blerje të pranuara", moneyToNumber(purchaseTotal)],
+          ["Rezultati", moneyToNumber(operatingResult)],
+          [
+            "Vlera aktuale e inventarit",
+            moneyToNumber(inventoryValue),
+          ],
+          ["Detyrime klientësh", moneyToNumber(receivables)],
+          [
+            "Eksportuar nga",
+            context.user.name || context.user.email,
+          ],
+          [
+            "Data e eksportit",
+            new Date().toLocaleString("sq-AL"),
+          ],
         ],
       },
 
       {
         name: "Të ardhura",
+
         rows: [
-          ["Data", "Fatura", "Mënyra", "Referenca", "Regjistruar nga", "Shuma"],
+          [
+            "Data",
+            "Fatura",
+            "Mënyra",
+            "Referenca",
+            "Regjistruar nga",
+            "Shuma",
+          ],
 
           ...payments.map((payment) => [
             formatDate(payment.paidAt),
@@ -185,15 +265,16 @@ export async function GET(request) {
             payment.method,
             payment.reference || "",
             payment.recordedBy?.name || "",
-            payment.amount,
+            moneyToNumber(payment.amount),
           ]),
 
-          ["TOTAL", "", "", "", "", income],
+          ["TOTAL", "", "", "", "", moneyToNumber(income)],
         ],
       },
 
       {
         name: "Shpenzime",
+
         rows: [
           [
             "Data",
@@ -212,15 +293,24 @@ export async function GET(request) {
             expense.supplier || "",
             expense.documentNumber || "",
             expense.paymentMethod,
-            expense.amount,
+            moneyToNumber(expense.amount),
           ]),
 
-          ["TOTAL", "", "", "", "", "", expenseTotal],
+          [
+            "TOTAL",
+            "",
+            "",
+            "",
+            "",
+            "",
+            moneyToNumber(expenseTotal),
+          ],
         ],
       },
 
       {
         name: "Fatura",
+
         rows: [
           [
             "Data",
@@ -235,21 +325,28 @@ export async function GET(request) {
 
           ...invoices.map((invoice) => {
             const paid = invoice.customerPayments.reduce(
-              (sum, payment) => sum + payment.amount,
-              0,
+              (sum, payment) =>
+                addMoney(sum, payment.amount),
+              toMoney(0),
+            );
+
+            const remaining = nonNegativeMoney(
+              subtractMoney(invoice.total, paid),
             );
 
             return [
               formatDate(invoice.createdAt),
               invoice.number,
               invoice.customer?.name || "",
+
               invoice.vehicle
                 ? `${invoice.vehicle.brand} ${invoice.vehicle.plate}`
                 : "",
+
               invoice.status,
-              invoice.total,
-              paid,
-              Math.max(0, invoice.total - paid),
+              moneyToNumber(invoice.total),
+              moneyToNumber(paid),
+              moneyToNumber(remaining),
             ];
           }),
         ],
@@ -257,6 +354,7 @@ export async function GET(request) {
 
       {
         name: "Inventar",
+
         rows: [
           [
             "Kodi",
@@ -269,40 +367,70 @@ export async function GET(request) {
             "Minimumi",
           ],
 
-          ...parts.map((part) => [
-            part.code || "",
-            part.name,
-            part.category || "",
-            part.supplier || "",
-            part.stock,
-            part.buyPrice,
-            part.stock * part.buyPrice,
-            part.minStock,
-          ]),
+          ...parts.map((part) => {
+            const partValue = multiplyMoney(
+              part.buyPrice,
+              part.stock,
+            );
 
-          ["TOTAL", "", "", "", "", "", inventoryValue, ""],
+            return [
+              part.code || "",
+              part.name,
+              part.category || "",
+              part.supplier || "",
+              part.stock,
+              moneyToNumber(part.buyPrice),
+              moneyToNumber(partValue),
+              part.minStock,
+            ];
+          }),
+
+          [
+            "TOTAL",
+            "",
+            "",
+            "",
+            "",
+            "",
+            moneyToNumber(inventoryValue),
+            "",
+          ],
         ],
       },
 
       {
         name: "Porosi",
+
         rows: [
-          ["Data", "Furnitori", "Statusi", "Totali", "Shënime"],
+          [
+            "Data",
+            "Furnitori",
+            "Statusi",
+            "Totali",
+            "Shënime",
+          ],
 
           ...purchases.map((purchase) => [
             formatDate(purchase.createdAt),
             purchase.supplier,
             purchase.status,
-            purchase.total,
+            moneyToNumber(purchase.total),
             purchase.notes || "",
           ]),
 
-          ["TOTAL", "", "", purchaseTotal, ""],
+          [
+            "TOTAL",
+            "",
+            "",
+            moneyToNumber(purchaseTotal),
+            "",
+          ],
         ],
       },
 
       {
         name: "Lëvizje stoku",
+
         rows: [
           [
             "Data",
@@ -332,7 +460,9 @@ export async function GET(request) {
     const bytes = buildXlsx(sheets);
 
     const fileName =
-      `autoflow-raport-` + `${period.startInput}-` + `${period.endInput}.xlsx`;
+      `autoflow-raport-` +
+      `${period.startInput}-` +
+      `${period.endInput}.xlsx`;
 
     await db.financialReportExport.create({
       data: {
@@ -352,6 +482,7 @@ export async function GET(request) {
       entityType: "FinancialReport",
       title: "U eksportua raporti financiar",
       description: fileName,
+
       metadata: {
         periodStart: period.start,
         periodEnd: period.end,
@@ -360,10 +491,14 @@ export async function GET(request) {
 
     return new NextResponse(bytes, {
       status: 200,
+
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+
+        "Content-Disposition":
+          `attachment; filename="${fileName}"`,
+
         "Cache-Control": "no-store",
         "x-request-id": requestId,
       },
@@ -372,7 +507,8 @@ export async function GET(request) {
     return apiError(error, {
       request,
       requestId,
-      fallbackMessage: "Raporti financiar nuk mund të eksportohej.",
+      fallbackMessage:
+        "Raporti financiar nuk mund të eksportohej.",
     });
   }
 }

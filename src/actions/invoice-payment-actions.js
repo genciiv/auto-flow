@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -6,6 +6,11 @@ import { z } from "zod";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { createActionError } from "@/lib/errors";
+import {
+  addMoney,
+  subtractMoney,
+  toMoney,
+} from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getFirstValidationMessage,
@@ -50,6 +55,10 @@ function getActionValidationError(validationResult, fallbackMessage) {
   return createActionError(
     getFirstValidationMessage(validationResult.error, fallbackMessage),
   );
+}
+
+function decimalToNumber(value) {
+  return Number(toMoney(value).toString());
 }
 
 async function nextInvoiceNumber(transaction, businessId) {
@@ -123,7 +132,12 @@ export async function createInvoiceFromServiceAction(serviceId) {
         );
       }
 
-      const number = await nextInvoiceNumber(transaction, context.businessId);
+      const serviceTotal = toMoney(service.total);
+
+      const number = await nextInvoiceNumber(
+        transaction,
+        context.businessId,
+      );
 
       invoice = await transaction.invoice.create({
         data: {
@@ -132,8 +146,8 @@ export async function createInvoiceFromServiceAction(serviceId) {
           vehicleId: service.vehicleId,
           serviceId: service.id,
           number,
-          status: service.total > 0 ? "UNPAID" : "DRAFT",
-          total: service.total,
+          status: serviceTotal.gt(0) ? "UNPAID" : "DRAFT",
+          total: serviceTotal,
           items: {
             create: [
               ...service.laborItems.map((item) => ({
@@ -163,7 +177,7 @@ export async function createInvoiceFromServiceAction(serviceId) {
         description: "Fatura u gjenerua automatikisht nga urdhër-puna.",
         newValues: {
           serviceId: validatedServiceId,
-          total: service.total,
+          total: serviceTotal.toString(),
           number,
         },
         database: transaction,
@@ -182,7 +196,10 @@ export async function createInvoiceFromServiceAction(serviceId) {
   } catch (error) {
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Fatura nuk u krijua.",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Fatura nuk u krijua.",
     };
   }
 }
@@ -209,8 +226,15 @@ export async function recordCustomerPaymentAction(formData) {
       };
     }
 
-    const { invoiceId, amount, method, reference, notes } =
-      validationResult.data;
+    const {
+      invoiceId,
+      amount,
+      method,
+      reference,
+      notes,
+    } = validationResult.data;
+
+    const paymentAmount = toMoney(amount);
 
     await db.$transaction(async (transaction) => {
       const invoice = await transaction.invoice.findFirst({
@@ -227,17 +251,24 @@ export async function recordCustomerPaymentAction(formData) {
         throw createActionError("Fatura nuk u gjet.");
       }
 
+      const invoiceTotal = toMoney(invoice.total);
+
       const paid = invoice.customerPayments.reduce(
-        (sum, payment) => sum + Number(payment.amount),
-        0,
+        (sum, payment) => addMoney(sum, payment.amount),
+        toMoney(0),
       );
 
-      const invoiceTotal = Number(invoice.total);
-      const remaining = Math.max(invoiceTotal - paid, 0);
+      const calculatedRemaining = subtractMoney(invoiceTotal, paid);
 
-      if (amount > remaining + 0.001) {
+      const remaining = calculatedRemaining.lt(0)
+        ? toMoney(0)
+        : calculatedRemaining;
+
+      if (paymentAmount.gt(remaining)) {
         throw createActionError(
-          `Pagesa tejkalon detyrimin e mbetur (${remaining.toFixed(0)} Lek).`,
+          `Pagesa tejkalon detyrimin e mbetur (${decimalToNumber(
+            remaining,
+          ).toFixed(0)} Lek).`,
         );
       }
 
@@ -246,32 +277,42 @@ export async function recordCustomerPaymentAction(formData) {
           businessId: context.businessId,
           invoiceId,
           recordedById: context.userId,
-          amount,
+          amount: paymentAmount,
           method,
           reference,
           notes,
         },
       });
 
-      const newPaid = paid + amount;
-      const remainingAfter = Math.max(invoiceTotal - newPaid, 0);
+      const newPaid = addMoney(paid, paymentAmount);
+
+      const calculatedRemainingAfter = subtractMoney(
+        invoiceTotal,
+        newPaid,
+      );
+
+      const remainingAfter = calculatedRemainingAfter.lt(0)
+        ? toMoney(0)
+        : calculatedRemainingAfter;
+
+      const isPaid = remainingAfter.eq(0);
 
       await transaction.invoice.update({
         where: {
           id: invoiceId,
         },
         data: {
-          status: remainingAfter <= 0.001 ? "PAID" : "UNPAID",
+          status: isPaid ? "PAID" : "UNPAID",
         },
       });
 
-      if (remainingAfter > 0.001) {
+      if (!isPaid) {
         await notifyPartialPayment({
           database: transaction,
           businessId: context.businessId,
           invoiceId,
           invoiceNumber: invoice.number,
-          remaining: remainingAfter,
+          remaining: decimalToNumber(remainingAfter),
         });
       }
 
@@ -279,13 +320,15 @@ export async function recordCustomerPaymentAction(formData) {
         context,
         entityType: "INVOICE",
         entityId: invoiceId,
-        title: `U regjistrua pagesa ${amount.toFixed(0)} Lek`,
+        title: `U regjistrua pagesa ${decimalToNumber(
+          paymentAmount,
+        ).toFixed(0)} Lek`,
         description: `Pagesa u regjistrua me metodën ${method}.`,
-        amount,
+        amount: paymentAmount.toString(),
         metadata: {
           method,
           reference,
-          remainingAfter,
+          remainingAfter: remainingAfter.toString(),
         },
         database: transaction,
       });
@@ -303,7 +346,9 @@ export async function recordCustomerPaymentAction(formData) {
     return {
       success: false,
       message:
-        error instanceof Error ? error.message : "Pagesa nuk u regjistrua.",
+        error instanceof Error
+          ? error.message
+          : "Pagesa nuk u regjistrua.",
     };
   }
 }
