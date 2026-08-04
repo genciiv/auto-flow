@@ -1,32 +1,75 @@
 "use server";
 
+import { z } from "zod";
+
 import { db } from "@/lib/db";
-import { createActionError } from "@/lib/errors";
+import { createActionError, getErrorMessage } from "@/lib/errors";
+import { getFirstValidationMessage, validateObject } from "@/lib/validation";
 
 const PAGE_SIZE = 20;
 
-const VALID_STATUSES = ["all", "PENDING", "APPROVED", "REJECTED", "PAID"];
+const PLAN_REQUEST_STATUSES = ["PENDING", "APPROVED", "REJECTED", "PAID"];
 
-function normalizeStatus(status) {
-  return VALID_STATUSES.includes(status) ? status : "all";
+const planRequestFilterStatusSchema = z.enum(["all", ...PLAN_REQUEST_STATUSES]);
+
+const requiredIdSchema = z.string().trim().min(1, "Identifikuesi mungon.");
+
+const optionalTextSchema = z
+  .string()
+  .trim()
+  .transform((value) => value || null);
+
+const getRequestsInputSchema = z.object({
+  status: planRequestFilterStatusSchema.catch("all"),
+
+  search: z.string().trim().catch(""),
+
+  page: z.coerce.number().int().positive().catch(1),
+});
+
+const approveRequestInputSchema = z.object({
+  requestId: requiredIdSchema,
+  reviewedById: requiredIdSchema,
+  notes: optionalTextSchema,
+});
+
+const rejectRequestInputSchema = z.object({
+  requestId: requiredIdSchema,
+  reviewedById: requiredIdSchema,
+
+  reason: z.string().trim().min(3, "Shkruaj arsyen e refuzimit."),
+});
+
+const markPaidInputSchema = z.object({
+  requestId: requiredIdSchema,
+  reviewedById: requiredIdSchema,
+});
+
+function getValidationMessage(validationResult, fallbackMessage) {
+  return getFirstValidationMessage(validationResult.error, fallbackMessage);
 }
 
-function normalizePage(page) {
-  const parsed = Number.parseInt(page, 10);
-
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+function throwValidationError(validationResult, fallbackMessage) {
+  throw createActionError(
+    getValidationMessage(validationResult, fallbackMessage),
+  );
 }
 
-export async function getSubscriptionPlanRequests({
-  status = "all",
-  search = "",
-  page = 1,
-} = {}) {
-  const normalizedStatus = normalizeStatus(status);
+export async function getSubscriptionPlanRequests(input = {}) {
+  const validationResult = validateObject(getRequestsInputSchema, input);
 
-  const normalizedSearch = String(search || "").trim();
+  if (!validationResult.success) {
+    throwValidationError(
+      validationResult,
+      "Filtrat e kërkesave nuk janë të vlefshëm.",
+    );
+  }
 
-  const currentPage = normalizePage(page);
+  const {
+    status: normalizedStatus,
+    search: normalizedSearch,
+    page: currentPage,
+  } = validationResult.data;
 
   const where = {
     ...(normalizedStatus !== "all"
@@ -190,11 +233,18 @@ export async function getSubscriptionPlanRequests({
   };
 }
 
-export async function approveSubscriptionPlanRequest({
-  requestId,
-  reviewedById,
-  notes = null,
-}) {
+export async function approveSubscriptionPlanRequest(input) {
+  const validationResult = validateObject(approveRequestInputSchema, input);
+
+  if (!validationResult.success) {
+    throwValidationError(
+      validationResult,
+      "Të dhënat e aprovimit nuk janë të vlefshme.",
+    );
+  }
+
+  const { requestId, reviewedById, notes } = validationResult.data;
+
   const existing = await db.subscriptionPlanRequest.findUnique({
     where: {
       id: requestId,
@@ -222,7 +272,7 @@ export async function approveSubscriptionPlanRequest({
       status: "APPROVED",
       reviewedById,
       reviewedAt: new Date(),
-      notes: notes || null,
+      notes,
       rejectionReason: null,
     },
 
@@ -234,11 +284,18 @@ export async function approveSubscriptionPlanRequest({
   });
 }
 
-export async function rejectSubscriptionPlanRequest({
-  requestId,
-  reviewedById,
-  reason,
-}) {
+export async function rejectSubscriptionPlanRequest(input) {
+  const validationResult = validateObject(rejectRequestInputSchema, input);
+
+  if (!validationResult.success) {
+    throwValidationError(
+      validationResult,
+      "Të dhënat e refuzimit nuk janë të vlefshme.",
+    );
+  }
+
+  const { requestId, reviewedById, reason } = validationResult.data;
+
   const existing = await db.subscriptionPlanRequest.findUnique({
     where: {
       id: requestId,
@@ -277,10 +334,18 @@ export async function rejectSubscriptionPlanRequest({
   });
 }
 
-export async function markSubscriptionPlanRequestPaid({
-  requestId,
-  reviewedById,
-}) {
+export async function markSubscriptionPlanRequestPaid(input) {
+  const validationResult = validateObject(markPaidInputSchema, input);
+
+  if (!validationResult.success) {
+    throwValidationError(
+      validationResult,
+      "Të dhënat e pagesës nuk janë të vlefshme.",
+    );
+  }
+
+  const { requestId, reviewedById } = validationResult.data;
+
   return db.$transaction(async (transaction) => {
     const request = await transaction.subscriptionPlanRequest.findUnique({
       where: {
@@ -362,7 +427,9 @@ export async function markSubscriptionPlanRequestPaid({
         reviewedById,
         reviewedAt: new Date(),
         paidAt: new Date(),
+
         subscriptionId: subscription.id,
+
         rejectionReason: null,
       },
 
