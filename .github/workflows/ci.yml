@@ -19,19 +19,39 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: autoflow
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d autoflow"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     env:
       CI: true
       APP_ENV: ci
+
       AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
       NEXTAUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+
       NEXT_PUBLIC_APP_URL: http://localhost:3000
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/autoflow?schema=public
-      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/autoflow?schema=public
+
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/autoflow?schema=public
+      DIRECT_URL: postgresql://postgres@127.0.0.1:5432/autoflow?schema=public
+
       SUPABASE_URL: https://ci.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key-ci-service-role-key
       SUPABASE_STORAGE_BUCKET: ci-bucket
+
       BREVO_API_KEY: xkeysib-ci-only-key
-      EMAIL_FROM: "AutoFlow <ci@example.com>"
+      EMAIL_FROM: "AutoFlow CI <ci@autoflow.test>"
 
     steps:
       - name: Checkout repository
@@ -51,6 +71,12 @@ jobs:
 
       - name: Verify lockfile integrity
         run: git diff --exit-code -- package.json package-lock.json
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
 
       - name: Run dependency security audit
         run: npm run audit:dependencies
