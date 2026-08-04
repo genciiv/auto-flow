@@ -328,7 +328,7 @@ model Business {
   logo         String?
   workingHours String?
   currency     String   @default("ALL")
-  vat          Float    @default(20)
+  vat          Decimal  @default(20) @db.Decimal(5, 2)
   timezone     String   @default("Europe/Tirane")
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -620,7 +620,7 @@ model ServiceRecord {
   customerApprovalRequired Boolean       @default(false)
   customerApprovedAt       DateTime?
   status                   ServiceStatus @default(PENDING)
-  total                    Float         @default(0)
+  total                    Decimal       @default(0) @db.Decimal(18, 2)
   startedAt                DateTime?
   readyAt                  DateTime?
   completedAt              DateTime?
@@ -718,8 +718,8 @@ model Part {
   supplier   String?
   stock      Int      @default(0)
   minStock   Int      @default(0)
-  buyPrice   Float    @default(0)
-  sellPrice  Float    @default(0)
+  buyPrice   Decimal  @default(0) @db.Decimal(18, 2)
+  sellPrice  Decimal  @default(0) @db.Decimal(18, 2)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -745,7 +745,7 @@ model PurchaseOrder {
   businessId String
   supplier   String
   status     PurchaseStatus @default(PENDING)
-  total      Float          @default(0)
+  total      Decimal        @default(0) @db.Decimal(18, 2)
   notes      String?
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
@@ -766,12 +766,12 @@ model PurchaseOrder {
  */
 
 model PurchaseOrderItem {
-  id              String @id @default(cuid())
+  id              String  @id @default(cuid())
   purchaseOrderId String
   name            String
-  quantity        Int    @default(1)
-  unitPrice       Float  @default(0)
-  total           Float  @default(0)
+  quantity        Int     @default(1)
+  unitPrice       Decimal @default(0) @db.Decimal(18, 2)
+  total           Decimal @default(0) @db.Decimal(18, 2)
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 
@@ -789,8 +789,8 @@ model ServicePartUsage {
   serviceId String
   partId    String
   quantity  Int      @default(1)
-  unitPrice Float    @default(0)
-  total     Float    @default(0)
+  unitPrice Decimal  @default(0) @db.Decimal(18, 2)
+  total     Decimal  @default(0) @db.Decimal(18, 2)
   createdAt DateTime @default(now())
 
   service ServiceRecord @relation(fields: [serviceId], references: [id], onDelete: Cascade)
@@ -806,9 +806,9 @@ model ServiceLaborItem {
   serviceId   String
   createdById String?
   description String
-  quantity    Float    @default(1)
-  unitPrice   Float    @default(0)
-  total       Float    @default(0)
+  quantity    Decimal  @default(1) @db.Decimal(12, 3)
+  unitPrice   Decimal  @default(0) @db.Decimal(18, 2)
+  total       Decimal  @default(0) @db.Decimal(18, 2)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -848,9 +848,9 @@ model InvoiceItem {
   invoiceId   String
   type        ServiceLineType
   description String
-  quantity    Float           @default(1)
-  unitPrice   Float           @default(0)
-  total       Float           @default(0)
+  quantity    Decimal         @default(1) @db.Decimal(12, 3)
+  unitPrice   Decimal         @default(0) @db.Decimal(18, 2)
+  total       Decimal         @default(0) @db.Decimal(18, 2)
   createdAt   DateTime        @default(now())
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -863,7 +863,7 @@ model CustomerPayment {
   businessId   String
   invoiceId    String
   recordedById String?
-  amount       Float
+  amount       Decimal       @db.Decimal(18, 2)
   method       PaymentMethod @default(CASH)
   reference    String?
   notes        String?
@@ -893,7 +893,7 @@ model Invoice {
   serviceId  String?       @unique
   number     String
   status     InvoiceStatus @default(DRAFT)
-  total      Float         @default(0)
+  total      Decimal       @default(0) @db.Decimal(18, 2)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
@@ -936,7 +936,7 @@ model BusinessExpense {
   description    String
   supplier       String?
   documentNumber String?
-  amount         Float
+  amount         Decimal       @db.Decimal(18, 2)
   paymentMethod  PaymentMethod @default(CASH)
   expenseDate    DateTime
   notes          String?
@@ -985,10 +985,10 @@ model InventoryCountItem {
   expectedQuantity Int
   actualQuantity   Int?
   difference       Int?
-  unitCost         Float    @default(0)
-  expectedValue    Float    @default(0)
-  actualValue      Float?
-  differenceValue  Float?
+  unitCost         Decimal  @default(0) @db.Decimal(18, 2)
+  expectedValue    Decimal  @default(0) @db.Decimal(18, 2)
+  actualValue      Decimal? @db.Decimal(18, 2)
+  differenceValue  Decimal? @db.Decimal(18, 2)
   note             String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

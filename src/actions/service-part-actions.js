@@ -1,15 +1,22 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
-import { PERMISSIONS } from "@/lib/permissions";
-import { getFirstValidationMessage, validateFormData } from "@/lib/validation";
-import { addPartToServiceSchema } from "@/schemas/inventory-schema";
-
 import { createActionError } from "@/lib/errors";
+import {
+  multiplyMoney,
+  toMoney,
+} from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
+import {
+  getFirstValidationMessage,
+  validateFormData,
+} from "@/lib/validation";
+import { addPartToServiceSchema } from "@/schemas/inventory-schema";
 import { notifyLowStock } from "@/services/operational-notification-service";
+
 function refreshServicePartPages(serviceId = null) {
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard/inventory");
@@ -25,9 +32,17 @@ export async function addPartToService(formData) {
     const context = await requireBusinessActionPermission(
       PERMISSIONS.SERVICES_MANAGE_PARTS,
     );
-    const { businessId, businessRole, userId } = context;
 
-    const validationResult = validateFormData(addPartToServiceSchema, formData);
+    const {
+      businessId,
+      businessRole,
+      userId,
+    } = context;
+
+    const validationResult = validateFormData(
+      addPartToServiceSchema,
+      formData,
+    );
 
     if (!validationResult.success) {
       return {
@@ -39,14 +54,23 @@ export async function addPartToService(formData) {
       };
     }
 
-    const { serviceId, partId, quantity } = validationResult.data;
+    const {
+      serviceId,
+      partId,
+      quantity,
+    } = validationResult.data;
 
     await db.$transaction(async (transaction) => {
       const service = await transaction.serviceRecord.findFirst({
         where: {
           id: serviceId,
           businessId,
-          ...(businessRole === "MECHANIC" ? { assignedUserId: userId } : {}),
+
+          ...(businessRole === "MECHANIC"
+            ? {
+                assignedUserId: userId,
+              }
+            : {}),
         },
 
         select: {
@@ -66,7 +90,9 @@ export async function addPartToService(formData) {
       }
 
       if (service.status === "CANCELLED") {
-        throw createActionError("Nuk mund të shtohen pjesë në një shërbim të anuluar.");
+        throw createActionError(
+          "Nuk mund të shtohen pjesë në një shërbim të anuluar.",
+        );
       }
 
       const part = await transaction.part.findFirst({
@@ -88,19 +114,29 @@ export async function addPartToService(formData) {
         throw createActionError("Pjesa nuk u gjet.");
       }
 
-      if (Number(part.stock) < quantity) {
+      const currentStock = Number(part.stock);
+
+      if (
+        !Number.isInteger(currentStock) ||
+        currentStock < quantity
+      ) {
         throw createActionError(
           `Nuk ka stok të mjaftueshëm për pjesën "${part.name}".`,
         );
       }
 
-      const unitPrice = Number(part.sellPrice || 0);
+      const unitPrice = toMoney(part.sellPrice ?? 0);
 
-      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-        throw createActionError("Çmimi i shitjes së pjesës nuk është i vlefshëm.");
+      if (unitPrice.lt(0)) {
+        throw createActionError(
+          "Çmimi i shitjes së pjesës nuk është i vlefshëm.",
+        );
       }
 
-      const total = quantity * unitPrice;
+      const total = multiplyMoney(
+        unitPrice,
+        quantity,
+      );
 
       const stockUpdate = await transaction.part.updateMany({
         where: {
@@ -120,23 +156,50 @@ export async function addPartToService(formData) {
       });
 
       if (stockUpdate.count !== 1) {
-        throw createActionError("Stoku ka ndryshuar. Nuk ka më sasi të mjaftueshme.");
+        throw createActionError(
+          "Stoku ka ndryshuar. Nuk ka më sasi të mjaftueshme.",
+        );
       }
 
-      const existingUsage = await transaction.servicePartUsage.findUnique({
-        where: { serviceId_partId: { serviceId: service.id, partId: part.id } },
-      });
+      const existingUsage =
+        await transaction.servicePartUsage.findUnique({
+          where: {
+            serviceId_partId: {
+              serviceId: service.id,
+              partId: part.id,
+            },
+          },
+        });
 
       if (existingUsage) {
         await transaction.servicePartUsage.update({
-          where: { id: existingUsage.id },
-          data: { quantity: { increment: quantity }, total: { increment: total } },
+          where: {
+            id: existingUsage.id,
+          },
+
+          data: {
+            quantity: {
+              increment: quantity,
+            },
+
+            total: {
+              increment: total,
+            },
+          },
         });
       } else {
         await transaction.servicePartUsage.create({
-          data: { serviceId: service.id, partId: part.id, quantity, unitPrice, total },
+          data: {
+            serviceId: service.id,
+            partId: part.id,
+            quantity,
+            unitPrice,
+            total,
+          },
         });
       }
+
+      const stockAfter = currentStock - quantity;
 
       await transaction.inventoryMovement.create({
         data: {
@@ -146,9 +209,13 @@ export async function addPartToService(formData) {
           userId,
           type: "SERVICE_OUT",
           quantity,
-          stockBefore: Number(part.stock),
-          stockAfter: Number(part.stock) - quantity,
-          note: `Pjesë e përdorur në urdhër-punë nga ${context.user.name || context.user.email}`,
+          stockBefore: currentStock,
+          stockAfter,
+
+          note:
+            `Pjesë e përdorur në urdhër-punë nga ${
+              context.user.name || context.user.email
+            }`,
         },
       });
 
@@ -164,15 +231,16 @@ export async function addPartToService(formData) {
         },
       });
 
-      const stockAfter = Number(part.stock) - quantity;
-      if (stockAfter <= Number(part.minStock || 0)) {
+      const minStock = Number(part.minStock ?? 0);
+
+      if (stockAfter <= minStock) {
         await notifyLowStock({
           database: transaction,
           businessId,
           partId: part.id,
           partName: part.name,
           stock: stockAfter,
-          minStock: Number(part.minStock || 0),
+          minStock,
         });
       }
     });
@@ -184,10 +252,14 @@ export async function addPartToService(formData) {
       message: "Pjesa iu shtua shërbimit me sukses.",
     };
   } catch (error) {
-    console.error("Gabim gjatë shtimit të pjesës në shërbim:", error);
+    console.error(
+      "Gabim gjatë shtimit të pjesës në shërbim:",
+      error,
+    );
 
     return {
       success: false,
+
       message:
         error instanceof Error
           ? error.message

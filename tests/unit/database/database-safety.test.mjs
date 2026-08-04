@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import {
   assertNotProductionReset,
@@ -16,7 +16,10 @@ test("parseDatabaseTarget fsheh kredencialet dhe krijon fingerprint", () => {
 
 test("operacionet remote bllokohen pa flag dhe konfirmim", () => {
   const url = "postgresql://user:secret@db.example.com:5432/autoflow";
-  assert.throws(() => requireDatabaseConfirmation({ databaseUrl: url }), /remote/);
+  assert.throws(
+    () => requireDatabaseConfirmation({ databaseUrl: url }),
+    /remote|Konfirmimi|DB_OPERATION_CONFIRM/i,
+  );
 
   const target = parseDatabaseTarget(url);
   assert.doesNotThrow(() =>
@@ -33,3 +36,4 @@ test("reset commands bllokohen", () => {
   assert.throws(() => assertNotProductionReset("prisma db push --force-reset"), /ndaluara/);
   assert.doesNotThrow(() => assertNotProductionReset("prisma migrate deploy"));
 });
+

@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -6,6 +6,13 @@ import { z } from "zod";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { createActionError } from "@/lib/errors";
+import {
+  moneyToString,
+  multiplyMoney,
+  quantityToString,
+  toMoney,
+  toQuantity,
+} from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getFirstValidationMessage,
@@ -92,12 +99,14 @@ async function assertServiceAccess(transaction, context, serviceId) {
     where: {
       id: serviceId,
       businessId: context.businessId,
+
       ...(context.businessRole === "MECHANIC"
         ? {
             assignedUserId: context.userId,
           }
         : {}),
     },
+
     select: {
       id: true,
       status: true,
@@ -106,10 +115,16 @@ async function assertServiceAccess(transaction, context, serviceId) {
   });
 
   if (!service) {
-    throw createActionError("Urdhër-puna nuk u gjet ose nuk të është caktuar.");
+    throw createActionError(
+      "Urdhër-puna nuk u gjet ose nuk të është caktuar.",
+    );
   }
 
-  if (["COMPLETED", "DELIVERED", "CANCELLED"].includes(service.status)) {
+  if (
+    ["COMPLETED", "DELIVERED", "CANCELLED"].includes(
+      service.status,
+    )
+  ) {
     throw createActionError(
       "Kjo urdhër-punë është mbyllur dhe nuk mund të ndryshohet.",
     );
@@ -124,23 +139,37 @@ export async function addLaborItemAction(formData) {
       PERMISSIONS.SERVICES_UPDATE,
     );
 
-    const validationResult = validateFormData(addLaborItemSchema, formData);
+    const validationResult = validateFormData(
+      addLaborItemSchema,
+      formData,
+    );
 
     if (!validationResult.success) {
       return {
         success: false,
+
         message: getFirstValidationMessage(
           validationResult.error,
           "Të dhënat e punës nuk janë të vlefshme.",
         ),
+
         fieldErrors: validationResult.fieldErrors,
       };
     }
 
-    const { serviceId, description, quantity, unitPrice } =
-      validationResult.data;
+    const {
+      serviceId,
+      description,
+      quantity,
+      unitPrice,
+    } = validationResult.data;
 
-    const total = quantity * unitPrice;
+    const decimalQuantity = toQuantity(quantity);
+    const decimalUnitPrice = toMoney(unitPrice);
+    const total = multiplyMoney(
+      decimalUnitPrice,
+      decimalQuantity,
+    );
 
     await db.$transaction(async (transaction) => {
       const service = await assertServiceAccess(
@@ -154,8 +183,8 @@ export async function addLaborItemAction(formData) {
           serviceId,
           createdById: context.userId,
           description,
-          quantity,
-          unitPrice,
+          quantity: decimalQuantity,
+          unitPrice: decimalUnitPrice,
           total,
         },
       });
@@ -164,6 +193,7 @@ export async function addLaborItemAction(formData) {
         where: {
           id: service.id,
         },
+
         data: {
           total: {
             increment: total,
@@ -176,16 +206,23 @@ export async function addLaborItemAction(formData) {
         entityType: "SERVICE_LABOR_ITEM",
         entityId: item.id,
         title: `U shtua puna: ${description}`,
+
         description: `${
           context.user.name || "Përdoruesi"
-        } shtoi ${quantity} × ${unitPrice} Lek në urdhër-punë.`,
+        } shtoi ${quantityToString(
+          decimalQuantity,
+        )} × ${moneyToString(
+          decimalUnitPrice,
+        )} Lek në urdhër-punë.`,
+
         newValues: {
           serviceId,
           description,
-          quantity,
-          unitPrice,
-          total,
+          quantity: quantityToString(decimalQuantity),
+          unitPrice: moneyToString(decimalUnitPrice),
+          total: moneyToString(total),
         },
+
         database: transaction,
       });
     });
@@ -199,8 +236,11 @@ export async function addLaborItemAction(formData) {
   } catch (error) {
     return {
       success: false,
+
       message:
-        error instanceof Error ? error.message : "Puna nuk u regjistrua.",
+        error instanceof Error
+          ? error.message
+          : "Puna nuk u regjistrua.",
     };
   }
 }
@@ -211,9 +251,12 @@ export async function removeLaborItemAction(itemId) {
       PERMISSIONS.SERVICES_UPDATE,
     );
 
-    const validationResult = validateObject(removeLaborItemSchema, {
-      itemId,
-    });
+    const validationResult = validateObject(
+      removeLaborItemSchema,
+      {
+        itemId,
+      },
+    );
 
     if (!validationResult.success) {
       throw getActionValidationError(
@@ -230,10 +273,12 @@ export async function removeLaborItemAction(itemId) {
       const item = await transaction.serviceLaborItem.findFirst({
         where: {
           id: validatedItemId,
+
           service: {
             businessId: context.businessId,
           },
         },
+
         include: {
           service: {
             select: {
@@ -259,7 +304,9 @@ export async function removeLaborItemAction(itemId) {
       }
 
       if (
-        ["COMPLETED", "DELIVERED", "CANCELLED"].includes(item.service.status)
+        ["COMPLETED", "DELIVERED", "CANCELLED"].includes(
+          item.service.status,
+        )
       ) {
         throw createActionError("Urdhër-puna është mbyllur.");
       }
@@ -276,6 +323,7 @@ export async function removeLaborItemAction(itemId) {
         where: {
           id: serviceId,
         },
+
         data: {
           total: {
             decrement: item.total,
@@ -288,12 +336,17 @@ export async function removeLaborItemAction(itemId) {
         entityType: "SERVICE_LABOR_ITEM",
         entityId: item.id,
         title: `U hoq puna: ${item.description}`,
-        description: "Një rresht pune u hoq nga urdhër-puna.",
+        description:
+          "Një rresht pune u hoq nga urdhër-puna.",
+
         oldValues: {
           serviceId,
           description: item.description,
-          total: item.total,
+          quantity: quantityToString(item.quantity),
+          unitPrice: moneyToString(item.unitPrice),
+          total: moneyToString(item.total),
         },
+
         database: transaction,
       });
     });
@@ -307,7 +360,11 @@ export async function removeLaborItemAction(itemId) {
   } catch (error) {
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Puna nuk u hoq.",
+
+      message:
+        error instanceof Error
+          ? error.message
+          : "Puna nuk u hoq.",
     };
   }
 }

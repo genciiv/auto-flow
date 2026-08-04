@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
@@ -50,16 +50,16 @@ test("owner journey mbron customer, vehicle, service dhe invoice mutations", asy
     assert.match(
       code,
       new RegExp(`PERMISSIONS\\.${permission}`),
-      `${file} duhet të përdorë lejen ${permission}.`,
+      `${file} duhet tÃ« pÃ«rdorÃ« lejen ${permission}.`,
     );
 
     assert.match(
       code,
       /requireBusinessActionPermission/,
-      `${file} duhet të kontrollojë autorizimin e biznesit.`,
+      `${file} duhet tÃ« kontrollojÃ« autorizimin e biznesit.`,
     );
 
-    assert.match(code, /businessId/, `${file} duhet të përdorë businessId.`);
+    assert.match(code, /businessId/, `${file} duhet tÃ« pÃ«rdorÃ« businessId.`);
   }
 });
 
@@ -129,7 +129,7 @@ test("service creation validon inputin dhe lidhet me business context", async ()
   assert.match(code, /serviceRecord/);
 });
 
-test("invoice nga service krijohet vetëm për service të biznesit aktiv", async () => {
+test("invoice nga service krijohet vetÃ«m pÃ«r service tÃ« biznesit aktiv", async () => {
   const code = await source("src/actions/invoice-payment-actions.js");
 
   assert.match(code, /export async function createInvoiceFromServiceAction/);
@@ -157,7 +157,7 @@ test("invoice nga service krijohet vetëm për service të biznesit aktiv", asyn
   assert.match(code, /serviceId:\s*service\.id/);
 });
 
-test("customer payment izolohet sipas tenant dhe përditëson invoice status", async () => {
+test("customer payment izolohet sipas tenant dhe pÃ«rditÃ«son invoice status", async () => {
   const code = await source("src/actions/invoice-payment-actions.js");
 
   assert.match(code, /export async function recordCustomerPaymentAction/);
@@ -176,14 +176,11 @@ test("customer payment izolohet sipas tenant dhe përditëson invoice status", a
 
   assert.match(code, /recordedById:\s*context\.userId/);
 
-  assert.match(code, /amount\s*>\s*remaining/);
+  assert.match(code, /paymentAmount\.gt\(remaining\)/);
 
   assert.match(code, /transaction\.invoice\.update/);
 
-  assert.match(
-    code,
-    /remainingAfter\s*<=\s*0\.001\s*\?\s*"PAID"\s*:\s*"UNPAID"/,
-  );
+  assert.match(code, /const\s+isPaid\s*=\s*remainingAfter\.eq\(0\)/);
 
   assert.match(code, /logPayment/);
 });
@@ -236,3 +233,8 @@ test("proxy ndan admin, owner dhe customer routes", async () => {
 
   assert.match(code, /\/customer\/dashboard/);
 });
+
+
+
+
+

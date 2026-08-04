@@ -1,9 +1,14 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { createActionError } from "@/lib/errors";
+import {
+  multiplyMoney,
+  toMoney,
+} from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getFirstValidationMessage,
@@ -15,7 +20,6 @@ import {
   receivePurchaseOrderSchema,
 } from "@/schemas/purchase-schema";
 
-import { createActionError } from "@/lib/errors";
 function refreshPurchaseItemPages() {
   revalidatePath("/dashboard/purchases");
   revalidatePath("/dashboard/inventory");
@@ -36,7 +40,10 @@ export async function addPurchaseItem(formData) {
       PERMISSIONS.PURCHASES_UPDATE,
     );
 
-    const validationResult = validateFormData(addPurchaseItemSchema, formData);
+    const validationResult = validateFormData(
+      addPurchaseItemSchema,
+      formData,
+    );
 
     if (!validationResult.success) {
       return {
@@ -48,8 +55,15 @@ export async function addPurchaseItem(formData) {
       };
     }
 
-    const { purchaseOrderId, name, quantity, unitPrice } =
-      validationResult.data;
+    const {
+      purchaseOrderId,
+      name,
+      quantity,
+      unitPrice,
+    } = validationResult.data;
+
+    const decimalUnitPrice = toMoney(unitPrice);
+    const itemTotal = multiplyMoney(quantity, decimalUnitPrice);
 
     await db.$transaction(async (transaction) => {
       const purchase = await transaction.purchaseOrder.findFirst({
@@ -85,8 +99,8 @@ export async function addPurchaseItem(formData) {
           purchaseOrderId: purchase.id,
           name,
           quantity,
-          unitPrice,
-          total: quantity * unitPrice,
+          unitPrice: decimalUnitPrice,
+          total: itemTotal,
         },
       });
 
@@ -106,7 +120,7 @@ export async function addPurchaseItem(formData) {
         },
 
         data: {
-          total: Number(totals._sum.total ?? 0),
+          total: toMoney(totals._sum.total ?? 0),
         },
       });
     });
@@ -122,7 +136,10 @@ export async function addPurchaseItem(formData) {
 
     return {
       success: false,
-      message: getErrorMessage(error, "Artikulli nuk mund të shtohej."),
+      message: getErrorMessage(
+        error,
+        "Artikulli nuk mund të shtohej.",
+      ),
     };
   }
 }
@@ -146,9 +163,12 @@ export async function receivePurchaseOrder(purchaseOrderId) {
       };
     }
 
-    const validationResult = validateObject(receivePurchaseOrderSchema, {
-      purchaseOrderId,
-    });
+    const validationResult = validateObject(
+      receivePurchaseOrderSchema,
+      {
+        purchaseOrderId,
+      },
+    );
 
     if (!validationResult.success) {
       return {
@@ -160,7 +180,8 @@ export async function receivePurchaseOrder(purchaseOrderId) {
       };
     }
 
-    const validatedPurchaseOrderId = validationResult.data.purchaseOrderId;
+    const validatedPurchaseOrderId =
+      validationResult.data.purchaseOrderId;
 
     await db.$transaction(async (transaction) => {
       const purchase = await transaction.purchaseOrder.findFirst({
@@ -179,31 +200,38 @@ export async function receivePurchaseOrder(purchaseOrderId) {
       }
 
       if (purchase.status === "RECEIVED") {
-        throw createActionError("Kjo porosi është marrë më parë në magazinë.");
+        throw createActionError(
+          "Kjo porosi është marrë më parë në magazinë.",
+        );
       }
 
       if (purchase.status === "CANCELLED") {
-        throw createActionError("Një porosi e anuluar nuk mund të merret në magazinë.");
+        throw createActionError(
+          "Një porosi e anuluar nuk mund të merret në magazinë.",
+        );
       }
 
       if (purchase.items.length === 0) {
-        throw createActionError("Porosia nuk ka artikuj për t'u futur në magazinë.");
+        throw createActionError(
+          "Porosia nuk ka artikuj për t'u futur në magazinë.",
+        );
       }
 
-      const receivedUpdate = await transaction.purchaseOrder.updateMany({
-        where: {
-          id: purchase.id,
-          businessId,
+      const receivedUpdate =
+        await transaction.purchaseOrder.updateMany({
+          where: {
+            id: purchase.id,
+            businessId,
 
-          status: {
-            in: ["PENDING", "ORDERED"],
+            status: {
+              in: ["PENDING", "ORDERED"],
+            },
           },
-        },
 
-        data: {
-          status: "RECEIVED",
-        },
-      });
+          data: {
+            status: "RECEIVED",
+          },
+        });
 
       if (receivedUpdate.count !== 1) {
         throw createActionError(
@@ -221,15 +249,18 @@ export async function receivePurchaseOrder(purchaseOrderId) {
         }
 
         const quantity = Number(item.quantity);
-        const unitPrice = Number(item.unitPrice ?? 0);
+        const unitPrice = toMoney(item.unitPrice ?? 0);
 
-        if (!Number.isFinite(quantity) || quantity <= 0) {
+        if (
+          !Number.isInteger(quantity) ||
+          quantity <= 0
+        ) {
           throw createActionError(
             `Sasia e artikullit "${itemName}" nuk është e vlefshme.`,
           );
         }
 
-        if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        if (unitPrice.lt(0)) {
           throw createActionError(
             `Çmimi i artikullit "${itemName}" nuk është i vlefshëm.`,
           );
