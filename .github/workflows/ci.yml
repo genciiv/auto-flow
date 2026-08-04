@@ -3,10 +3,11 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -14,9 +15,12 @@ permissions:
 
 jobs:
   quality:
+    name: Security and quality gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     env:
+      CI: true
       APP_ENV: ci
       AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
       NEXTAUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
@@ -27,16 +31,38 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key-ci-service-role-key
       SUPABASE_STORAGE_BUCKET: ci-bucket
       BREVO_API_KEY: xkeysib-ci-only-key
-      EMAIL_FROM: AutoFlow <ci@example.com>
+      EMAIL_FROM: "AutoFlow <ci@example.com>"
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run audit:ci
-      - run: npm test
-      - run: npm run lint
-      - run: npm run build
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify lockfile integrity
+        run: git diff --exit-code -- package.json package-lock.json
+
+      - name: Run dependency security audit
+        run: npm run audit:dependencies
+
+      - name: Run project audit gates
+        run: npm run audit:ci
+
+      - name: Run automated tests
+        run: npm test
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build production application
+        run: npm run build
