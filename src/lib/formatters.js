@@ -1,5 +1,7 @@
+﻿import { formatMoney, moneyToNumber } from "./money";
+
 export function formatCurrency(value) {
-  const numericValue = Number(value || 0);
+  const numericValue = moneyToNumber(value);
 
   if (!Number.isFinite(numericValue)) {
     return "0 Lekë";
@@ -7,12 +9,12 @@ export function formatCurrency(value) {
 
   const hasDecimals = !Number.isInteger(numericValue);
 
-  const formattedValue = numericValue
-    .toFixed(hasDecimals ? 2 : 0)
-    .replace(".", ",")
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-
-  return `${formattedValue} Lekë`;
+  return formatMoney(numericValue, {
+    currency: "ALL",
+    locale: "sq-AL",
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0,
+  });
 }
 
 export function formatNumber(value) {
@@ -22,5 +24,7 @@ export function formatNumber(value) {
     return "0";
   }
 
-  return String(Math.round(numericValue)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return new Intl.NumberFormat("sq-AL", {
+    maximumFractionDigits: 0,
+  }).format(Math.round(numericValue));
 }
