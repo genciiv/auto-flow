@@ -48,7 +48,6 @@ export default async function ServiceDetailsPage({ params }) {
   const serializableParts = JSON.parse(JSON.stringify(parts));
   const staff = members.filter((member) => member.role === "MECHANIC").map((member) => ({ id:member.user.id, name:member.user.name, email:member.user.email, role:member.role }));
   const canManageAssignment = ["OWNER", "MANAGER"].includes(businessRole);
-  const canManageApproval = ["OWNER", "MANAGER", "RECEPTIONIST"].includes(businessRole);
   const canManageParts = ["OWNER", "MANAGER", "MECHANIC", "WAREHOUSE"].includes(businessRole);
   const canCreateInvoice = ["OWNER", "MANAGER", "RECEPTIONIST", "ACCOUNTANT"].includes(businessRole) && ["READY_FOR_PICKUP", "COMPLETED", "DELIVERED"].includes(service.status);
 
@@ -60,7 +59,7 @@ export default async function ServiceDetailsPage({ params }) {
     <div className="grid gap-4 md:grid-cols-4">
       <Info label="Klienti" value={service.vehicle.customer?.name || "Pa klient"}/><Info label="Mekaniku" value={service.assignedUser?.name || "Pa caktuar"}/><Info label="Totali" value={formatCurrency(service.total)}/><Info label="Pjesë të përdorura" value={String(service.partsUsed.length)}/>
     </div>
-    <ServiceWorkflowPanel service={serializable} staff={staff} businessRole={businessRole} canManageAssignment={canManageAssignment} canManageApproval={canManageApproval}/>
+    <ServiceWorkflowPanel service={serializable} staff={staff} businessRole={businessRole} canManageAssignment={canManageAssignment}/>
     <ServiceOperationsPanel service={serializable} parts={serializableParts} canManageParts={canManageParts} canCreateInvoice={canCreateInvoice}/>
   </div></DashboardLayout>;
 }
