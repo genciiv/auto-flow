@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -14,6 +14,8 @@ import {
   toQuantity,
 } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
+import { assertServiceBillingEditable } from "@/lib/service-billing-guard";
+import { recalculateServiceTotal } from "@/lib/service-total";
 import {
   getFirstValidationMessage,
   validateFormData,
@@ -28,48 +30,31 @@ const requiredIdSchema = z
 
 const addLaborItemSchema = z.object({
   serviceId: requiredIdSchema,
-
   description: z
     .string()
     .trim()
     .min(1, "Përshkrimi i punës është i detyrueshëm."),
-
   quantity: z.preprocess(
-    (value) => {
-      if (
-        value === null ||
-        value === undefined ||
-        String(value).trim() === ""
-      ) {
-        return 1;
-      }
-
-      return value;
-    },
+    (value) =>
+      value === null ||
+      value === undefined ||
+      String(value).trim() === ""
+        ? 1
+        : value,
     z.coerce
-      .number({
-        error: "Sasia nuk është e vlefshme.",
-      })
+      .number({ error: "Sasia nuk është e vlefshme." })
       .finite("Sasia nuk është e vlefshme.")
       .positive("Sasia duhet të jetë më e madhe se zero."),
   ),
-
   unitPrice: z.preprocess(
-    (value) => {
-      if (
-        value === null ||
-        value === undefined ||
-        String(value).trim() === ""
-      ) {
-        return 0;
-      }
-
-      return value;
-    },
+    (value) =>
+      value === null ||
+      value === undefined ||
+      String(value).trim() === ""
+        ? 0
+        : value,
     z.coerce
-      .number({
-        error: "Çmimi nuk është i vlefshëm.",
-      })
+      .number({ error: "Çmimi nuk është i vlefshëm." })
       .finite("Çmimi nuk është i vlefshëm.")
       .min(0, "Çmimi nuk mund të jetë negativ."),
   ),
@@ -78,12 +63,6 @@ const addLaborItemSchema = z.object({
 const removeLaborItemSchema = z.object({
   itemId: requiredIdSchema,
 });
-
-function getActionValidationError(validationResult, fallbackMessage) {
-  return createActionError(
-    getFirstValidationMessage(validationResult.error, fallbackMessage),
-  );
-}
 
 function refreshServicePages(serviceId) {
   revalidatePath(`/dashboard/services/${serviceId}`);
@@ -94,23 +73,29 @@ function refreshServicePages(serviceId) {
   revalidatePath("/dashboard/workspace");
 }
 
-async function assertServiceAccess(transaction, context, serviceId) {
+async function getEditableService(
+  transaction,
+  context,
+  serviceId,
+) {
   const service = await transaction.serviceRecord.findFirst({
     where: {
       id: serviceId,
       businessId: context.businessId,
-
       ...(context.businessRole === "MECHANIC"
-        ? {
-            assignedUserId: context.userId,
-          }
+        ? { assignedUserId: context.userId }
         : {}),
     },
-
     select: {
       id: true,
       status: true,
       total: true,
+      invoice: {
+        select: {
+          id: true,
+          number: true,
+        },
+      },
     },
   });
 
@@ -120,17 +105,7 @@ async function assertServiceAccess(transaction, context, serviceId) {
     );
   }
 
-  if (
-    ["COMPLETED", "DELIVERED", "CANCELLED"].includes(
-      service.status,
-    )
-  ) {
-    throw createActionError(
-      "Kjo urdhër-punë është mbyllur dhe nuk mund të ndryshohet.",
-    );
-  }
-
-  return service;
+  return assertServiceBillingEditable(service);
 }
 
 export async function addLaborItemAction(formData) {
@@ -147,12 +122,10 @@ export async function addLaborItemAction(formData) {
     if (!validationResult.success) {
       return {
         success: false,
-
         message: getFirstValidationMessage(
           validationResult.error,
           "Të dhënat e punës nuk janë të vlefshme.",
         ),
-
         fieldErrors: validationResult.fieldErrors,
       };
     }
@@ -172,7 +145,7 @@ export async function addLaborItemAction(formData) {
     );
 
     await db.$transaction(async (transaction) => {
-      const service = await assertServiceAccess(
+      const service = await getEditableService(
         transaction,
         context,
         serviceId,
@@ -189,24 +162,13 @@ export async function addLaborItemAction(formData) {
         },
       });
 
-      await transaction.serviceRecord.update({
-        where: {
-          id: service.id,
-        },
-
-        data: {
-          total: {
-            increment: total,
-          },
-        },
-      });
+      await recalculateServiceTotal(transaction, service.id);
 
       await logCreate({
         context,
         entityType: "SERVICE_LABOR_ITEM",
         entityId: item.id,
         title: `U shtua puna: ${description}`,
-
         description: `${
           context.user.name || "Përdoruesi"
         } shtoi ${quantityToString(
@@ -214,7 +176,6 @@ export async function addLaborItemAction(formData) {
         )} × ${moneyToString(
           decimalUnitPrice,
         )} Lek në urdhër-punë.`,
-
         newValues: {
           serviceId,
           description,
@@ -222,7 +183,6 @@ export async function addLaborItemAction(formData) {
           unitPrice: moneyToString(decimalUnitPrice),
           total: moneyToString(total),
         },
-
         database: transaction,
       });
     });
@@ -236,7 +196,6 @@ export async function addLaborItemAction(formData) {
   } catch (error) {
     return {
       success: false,
-
       message:
         error instanceof Error
           ? error.message
@@ -253,45 +212,50 @@ export async function removeLaborItemAction(itemId) {
 
     const validationResult = validateObject(
       removeLaborItemSchema,
-      {
-        itemId,
-      },
+      { itemId },
     );
 
     if (!validationResult.success) {
-      throw getActionValidationError(
-        validationResult,
-        "Rreshti i punës nuk u identifikua.",
+      throw createActionError(
+        getFirstValidationMessage(
+          validationResult.error,
+          "Rreshti i punës nuk u identifikua.",
+        ),
       );
     }
-
-    const validatedItemId = validationResult.data.itemId;
 
     let serviceId = null;
 
     await db.$transaction(async (transaction) => {
-      const item = await transaction.serviceLaborItem.findFirst({
-        where: {
-          id: validatedItemId,
-
-          service: {
-            businessId: context.businessId,
-          },
-        },
-
-        include: {
-          service: {
-            select: {
-              id: true,
-              assignedUserId: true,
-              status: true,
+      const item =
+        await transaction.serviceLaborItem.findFirst({
+          where: {
+            id: validationResult.data.itemId,
+            service: {
+              businessId: context.businessId,
             },
           },
-        },
-      });
+          include: {
+            service: {
+              select: {
+                id: true,
+                assignedUserId: true,
+                status: true,
+                invoice: {
+                  select: {
+                    id: true,
+                    number: true,
+                  },
+                },
+              },
+            },
+          },
+        });
 
       if (!item) {
-        throw createActionError("Rreshti i punës nuk u gjet.");
+        throw createActionError(
+          "Rreshti i punës nuk u gjet.",
+        );
       }
 
       if (
@@ -303,33 +267,14 @@ export async function removeLaborItemAction(itemId) {
         );
       }
 
-      if (
-        ["COMPLETED", "DELIVERED", "CANCELLED"].includes(
-          item.service.status,
-        )
-      ) {
-        throw createActionError("Urdhër-puna është mbyllur.");
-      }
-
+      assertServiceBillingEditable(item.service);
       serviceId = item.service.id;
 
       await transaction.serviceLaborItem.delete({
-        where: {
-          id: item.id,
-        },
+        where: { id: item.id },
       });
 
-      await transaction.serviceRecord.update({
-        where: {
-          id: serviceId,
-        },
-
-        data: {
-          total: {
-            decrement: item.total,
-          },
-        },
-      });
+      await recalculateServiceTotal(transaction, serviceId);
 
       await logDelete({
         context,
@@ -338,7 +283,6 @@ export async function removeLaborItemAction(itemId) {
         title: `U hoq puna: ${item.description}`,
         description:
           "Një rresht pune u hoq nga urdhër-puna.",
-
         oldValues: {
           serviceId,
           description: item.description,
@@ -346,7 +290,6 @@ export async function removeLaborItemAction(itemId) {
           unitPrice: moneyToString(item.unitPrice),
           total: moneyToString(item.total),
         },
-
         database: transaction,
       });
     });
@@ -360,7 +303,6 @@ export async function removeLaborItemAction(itemId) {
   } catch (error) {
     return {
       success: false,
-
       message:
         error instanceof Error
           ? error.message
