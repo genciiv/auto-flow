@@ -7,6 +7,7 @@ import {
   CarFront,
   Gauge,
   LogOut,
+  MessagesSquare,
   Settings,
   Wrench,
   X,
@@ -16,6 +17,11 @@ import { logoutCustomerAction } from "@/app/customer/actions";
 import CustomerBusinessSwitcher from "@/components/customer/CustomerBusinessSwitcher";
 
 const navigationItems = [
+  {
+    label: "Mesazhet",
+    href: "/customer/messages",
+    icon: MessagesSquare,
+  },
   {
     label: "Profili",
     href: "/customer/profile",
