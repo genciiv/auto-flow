@@ -36,6 +36,7 @@ export default async function FinancePage({ searchParams }) {
 
   const [
     payments,
+    issuedInvoices,
     expenses,
     purchases,
     parts,
@@ -52,6 +53,23 @@ export default async function FinancePage({ searchParams }) {
       },
       _sum: {
         amount: true,
+      },
+      _count: true,
+    }),
+
+    db.invoice.aggregate({
+      where: {
+        businessId,
+        status: {
+          not: "DRAFT",
+        },
+        createdAt: {
+          gte: period.start,
+          lte: period.end,
+        },
+      },
+      _sum: {
+        total: true,
       },
       _count: true,
     }),
@@ -123,6 +141,9 @@ export default async function FinancePage({ searchParams }) {
   ]);
 
   const income = toMoney(payments._sum.amount ?? 0);
+  const invoicedRevenue = toMoney(
+    issuedInvoices._sum.total ?? 0,
+  );
   const operatingExpenses = toMoney(
     expenses._sum.amount ?? 0,
   );
@@ -182,7 +203,12 @@ export default async function FinancePage({ searchParams }) {
 
   const cards = [
     {
-      label: "Të ardhura",
+      label: "Të faturuara",
+      value: invoicedRevenue,
+      icon: FileSpreadsheet,
+    },
+    {
+      label: "Të arkëtuara",
       value: income,
       icon: TrendingUp,
     },
@@ -248,7 +274,7 @@ export default async function FinancePage({ searchParams }) {
 
         <PeriodFilter period={period} />
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           {cards.map((card) => {
             const Icon = card.icon;
 

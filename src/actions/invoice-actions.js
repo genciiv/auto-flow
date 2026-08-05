@@ -8,7 +8,9 @@ import {
 } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import {
+  addMoney,
   isMoneyLessThan,
+  subtractMoney,
   toMoney,
 } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -69,6 +71,53 @@ function revalidateInvoicePaths(invoiceId = null) {
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/finance");
+  revalidatePath("/dashboard/finance/reports");
+}
+
+
+async function ensurePaidInvoicePayment(
+  transaction,
+  { businessId, invoiceId, invoiceTotal, recordedById },
+) {
+  const existingPayments =
+    await transaction.customerPayment.findMany({
+      where: {
+        businessId,
+        invoiceId,
+      },
+      select: {
+        amount: true,
+      },
+    });
+
+  const paidAmount = existingPayments.reduce(
+    (sum, payment) => addMoney(sum, payment.amount),
+    toMoney(0),
+  );
+
+  const remaining = subtractMoney(
+    invoiceTotal,
+    paidAmount,
+  );
+
+  if (remaining.lte(0)) {
+    return toMoney(0);
+  }
+
+  await transaction.customerPayment.create({
+    data: {
+      businessId,
+      invoiceId,
+      recordedById,
+      amount: remaining,
+      method: "CASH",
+      notes:
+        "Pagesë e regjistruar automatikisht kur fatura u shënua si e paguar.",
+    },
+  });
+
+  return remaining;
 }
 
 async function generateInvoiceNumber(businessId) {
@@ -376,6 +425,14 @@ export async function createInvoice(formData) {
       });
 
       if (invoice.status === "PAID") {
+        const registeredPayment =
+          await ensurePaidInvoicePayment(transaction, {
+            businessId: context.businessId,
+            invoiceId: invoice.id,
+            invoiceTotal: invoice.total,
+            recordedById: context.userId,
+          });
+
         await logPayment({
           context,
           entityType: "INVOICE",
@@ -385,7 +442,7 @@ export async function createInvoice(formData) {
 
           description: `Fatura "${invoice.number}" u krijua drejtpërdrejt si e paguar.`,
 
-          amount: invoice.total,
+          amount: registeredPayment,
 
           metadata: {
             source: "invoice-actions",
@@ -644,6 +701,14 @@ export async function updateInvoice(invoiceId, formData) {
         });
 
         if (updatedInvoice.status === "PAID") {
+          const registeredPayment =
+            await ensurePaidInvoicePayment(transaction, {
+              businessId: context.businessId,
+              invoiceId: updatedInvoice.id,
+              invoiceTotal: updatedInvoice.total,
+              recordedById: context.userId,
+            });
+
           await logPayment({
             context,
             entityType: "INVOICE",
@@ -653,7 +718,7 @@ export async function updateInvoice(invoiceId, formData) {
 
             description: `Fatura "${updatedInvoice.number}" u shënua si e paguar.`,
 
-            amount: updatedInvoice.total,
+            amount: registeredPayment,
 
             metadata: {
               source: "invoice-actions",
@@ -793,6 +858,14 @@ export async function updateInvoiceStatus(invoiceId, status) {
       });
 
       if (updatedInvoice.status === "PAID") {
+        const registeredPayment =
+          await ensurePaidInvoicePayment(transaction, {
+            businessId: context.businessId,
+            invoiceId: updatedInvoice.id,
+            invoiceTotal: updatedInvoice.total,
+            recordedById: context.userId,
+          });
+
         await logPayment({
           context,
           entityType: "INVOICE",
@@ -802,7 +875,7 @@ export async function updateInvoiceStatus(invoiceId, status) {
 
           description: `Fatura "${updatedInvoice.number}" u shënua si e paguar me total ${updatedInvoice.total}.`,
 
-          amount: updatedInvoice.total,
+          amount: registeredPayment,
 
           metadata: {
             source: "invoice-actions",
