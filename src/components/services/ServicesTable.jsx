@@ -2,16 +2,28 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import Link from "next/link";
-import { FileSearch, Wrench, ClipboardList } from "lucide-react";
+import {
+  ClipboardList,
+  FileSearch,
+  Wrench,
+} from "lucide-react";
 
 import AddServicePartModal from "@/components/services/AddServicePartModal";
 import ServiceFilters from "@/components/services/ServiceFilters";
 import ServicePartsList from "@/components/services/ServicePartsList";
 import ServiceRowActions from "@/components/services/ServiceRowActions";
 import { formatCurrency } from "@/lib/formatters";
+import {
+  getInvoicePaymentSummary,
+  INVOICE_PAYMENT_STATUS,
+} from "@/lib/invoice-payment-status";
+import { compareMoney } from "@/lib/money";
 
 const statusConfig = {
-  DRAFT: { label: "Draft", className: "border-slate-200 bg-slate-50 text-slate-700" },
+  DRAFT: {
+    label: "Draft",
+    className: "border-slate-200 bg-slate-50 text-slate-700",
+  },
   PENDING: {
     label: "Në pritje",
     className: "border-amber-200 bg-amber-50 text-amber-700",
@@ -20,16 +32,44 @@ const statusConfig = {
     label: "Në proces",
     className: "border-blue-200 bg-blue-50 text-blue-700",
   },
-  WAITING_FOR_PARTS: { label: "Në pritje të pjesëve", className: "border-orange-200 bg-orange-50 text-orange-700" },
-  READY_FOR_PICKUP: { label: "Gati për dorëzim", className: "border-violet-200 bg-violet-50 text-violet-700" },
+  WAITING_FOR_PARTS: {
+    label: "Në pritje të pjesëve",
+    className: "border-orange-200 bg-orange-50 text-orange-700",
+  },
+  READY_FOR_PICKUP: {
+    label: "Gati për dorëzim",
+    className: "border-violet-200 bg-violet-50 text-violet-700",
+  },
   COMPLETED: {
     label: "Përfunduar",
     className: "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
-  DELIVERED: { label: "Dorëzuar", className: "border-teal-200 bg-teal-50 text-teal-700" },
+  DELIVERED: {
+    label: "Dorëzuar",
+    className: "border-teal-200 bg-teal-50 text-teal-700",
+  },
   CANCELLED: {
     label: "Anuluar",
     className: "border-red-200 bg-red-50 text-red-700",
+  },
+};
+
+const paymentStatusConfig = {
+  [INVOICE_PAYMENT_STATUS.NO_INVOICE]: {
+    label: "Pa faturë",
+    className: "border-slate-200 bg-slate-50 text-slate-600",
+  },
+  [INVOICE_PAYMENT_STATUS.UNPAID]: {
+    label: "E papaguar",
+    className: "border-red-200 bg-red-50 text-red-700",
+  },
+  [INVOICE_PAYMENT_STATUS.PARTIALLY_PAID]: {
+    label: "Pjesërisht e paguar",
+    className: "border-amber-200 bg-amber-50 text-amber-700",
+  },
+  [INVOICE_PAYMENT_STATUS.PAID]: {
+    label: "E paguar",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
 };
 
@@ -40,6 +80,9 @@ function normalizeText(value) {
 }
 
 function getServiceSearchText(service) {
+  const paymentSummary = getInvoicePaymentSummary(service.invoice);
+  const paymentDetails = paymentStatusConfig[paymentSummary.status];
+
   return normalizeText(
     [
       service.id,
@@ -51,6 +94,8 @@ function getServiceSearchText(service) {
       service.vehicle?.model,
       service.vehicle?.customer?.name,
       service.business?.name,
+      service.invoice?.number,
+      paymentDetails.label,
       ...(service.partsUsed || []).map((usage) => usage.part?.name),
       ...(service.partsUsed || []).map((usage) => usage.part?.code),
     ]
@@ -63,43 +108,42 @@ function sortServices(services, sort) {
   const sortedServices = [...services];
 
   if (sort === "OLDEST") {
-    return sortedServices.sort((first, second) => {
-      return (
+    return sortedServices.sort(
+      (first, second) =>
         new Date(first.createdAt).getTime() -
-        new Date(second.createdAt).getTime()
-      );
-    });
+        new Date(second.createdAt).getTime(),
+    );
   }
 
   if (sort === "TOTAL_HIGH") {
-    return sortedServices.sort((first, second) => {
-      return Number(second.total || 0) - Number(first.total || 0);
-    });
+    return sortedServices.sort((first, second) =>
+      compareMoney(second.total, first.total),
+    );
   }
 
   if (sort === "TOTAL_LOW") {
-    return sortedServices.sort((first, second) => {
-      return Number(first.total || 0) - Number(second.total || 0);
-    });
+    return sortedServices.sort((first, second) =>
+      compareMoney(first.total, second.total),
+    );
   }
 
   if (sort === "TITLE_ASC") {
-    return sortedServices.sort((first, second) => {
-      return String(first.title || "").localeCompare(
+    return sortedServices.sort((first, second) =>
+      String(first.title || "").localeCompare(
         String(second.title || ""),
         "sq-AL",
         {
           sensitivity: "base",
         },
-      );
-    });
+      ),
+    );
   }
 
-  return sortedServices.sort((first, second) => {
-    return (
-      new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
-    );
-  });
+  return sortedServices.sort(
+    (first, second) =>
+      new Date(second.createdAt).getTime() -
+      new Date(first.createdAt).getTime(),
+  );
 }
 
 export default function ServicesTable({
@@ -164,11 +208,9 @@ export default function ServicesTable({
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
             <Wrench className="h-6 w-6" />
           </div>
-
           <h3 className="mt-4 text-base font-semibold text-slate-900">
             Nuk ka ende shërbime
           </h3>
-
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
             Krijo shërbimin e parë për të regjistruar punët dhe riparimet.
           </p>
@@ -178,16 +220,13 @@ export default function ServicesTable({
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
             <FileSearch className="h-6 w-6" />
           </div>
-
           <h3 className="mt-4 text-base font-semibold text-slate-900">
             Nuk u gjet asnjë shërbim
           </h3>
-
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
             Ndrysho termin e kërkimit ose pastro filtrat aktivë.
           </p>
-
-          {hasActiveFilters && (
+          {hasActiveFilters ? (
             <button
               type="button"
               onClick={handleResetFilters}
@@ -195,7 +234,7 @@ export default function ServicesTable({
             >
               Pastro filtrat
             </button>
-          )}
+          ) : null}
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -204,22 +243,20 @@ export default function ServicesTable({
               <h2 className="text-sm font-semibold text-slate-900">
                 Lista e shërbimeve
               </h2>
-
               <p className="mt-1 text-xs text-slate-500">
                 Po shfaqen {filteredServices.length} nga {services.length}{" "}
                 shërbime.
               </p>
             </div>
-
-            {hasActiveFilters && (
+            {hasActiveFilters ? (
               <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
                 Filtra aktivë
               </span>
-            )}
+            ) : null}
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px]">
+            <table className="w-full min-w-[1280px]">
               <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-6 py-4">ID</th>
@@ -228,6 +265,7 @@ export default function ServicesTable({
                   <th className="px-6 py-4">Biznesi</th>
                   <th className="px-6 py-4">Totali</th>
                   <th className="px-6 py-4">Statusi</th>
+                  <th className="px-6 py-4">Pagesa</th>
                   <th className="px-6 py-4 text-right">Veprime</th>
                 </tr>
               </thead>
@@ -236,6 +274,11 @@ export default function ServicesTable({
                 {filteredServices.map((service) => {
                   const statusDetails =
                     statusConfig[service.status] || statusConfig.PENDING;
+                  const paymentSummary = getInvoicePaymentSummary(
+                    service.invoice,
+                  );
+                  const paymentDetails =
+                    paymentStatusConfig[paymentSummary.status];
 
                   return (
                     <tr
@@ -254,7 +297,6 @@ export default function ServicesTable({
                             .filter(Boolean)
                             .join(" ") || "Pa automjet"}
                         </p>
-
                         <p className="mt-1 text-xs text-slate-500">
                           {service.vehicle?.plate || "Pa targë"}
                         </p>
@@ -264,11 +306,9 @@ export default function ServicesTable({
                         <p className="truncate text-sm font-semibold text-slate-900">
                           {service.title}
                         </p>
-
                         <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
                           {service.description || "Pa përshkrim"}
                         </p>
-
                         <ServicePartsList parts={service.partsUsed || []} />
                       </td>
 
@@ -289,10 +329,33 @@ export default function ServicesTable({
                       </td>
 
                       <td className="whitespace-nowrap px-6 py-5">
+                        <span
+                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentDetails.className}`}
+                        >
+                          {paymentDetails.label}
+                        </span>
+                        {service.invoice ? (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Mbetur: {formatCurrency(paymentSummary.remaining)}
+                          </p>
+                        ) : null}
+                      </td>
+
+                      <td className="whitespace-nowrap px-6 py-5">
                         <div className="flex justify-end gap-2">
-                          <Link href={`/dashboard/services/${service.id}`} className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700" title="Hap urdhër-punën"><ClipboardList size={17} /></Link>
+                          <Link
+                            href={`/dashboard/services/${service.id}`}
+                            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                            title="Hap urdhër-punën"
+                          >
+                            <ClipboardList size={17} />
+                          </Link>
+
                           {canManageServiceParts ? (
-                            <AddServicePartModal serviceId={service.id} parts={parts} />
+                            <AddServicePartModal
+                              serviceId={service.id}
+                              parts={parts}
+                            />
                           ) : null}
 
                           <ServiceRowActions

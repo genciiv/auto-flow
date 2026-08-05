@@ -21,7 +21,19 @@ export default async function ServiceDetailsPage({ params }) {
         partsUsed: { include: { part:true }, orderBy: { createdAt:"asc" } },
         laborItems: { include: { createdBy: { select: { id:true, name:true } } }, orderBy: { createdAt:"asc" } },
         statusHistory: { orderBy: { createdAt:"desc" }, include: { changedBy: { select:{ name:true } } } },
-        invoice: { select: { id:true, number:true, status:true, total:true } },
+        invoice: {
+          select: {
+            id: true,
+            number: true,
+            status: true,
+            total: true,
+            customerPayments: {
+              select: {
+                amount: true,
+              },
+            },
+          },
+        },
       },
     }),
     db.businessUser.findMany({
@@ -33,6 +45,7 @@ export default async function ServiceDetailsPage({ params }) {
   ]);
   if (!service) notFound();
   const serializable = JSON.parse(JSON.stringify(service));
+  const serializableParts = JSON.parse(JSON.stringify(parts));
   const staff = members.filter((member) => member.role === "MECHANIC").map((member) => ({ id:member.user.id, name:member.user.name, email:member.user.email, role:member.role }));
   const canManageAssignment = ["OWNER", "MANAGER"].includes(businessRole);
   const canManageApproval = ["OWNER", "MANAGER", "RECEPTIONIST"].includes(businessRole);
@@ -48,7 +61,7 @@ export default async function ServiceDetailsPage({ params }) {
       <Info label="Klienti" value={service.vehicle.customer?.name || "Pa klient"}/><Info label="Mekaniku" value={service.assignedUser?.name || "Pa caktuar"}/><Info label="Totali" value={formatCurrency(service.total)}/><Info label="Pjesë të përdorura" value={String(service.partsUsed.length)}/>
     </div>
     <ServiceWorkflowPanel service={serializable} staff={staff} businessRole={businessRole} canManageAssignment={canManageAssignment} canManageApproval={canManageApproval}/>
-    <ServiceOperationsPanel service={serializable} parts={parts} canManageParts={canManageParts} canCreateInvoice={canCreateInvoice}/>
+    <ServiceOperationsPanel service={serializable} parts={serializableParts} canManageParts={canManageParts} canCreateInvoice={canCreateInvoice}/>
   </div></DashboardLayout>;
 }
 function Info({label,value}) { return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-base font-bold text-slate-950">{value}</p></div>; }

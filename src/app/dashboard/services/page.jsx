@@ -62,6 +62,19 @@ export default async function ServicesPage() {
               part: true,
             },
           },
+          invoice: {
+            select: {
+              id: true,
+              number: true,
+              status: true,
+              total: true,
+              customerPayments: {
+                select: {
+                  amount: true,
+                },
+              },
+            },
+          },
         },
       }),
 
@@ -120,6 +133,18 @@ export default async function ServicesPage() {
     totalRevenue: serializeMoney(totalRevenue),
   };
 
+  const serializableServices = JSON.parse(
+    JSON.stringify(services),
+  );
+
+  const serializableVehicles = JSON.parse(
+    JSON.stringify(vehicles),
+  );
+
+  const serializableParts = JSON.parse(
+    JSON.stringify(parts),
+  );
+
   const canCreateService = hasPermission(
     businessRole,
     PERMISSIONS.SERVICES_CREATE,
@@ -162,7 +187,7 @@ export default async function ServicesPage() {
 
           {canCreateService ? (
             <CreateServiceModal
-              vehicles={vehicles}
+              vehicles={serializableVehicles}
             />
           ) : null}
         </div>
@@ -170,9 +195,9 @@ export default async function ServicesPage() {
         <ServiceStats stats={stats} />
 
         <ServicesTable
-          services={services}
-          vehicles={vehicles}
-          parts={parts}
+          services={serializableServices}
+          vehicles={serializableVehicles}
+          parts={serializableParts}
           canUpdateService={canUpdateService}
           canDeleteService={canDeleteService}
           canManageServiceParts={
