@@ -59,40 +59,30 @@ const LABELS = {
 const optionalTextSchema = z
   .string()
   .trim()
+  .max(5000, "Teksti është shumë i gjatë.")
   .transform((value) => value || null);
-
-const checkboxSchema = z.preprocess(
-  (value) => value === "on" || value === "true" || value === true,
-  z.boolean(),
-);
 
 const updateServiceWorkflowSchema = z.object({
   serviceId: z.string().trim().min(1, "ID e urdhër-punës mungon."),
-
   assignedUserId: optionalTextSchema,
-
+  description: optionalTextSchema,
   diagnosis: optionalTextSchema,
-
   internalNotes: optionalTextSchema,
-
-  customerApprovalRequired: checkboxSchema,
-
-  customerApproved: checkboxSchema,
 });
 
 const transitionServiceSchema = z.object({
   serviceId: z.string().trim().min(1, "ID e urdhër-punës mungon."),
-
   toStatus: z.enum(SERVICE_STATUSES, {
     error: "Statusi i ri nuk është i vlefshëm.",
   }),
-
   note: optionalTextSchema,
 });
 
 function refreshServicePages(serviceId) {
   revalidatePath("/dashboard/services");
   revalidatePath(`/dashboard/services/${serviceId}`);
+  revalidatePath("/dashboard/my-work");
+  revalidatePath("/dashboard/workspace");
   revalidatePath("/dashboard");
 }
 
@@ -105,11 +95,7 @@ function failure(message, fieldErrors = undefined) {
 }
 
 function getErrorMessage(error, fallbackMessage) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return fallbackMessage;
+  return error instanceof Error ? error.message : fallbackMessage;
 }
 
 export async function updateServiceWorkflowAction(formData) {
@@ -136,10 +122,9 @@ export async function updateServiceWorkflowAction(formData) {
     const {
       serviceId,
       assignedUserId,
+      description,
       diagnosis,
       internalNotes,
-      customerApprovalRequired,
-      customerApproved,
     } = validationResult.data;
 
     const { businessId, userId, businessRole } = context;
@@ -153,6 +138,7 @@ export async function updateServiceWorkflowAction(formData) {
         id: true,
         title: true,
         assignedUserId: true,
+        description: true,
         diagnosis: true,
         internalNotes: true,
         customerApprovalRequired: true,
@@ -185,6 +171,7 @@ export async function updateServiceWorkflowAction(formData) {
         where: {
           businessId,
           userId: assignedUserId,
+          role: "MECHANIC",
           isActive: true,
         },
         select: {
@@ -193,7 +180,7 @@ export async function updateServiceWorkflowAction(formData) {
       });
 
       if (!member) {
-        return failure("Punonjësi i zgjedhur nuk është aktiv në këtë biznes.");
+        return failure("Mekaniku i zgjedhur nuk është aktiv në këtë biznes.");
       }
     }
 
@@ -203,20 +190,11 @@ export async function updateServiceWorkflowAction(formData) {
       },
       data: {
         assignedUserId,
+        description,
         diagnosis,
         internalNotes,
-
-        customerApprovalRequired:
-          businessRole === "MECHANIC"
-            ? service.customerApprovalRequired
-            : customerApprovalRequired,
-
-        customerApprovedAt:
-          businessRole === "MECHANIC"
-            ? service.customerApprovedAt
-            : customerApprovalRequired && customerApproved
-              ? service.customerApprovedAt || new Date()
-              : null,
+        customerApprovalRequired: false,
+        customerApprovedAt: null,
       },
     });
 
@@ -234,9 +212,9 @@ export async function updateServiceWorkflowAction(formData) {
       context,
       entityType: "SERVICE",
       entityId: service.id,
-      title: `U përditësua urdhër-puna ${service.title}`,
+      title: `U përditësua Job Card ${service.title}`,
       description:
-        "U përditësuan diagnoza, shënimet, mekaniku ose miratimi i klientit.",
+        "U përditësuan problemi i raportuar, diagnoza, shënimet ose mekaniku.",
       oldValues: service,
       newValues: updated,
       metadata: {
@@ -250,14 +228,12 @@ export async function updateServiceWorkflowAction(formData) {
 
     return {
       success: true,
-      message: "Urdhër-puna u përditësua me sukses.",
+      message: "Job Card u përditësua me sukses.",
     };
   } catch (error) {
     console.error("[updateServiceWorkflowAction]", error);
 
-    return failure(
-      getErrorMessage(error, "Urdhër-puna nuk mund të përditësohej."),
-    );
+    return failure(getErrorMessage(error, "Job Card nuk mund të përditësohej."));
   }
 }
 
@@ -325,16 +301,6 @@ export async function transitionServiceAction(
       );
     }
 
-    if (
-      target === "IN_PROGRESS" &&
-      service.customerApprovalRequired &&
-      !service.customerApprovedAt
-    ) {
-      return failure(
-        "Nevojitet miratimi i klientit përpara fillimit të punës.",
-      );
-    }
-
     const timestamps = {};
 
     if (target === "IN_PROGRESS" && !service.startedAt) {
@@ -360,6 +326,8 @@ export async function transitionServiceAction(
         },
         data: {
           status: target,
+          customerApprovalRequired: false,
+          customerApprovedAt: null,
           ...timestamps,
         },
       });
@@ -386,6 +354,7 @@ export async function transitionServiceAction(
           source: "service-workflow-actions",
           operation: "transitionServiceAction",
           vehiclePlate: service.vehicle?.plate || null,
+          note: validatedNote,
         },
         database: transaction,
       });
