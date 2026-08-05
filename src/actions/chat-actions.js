@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -19,13 +19,13 @@ import { PERMISSIONS } from "@/lib/permissions";
 const idSchema = z.string().trim().min(1);
 const messageSchema = z.object({
   conversationId: idSchema,
-  body: z.string().trim().min(1, "Shkruaj njÃ« mesazh.").max(4000),
+  body: z.string().trim().min(1, "Shkruaj një mesazh.").max(4000),
 });
 const createSchema = z.object({
   vehicleId: idSchema,
   serviceId: z.string().trim().optional().transform((value) => value || null),
   subject: z.string().trim().max(120).optional().transform((value) => value || null),
-  body: z.string().trim().min(1, "Shkruaj mesazhin e parÃ«.").max(4000),
+  body: z.string().trim().min(1, "Shkruaj mesazhin e parë.").max(4000),
 });
 
 function actionError(error, fallback) {
@@ -41,7 +41,7 @@ async function validateService({ serviceId, businessId, vehicleId, database }) {
     where: { id: serviceId, businessId, vehicleId },
     select: { id: true },
   });
-  if (!service) throw new Error("ShÃ«rbimi i zgjedhur nuk Ã«shtÃ« i vlefshÃ«m.");
+  if (!service) throw createActionError("Shërbimi i zgjedhur nuk është i vlefshëm.");
   return service;
 }
 
@@ -82,7 +82,7 @@ export async function createCustomerConversationAction(_previousState, formData)
   try {
     const context = await requireCustomerActionContext();
     const parsed = createSchema.safeParse(Object.fromEntries(formData));
-    if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.message || "TÃ« dhÃ«nat nuk janÃ« tÃ« vlefshme." };
+    if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.message || "Të dhënat nuk janë të vlefshme." };
 
     const { vehicleId, serviceId, subject, body } = parsed.data;
     const link = await db.customerVehicleLink.findFirst({
@@ -93,7 +93,7 @@ export async function createCustomerConversationAction(_previousState, formData)
       },
       select: { vehicle: { select: { businessId: true } } },
     });
-    if (!link) throw new Error("Automjeti nuk Ã«shtÃ« i lidhur me kÃ«tÃ« servis.");
+    if (!link) throw createActionError("Automjeti nuk është i lidhur me këtë servis.");
     const businessId = link.vehicle.businessId;
     await validateService({ serviceId, businessId, vehicleId, database: db });
 
@@ -134,7 +134,7 @@ export async function createBusinessConversationAction(_previousState, formData)
       PERMISSIONS.MESSAGES_SEND,
     );
     const parsed = createSchema.extend({ customerProfileId: idSchema }).safeParse(Object.fromEntries(formData));
-    if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.message || "TÃ« dhÃ«nat nuk janÃ« tÃ« vlefshme." };
+    if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.message || "Të dhënat nuk janë të vlefshme." };
     const { customerProfileId, vehicleId, serviceId, subject, body } = parsed.data;
     await requireActiveCustomerVehicleLink({ businessId: context.businessId, customerProfileId, vehicleId });
     await validateService({ serviceId, businessId: context.businessId, vehicleId, database: db });
@@ -176,7 +176,7 @@ export async function sendBusinessMessageAction(_previousState, formData) {
       PERMISSIONS.MESSAGES_SEND,
     );
     const parsed = messageSchema.safeParse(Object.fromEntries(formData));
-    if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.message || "Mesazhi nuk Ã«shtÃ« i vlefshÃ«m." };
+    if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.message || "Mesazhi nuk është i vlefshëm." };
     const conversation = await requireBusinessConversation({ conversationId: parsed.data.conversationId, businessId: context.businessId });
     await db.$transaction(async (transaction) => {
       await transaction.chatMessage.create({ data: { conversationId: conversation.id, senderUserId: context.userId, senderType: "BUSINESS", body: parsed.data.body } });
@@ -185,15 +185,15 @@ export async function sendBusinessMessageAction(_previousState, formData) {
     });
     revalidatePath(`/dashboard/messages/${conversation.id}`);
     revalidatePath(`/customer/messages/${conversation.id}`);
-    return { success: true, message: "Mesazhi u dÃ«rgua." };
-  } catch (error) { return actionError(error, "Mesazhi nuk u dÃ«rgua."); }
+    return { success: true, message: "Mesazhi u dërgua." };
+  } catch (error) { return actionError(error, "Mesazhi nuk u dërgua."); }
 }
 
 export async function sendCustomerMessageAction(_previousState, formData) {
   try {
     const context = await requireCustomerActionContext();
     const parsed = messageSchema.safeParse(Object.fromEntries(formData));
-    if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.message || "Mesazhi nuk Ã«shtÃ« i vlefshÃ«m." };
+    if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.message || "Mesazhi nuk është i vlefshëm." };
     const conversation = await requireCustomerConversation({ conversationId: parsed.data.conversationId, customerProfileId: context.profileId });
     await db.$transaction(async (transaction) => {
       await transaction.chatMessage.create({ data: { conversationId: conversation.id, senderUserId: context.userId, senderType: "CUSTOMER", body: parsed.data.body } });
@@ -202,8 +202,8 @@ export async function sendCustomerMessageAction(_previousState, formData) {
     });
     revalidatePath(`/customer/messages/${conversation.id}`);
     revalidatePath(`/dashboard/messages/${conversation.id}`);
-    return { success: true, message: "Mesazhi u dÃ«rgua." };
-  } catch (error) { return actionError(error, "Mesazhi nuk u dÃ«rgua."); }
+    return { success: true, message: "Mesazhi u dërgua." };
+  } catch (error) { return actionError(error, "Mesazhi nuk u dërgua."); }
 }
 
 export async function markBusinessConversationReadAction(conversationId) {
@@ -223,4 +223,3 @@ export async function markCustomerConversationReadAction(conversationId) {
   revalidatePath("/customer/messages");
   return { success: true };
 }
-
