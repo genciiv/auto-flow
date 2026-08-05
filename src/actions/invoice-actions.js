@@ -7,6 +7,10 @@ import {
   requireBusinessActionPermission,
 } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import {
+  isMoneyLessThan,
+  toMoney,
+} from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getFirstValidationMessage,
@@ -175,14 +179,20 @@ async function validateVehicle(vehicleId, businessId) {
 }
 
 function validateServiceTotal(value) {
-  const total = Number(value);
+  let total;
 
-  if (!Number.isFinite(total)) {
-    throw createActionError("Totali i faturës nuk është i vlefshëm.");
+  try {
+    total = toMoney(value ?? 0);
+  } catch {
+    throw createActionError(
+      "Totali i faturës nuk është i vlefshëm.",
+    );
   }
 
-  if (total < 0) {
-    throw createActionError("Totali i faturës nuk mund të jetë negativ.");
+  if (isMoneyLessThan(total, 0)) {
+    throw createActionError(
+      "Totali i faturës nuk mund të jetë negativ.",
+    );
   }
 
   return total;

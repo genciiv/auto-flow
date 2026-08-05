@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 
@@ -8,6 +8,7 @@ import { createActionError } from "@/lib/errors";
 import {
   multiplyMoney,
   toMoney,
+  toQuantity,
 } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -114,11 +115,14 @@ export async function addPartToService(formData) {
         throw createActionError("Pjesa nuk u gjet.");
       }
 
-      const currentStock = Number(part.stock);
+      const currentStock = toQuantity(part.stock);
+
+      const requestedQuantity = toQuantity(quantity);
 
       if (
-        !Number.isInteger(currentStock) ||
-        currentStock < quantity
+        currentStock.lt(0) ||
+        requestedQuantity.lte(0) ||
+        currentStock.lt(requestedQuantity)
       ) {
         throw createActionError(
           `Nuk ka stok të mjaftueshëm për pjesën "${part.name}".`,
@@ -135,7 +139,7 @@ export async function addPartToService(formData) {
 
       const total = multiplyMoney(
         unitPrice,
-        quantity,
+        requestedQuantity,
       );
 
       const stockUpdate = await transaction.part.updateMany({
@@ -144,13 +148,13 @@ export async function addPartToService(formData) {
           businessId,
 
           stock: {
-            gte: quantity,
+            gte: requestedQuantity,
           },
         },
 
         data: {
           stock: {
-            decrement: quantity,
+            decrement: requestedQuantity,
           },
         },
       });
@@ -179,7 +183,7 @@ export async function addPartToService(formData) {
 
           data: {
             quantity: {
-              increment: quantity,
+              increment: requestedQuantity,
             },
 
             total: {
@@ -192,14 +196,14 @@ export async function addPartToService(formData) {
           data: {
             serviceId: service.id,
             partId: part.id,
-            quantity,
+            quantity: requestedQuantity,
             unitPrice,
             total,
           },
         });
       }
 
-      const stockAfter = currentStock - quantity;
+      const stockAfter = currentStock.minus(requestedQuantity);
 
       await transaction.inventoryMovement.create({
         data: {
@@ -208,7 +212,7 @@ export async function addPartToService(formData) {
           serviceId: service.id,
           userId,
           type: "SERVICE_OUT",
-          quantity,
+          quantity: requestedQuantity,
           stockBefore: currentStock,
           stockAfter,
 
@@ -231,9 +235,9 @@ export async function addPartToService(formData) {
         },
       });
 
-      const minStock = Number(part.minStock ?? 0);
+      const minStock = toQuantity(part.minStock ?? 0);
 
-      if (stockAfter <= minStock) {
+      if (stockAfter.lte(minStock)) {
         await notifyLowStock({
           database: transaction,
           businessId,

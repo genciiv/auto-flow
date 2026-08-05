@@ -5,74 +5,98 @@ import ServicesTable from "@/components/services/ServicesTable";
 
 import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
-import { hasPermission, PERMISSIONS } from "@/lib/permissions";
+import {
+  addMoney,
+  serializeMoney,
+  toMoney,
+} from "@/lib/money";
+import {
+  hasPermission,
+  PERMISSIONS,
+} from "@/lib/permissions";
 
 export default async function ServicesPage() {
-  const { businessId, businessRole, userId } = await requireBusinessPermission(
+  const {
+    businessId,
+    businessRole,
+    userId,
+  } = await requireBusinessPermission(
     PERMISSIONS.SERVICES_VIEW,
   );
 
-  const [services, vehicles, parts] = await Promise.all([
-    db.serviceRecord.findMany({
-      where: {
-        businessId,
-        ...(businessRole === "MECHANIC" ? { assignedUserId: userId } : {}),
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        vehicle: {
-          include: {
-            customer: true,
-          },
+  const [services, vehicles, parts] =
+    await Promise.all([
+      db.serviceRecord.findMany({
+        where: {
+          businessId,
+          ...(businessRole === "MECHANIC"
+            ? {
+                assignedUserId: userId,
+              }
+            : {}),
         },
-        business: true,
-        assignedUser: { select: { id: true, name: true, email: true } },
-        partsUsed: {
-          where: {
-            part: {
-              businessId,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          vehicle: {
+            include: {
+              customer: true,
             },
           },
-          include: {
-            part: true,
+          business: true,
+          assignedUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          partsUsed: {
+            where: {
+              part: {
+                businessId,
+              },
+            },
+            include: {
+              part: true,
+            },
           },
         },
-      },
-    }),
+      }),
 
-    db.vehicle.findMany({
-      where: {
-        businessId,
-        ...(businessRole === "MECHANIC"
-          ? {
-              services: {
-                some: {
-                  businessId,
-                  assignedUserId: userId,
+      db.vehicle.findMany({
+        where: {
+          businessId,
+          ...(businessRole === "MECHANIC"
+            ? {
+                services: {
+                  some: {
+                    businessId,
+                    assignedUserId: userId,
+                  },
                 },
-              },
-            }
-          : {}),
-      },
-      orderBy: {
-        plate: "asc",
-      },
-    }),
+              }
+            : {}),
+        },
+        orderBy: {
+          plate: "asc",
+        },
+      }),
 
-    db.part.findMany({
-      where: {
-        businessId,
-      },
-      orderBy: {
-        name: "asc",
-      },
-    }),
-  ]);
+      db.part.findMany({
+        where: {
+          businessId,
+        },
+        orderBy: {
+          name: "asc",
+        },
+      }),
+    ]);
 
   const activeServices = services.filter(
-    (service) => service.status === "IN_PROGRESS",
+    (service) =>
+      service.status === "IN_PROGRESS",
   ).length;
 
   const pendingServices = services.filter(
@@ -83,15 +107,17 @@ export default async function ServicesPage() {
     (service) => service.status === "COMPLETED",
   ).length;
 
-  const totalRevenue = services.reduce((sum, service) => {
-    return sum + Number(service.total ?? 0);
-  }, 0);
+  const totalRevenue = services.reduce(
+    (sum, service) =>
+      addMoney(sum, service.total),
+    toMoney(0),
+  );
 
   const stats = {
     activeServices,
     pendingServices,
     completedServices,
-    totalRevenue,
+    totalRevenue: serializeMoney(totalRevenue),
   };
 
   const canCreateService = hasPermission(
@@ -119,7 +145,9 @@ export default async function ServicesPage() {
       <div className="space-y-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-semibold text-blue-600">Services</p>
+            <p className="text-sm font-semibold text-blue-600">
+              Services
+            </p>
 
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
               Shërbimet
@@ -132,7 +160,11 @@ export default async function ServicesPage() {
             </p>
           </div>
 
-          {canCreateService ? <CreateServiceModal vehicles={vehicles} /> : null}
+          {canCreateService ? (
+            <CreateServiceModal
+              vehicles={vehicles}
+            />
+          ) : null}
         </div>
 
         <ServiceStats stats={stats} />
@@ -143,7 +175,9 @@ export default async function ServicesPage() {
           parts={parts}
           canUpdateService={canUpdateService}
           canDeleteService={canDeleteService}
-          canManageServiceParts={canManageServiceParts}
+          canManageServiceParts={
+            canManageServiceParts
+          }
         />
       </div>
     </DashboardLayout>

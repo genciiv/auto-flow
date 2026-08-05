@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { toQuantity } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getFirstValidationMessage,
@@ -63,7 +64,7 @@ export async function createPart(formData) {
       sellPrice,
     } = validationResult.data;
 
-    if (stock > 0) {
+    if (toQuantity(stock).gt(0)) {
       const stockContext = await requireBusinessActionPermission(
         PERMISSIONS.INVENTORY_MANAGE_STOCK,
       );
@@ -177,9 +178,9 @@ export async function updatePart(formData) {
       };
     }
 
-    const currentStock = Number(part.stock || 0);
+    const currentStock = toQuantity(part.stock ?? 0);
 
-    if (stock !== currentStock) {
+    if (!toQuantity(stock).eq(currentStock)) {
       const stockContext = await requireBusinessActionPermission(
         PERMISSIONS.INVENTORY_MANAGE_STOCK,
       );
@@ -306,7 +307,7 @@ export async function deletePart(partId) {
       };
     }
 
-    if (Number(part.stock || 0) > 0) {
+    if (toQuantity(part.stock ?? 0).gt(0)) {
       return {
         success: false,
         message:

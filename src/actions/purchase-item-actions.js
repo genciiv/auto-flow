@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 
@@ -8,6 +8,7 @@ import { createActionError } from "@/lib/errors";
 import {
   multiplyMoney,
   toMoney,
+  toQuantity,
 } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -248,13 +249,10 @@ export async function receivePurchaseOrder(purchaseOrderId) {
           );
         }
 
-        const quantity = Number(item.quantity);
+        const quantity = toQuantity(item.quantity);
         const unitPrice = toMoney(item.unitPrice ?? 0);
 
-        if (
-          !Number.isInteger(quantity) ||
-          quantity <= 0
-        ) {
+        if (quantity.lte(0)) {
           throw createActionError(
             `Sasia e artikullit "${itemName}" nuk është e vlefshme.`,
           );

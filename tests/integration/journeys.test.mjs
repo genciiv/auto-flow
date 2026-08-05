@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
@@ -176,7 +176,7 @@ test("customer payment izolohet sipas tenant dhe pÃ«rditÃ«son invoice status
 
   assert.match(code, /recordedById:\s*context\.userId/);
 
-  assert.match(code, /paymentAmount\.gt\(remaining\)/);
+  assert.match(code, /isMoneyGreaterThan\(\s*paymentAmount,\s*remaining,\s*\)/);
 
   assert.match(code, /transaction\.invoice\.update/);
 
