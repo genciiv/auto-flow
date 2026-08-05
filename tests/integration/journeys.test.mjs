@@ -238,3 +238,32 @@ test("proxy ndan admin, owner dhe customer routes", async () => {
 
 
 
+
+
+test("service payment lifecycle ekspozohet në listë dhe detaje", async () => {
+  const servicesPageCode = await source(
+    "src/app/dashboard/services/page.jsx",
+  );
+  const serviceDetailsCode = await source(
+    "src/app/dashboard/services/[id]/page.jsx",
+  );
+  const servicesTableCode = await source(
+    "src/components/services/ServicesTable.jsx",
+  );
+  const operationsCode = await source(
+    "src/components/services/ServiceOperationsPanel.jsx",
+  );
+  const paymentsPanelCode = await source(
+    "src/components/invoices/CustomerPaymentsPanel.jsx",
+  );
+
+  assert.match(servicesPageCode, /customerPayments/);
+  assert.match(serviceDetailsCode, /customerPayments/);
+  assert.match(servicesTableCode, /Pjesërisht e paguar/);
+  assert.match(servicesTableCode, /getInvoicePaymentSummary/);
+  assert.match(operationsCode, /paymentSummary\.paid/);
+  assert.match(operationsCode, /paymentSummary\.remaining/);
+  assert.match(paymentsPanelCode, /moneyToString\(remaining\)/);
+  assert.doesNotMatch(paymentsPanelCode, /Math\.max/);
+  assert.doesNotMatch(paymentsPanelCode, /Number\(p\.amount/);
+});
