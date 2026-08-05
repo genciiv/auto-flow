@@ -6,14 +6,10 @@ import ServicesTable from "@/components/services/ServicesTable";
 import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import {
-  addMoney,
-  serializeMoney,
-  toMoney,
-} from "@/lib/money";
-import {
   hasPermission,
   PERMISSIONS,
 } from "@/lib/permissions";
+import { getServiceFinancialSummary } from "@/lib/service-financial-summary";
 
 export default async function ServicesPage() {
   const {
@@ -107,30 +103,21 @@ export default async function ServicesPage() {
       }),
     ]);
 
-  const activeServices = services.filter(
-    (service) =>
-      service.status === "IN_PROGRESS",
-  ).length;
-
-  const pendingServices = services.filter(
-    (service) => service.status === "PENDING",
-  ).length;
-
-  const completedServices = services.filter(
-    (service) => service.status === "COMPLETED",
-  ).length;
-
-  const totalRevenue = services.reduce(
-    (sum, service) =>
-      addMoney(sum, service.total),
-    toMoney(0),
-  );
+  const operationalStats = {
+    activeServices: services.filter(
+      (service) => service.status === "IN_PROGRESS",
+    ).length,
+    pendingServices: services.filter(
+      (service) => service.status === "PENDING",
+    ).length,
+    completedServices: services.filter((service) =>
+      ["COMPLETED", "DELIVERED"].includes(service.status),
+    ).length,
+  };
 
   const stats = {
-    activeServices,
-    pendingServices,
-    completedServices,
-    totalRevenue: serializeMoney(totalRevenue),
+    ...operationalStats,
+    ...getServiceFinancialSummary(services),
   };
 
   const serializableServices = JSON.parse(

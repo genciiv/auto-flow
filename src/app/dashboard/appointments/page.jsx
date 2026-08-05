@@ -73,6 +73,22 @@ export default async function AppointmentsPage() {
     }),
   ]);
 
+  const clientAppointments = JSON.parse(
+    JSON.stringify(appointments),
+  );
+
+  const clientCustomers = JSON.parse(
+    JSON.stringify(customers),
+  );
+
+  const clientVehicles = JSON.parse(
+    JSON.stringify(vehicles),
+  );
+
+  const clientStaff = JSON.parse(
+    JSON.stringify(staff),
+  );
+
   const stats = {
     totalAppointments: appointments.length,
 
@@ -129,17 +145,17 @@ export default async function AppointmentsPage() {
           </div>
 
           {canCreateAppointment ? (
-            <CreateAppointmentModal customers={customers} vehicles={vehicles} staff={staff} />
+            <CreateAppointmentModal customers={clientCustomers} vehicles={clientVehicles} staff={clientStaff} />
           ) : null}
         </div>
 
         <AppointmentStats stats={stats} />
 
         <AppointmentsView
-          appointments={appointments}
-          customers={customers}
-          vehicles={vehicles}
-          staff={staff}
+          appointments={clientAppointments}
+          customers={clientCustomers}
+          vehicles={clientVehicles}
+          staff={clientStaff}
           canUpdateAppointment={canUpdateAppointment}
           canDeleteAppointment={canDeleteAppointment}
           canStartService={canUpdateAppointment && canCreateService}

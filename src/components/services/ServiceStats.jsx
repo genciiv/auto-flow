@@ -1,4 +1,11 @@
-import { Banknote, CheckCircle2, Clock3, Wrench } from "lucide-react";
+import {
+  BadgeCheck,
+  Banknote,
+  CheckCircle2,
+  Clock3,
+  CircleDollarSign,
+  Wrench,
+} from "lucide-react";
 
 import { formatCurrency } from "@/lib/formatters";
 
@@ -7,27 +14,43 @@ export default function ServiceStats({ stats }) {
     {
       title: "Shërbime aktive",
       value: stats.activeServices,
+      description: "Punë aktualisht në proces",
       icon: Wrench,
-    },
-    {
-      title: "Në pritje",
-      value: stats.pendingServices,
-      icon: Clock3,
     },
     {
       title: "Përfunduara",
       value: stats.completedServices,
+      description: "Përfunduar ose dorëzuar",
       icon: CheckCircle2,
     },
     {
-      title: "Të ardhura",
-      value: formatCurrency(stats.totalRevenue),
+      title: "Shërbime të paguara",
+      value: stats.paidServices,
+      description: "Fatura të paguara plotësisht",
+      icon: BadgeCheck,
+    },
+    {
+      title: "Pagesa të pjesshme",
+      value: stats.partiallyPaidServices,
+      description: "Kanë ende detyrim të mbetur",
+      icon: Clock3,
+    },
+    {
+      title: "Të arkëtuara",
+      value: formatCurrency(stats.collectedValue),
+      description: "Pagesa reale të regjistruara",
       icon: Banknote,
+    },
+    {
+      title: "Për t’u arkëtuar",
+      value: formatCurrency(stats.outstandingValue),
+      description: "Detyrimi i mbetur nga faturat",
+      icon: CircleDollarSign,
     },
   ];
 
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {items.map((stat) => {
         const Icon = stat.icon;
 
@@ -46,6 +69,10 @@ export default function ServiceStats({ stats }) {
 
             <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
               {stat.value}
+            </p>
+
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              {stat.description}
             </p>
           </div>
         );

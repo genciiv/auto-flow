@@ -5,16 +5,21 @@ import { RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 export default function ServiceFilters({
   search = "",
   status = "ALL",
+  paymentStatus = "ALL",
   sort = "NEWEST",
   resultCount = 0,
   totalCount = 0,
   onSearchChange,
   onStatusChange,
+  onPaymentStatusChange,
   onSortChange,
   onReset,
 }) {
   const hasActiveFilters =
-    search.trim() !== "" || status !== "ALL" || sort !== "NEWEST";
+    search.trim() !== "" ||
+    status !== "ALL" ||
+    paymentStatus !== "ALL" ||
+    sort !== "NEWEST";
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -53,7 +58,7 @@ export default function ServiceFilters({
         </div>
       </div>
 
-      <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_200px_200px]">
+      <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_190px_210px_190px]">
         <div>
           <label
             htmlFor="service-search"
@@ -99,6 +104,30 @@ export default function ServiceFilters({
             <option value="COMPLETED">Përfunduar</option>
             <option value="DELIVERED">Dorëzuar</option>
             <option value="CANCELLED">Anuluar</option>
+          </select>
+        </div>
+
+        <div>
+          <label
+            htmlFor="service-payment-status"
+            className="mb-2 block text-xs font-semibold text-slate-600"
+          >
+            Pagesa
+          </label>
+
+          <select
+            id="service-payment-status"
+            value={paymentStatus}
+            onChange={(event) =>
+              onPaymentStatusChange(event.target.value)
+            }
+            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+          >
+            <option value="ALL">Të gjitha pagesat</option>
+            <option value="PAID">Vetëm të paguara</option>
+            <option value="PARTIALLY_PAID">Pjesërisht të paguara</option>
+            <option value="UNPAID">Të papaguara</option>
+            <option value="NO_INVOICE">Pa faturë</option>
           </select>
         </div>
 

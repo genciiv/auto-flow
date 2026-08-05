@@ -97,6 +97,11 @@ export default async function InvoicesPage() {
       toMoney(0),
     );
 
+  const clientInvoices = JSON.parse(JSON.stringify(invoices));
+  const clientCustomers = JSON.parse(JSON.stringify(customers));
+  const clientVehicles = JSON.parse(JSON.stringify(vehicles));
+  const clientServices = JSON.parse(JSON.stringify(services));
+
   const stats = {
     totalInvoices,
     paidInvoices,
@@ -127,19 +132,19 @@ export default async function InvoicesPage() {
           </div>
 
           <CreateInvoiceModal
-            customers={customers}
-            vehicles={vehicles}
-            services={services}
+            customers={clientCustomers}
+            vehicles={clientVehicles}
+            services={clientServices}
           />
         </div>
 
         <InvoiceStats stats={stats} />
 
         <InvoicesTable
-          invoices={invoices}
-          customers={customers}
-          vehicles={vehicles}
-          services={services}
+          invoices={clientInvoices}
+          customers={clientCustomers}
+          vehicles={clientVehicles}
+          services={clientServices}
         />
       </div>
     </DashboardLayout>

@@ -13,3 +13,5 @@ import "./security/rate-limit.test.mjs";
 import "./plans/plan-access.test.mjs";
 
 import "./observability/logger.test.mjs";
+
+import "./service-financial-summary.test.mjs";
