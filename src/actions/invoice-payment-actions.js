@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -8,6 +8,9 @@ import { db } from "@/lib/db";
 import { createActionError } from "@/lib/errors";
 import {
   addMoney,
+  formatMoney,
+  isMoneyGreaterThan,
+  moneyToString,
   subtractMoney,
   toMoney,
 } from "@/lib/money";
@@ -31,12 +34,20 @@ const createInvoiceFromServiceSchema = z.object({
 
 const recordCustomerPaymentSchema = z.object({
   invoiceId: requiredIdSchema,
-  amount: z.coerce
-    .number({
-      error: "Shuma e pagesës nuk është e vlefshme.",
-    })
-    .finite("Shuma e pagesës nuk është e vlefshme.")
-    .positive("Shuma e pagesës duhet të jetë më e madhe se zero."),
+  amount: z
+    .string()
+    .trim()
+    .min(1, "Shuma e pagesës është e detyrueshme.")
+    .refine(
+      (value) =>
+        /^-?\d+(?:[.,]\d+)?$/.test(value),
+      "Shuma e pagesës nuk është e vlefshme.",
+    )
+    .transform((value) => toMoney(value))
+    .refine(
+      (value) => value.gt(0),
+      "Shuma e pagesës duhet të jetë më e madhe se zero.",
+    ),
   method: z
     .string()
     .trim()
@@ -51,17 +62,22 @@ const recordCustomerPaymentSchema = z.object({
     .transform((value) => value || null),
 });
 
-function getActionValidationError(validationResult, fallbackMessage) {
+function getActionValidationError(
+  validationResult,
+  fallbackMessage,
+) {
   return createActionError(
-    getFirstValidationMessage(validationResult.error, fallbackMessage),
+    getFirstValidationMessage(
+      validationResult.error,
+      fallbackMessage,
+    ),
   );
 }
 
-function decimalToNumber(value) {
-  return Number(toMoney(value).toString());
-}
-
-async function nextInvoiceNumber(transaction, businessId) {
+async function nextInvoiceNumber(
+  transaction,
+  businessId,
+) {
   const year = new Date().getFullYear();
 
   const count = await transaction.invoice.count({
@@ -73,18 +89,27 @@ async function nextInvoiceNumber(transaction, businessId) {
     },
   });
 
-  return `INV-${year}-${String(count + 1).padStart(4, "0")}`;
+  return `INV-${year}-${String(count + 1).padStart(
+    4,
+    "0",
+  )}`;
 }
 
-export async function createInvoiceFromServiceAction(serviceId) {
+export async function createInvoiceFromServiceAction(
+  serviceId,
+) {
   try {
-    const context = await requireBusinessActionPermission(
-      PERMISSIONS.INVOICES_CREATE,
-    );
+    const context =
+      await requireBusinessActionPermission(
+        PERMISSIONS.INVOICES_CREATE,
+      );
 
-    const validationResult = validateObject(createInvoiceFromServiceSchema, {
-      serviceId,
-    });
+    const validationResult = validateObject(
+      createInvoiceFromServiceSchema,
+      {
+        serviceId,
+      },
+    );
 
     if (!validationResult.success) {
       throw getActionValidationError(
@@ -93,29 +118,33 @@ export async function createInvoiceFromServiceAction(serviceId) {
       );
     }
 
-    const validatedServiceId = validationResult.data.serviceId;
+    const validatedServiceId =
+      validationResult.data.serviceId;
 
     let invoice;
 
     await db.$transaction(async (transaction) => {
-      const service = await transaction.serviceRecord.findFirst({
-        where: {
-          id: validatedServiceId,
-          businessId: context.businessId,
-        },
-        include: {
-          invoice: true,
-          laborItems: true,
-          partsUsed: {
-            include: {
-              part: true,
+      const service =
+        await transaction.serviceRecord.findFirst({
+          where: {
+            id: validatedServiceId,
+            businessId: context.businessId,
+          },
+          include: {
+            invoice: true,
+            laborItems: true,
+            partsUsed: {
+              include: {
+                part: true,
+              },
             },
           },
-        },
-      });
+        });
 
       if (!service) {
-        throw createActionError("Urdhër-puna nuk u gjet.");
+        throw createActionError(
+          "Urdhër-puna nuk u gjet.",
+        );
       }
 
       if (service.invoice) {
@@ -125,7 +154,11 @@ export async function createInvoiceFromServiceAction(serviceId) {
       }
 
       if (
-        !["READY_FOR_PICKUP", "COMPLETED", "DELIVERED"].includes(service.status)
+        ![
+          "READY_FOR_PICKUP",
+          "COMPLETED",
+          "DELIVERED",
+        ].includes(service.status)
       ) {
         throw createActionError(
           "Fatura krijohet pasi puna të jetë gati për dorëzim.",
@@ -146,7 +179,9 @@ export async function createInvoiceFromServiceAction(serviceId) {
           vehicleId: service.vehicleId,
           serviceId: service.id,
           number,
-          status: serviceTotal.gt(0) ? "UNPAID" : "DRAFT",
+          status: serviceTotal.gt(0)
+            ? "UNPAID"
+            : "DRAFT",
           total: serviceTotal,
           items: {
             create: [
@@ -174,7 +209,8 @@ export async function createInvoiceFromServiceAction(serviceId) {
         entityType: "INVOICE",
         entityId: invoice.id,
         title: `U krijua fatura ${number}`,
-        description: "Fatura u gjenerua automatikisht nga urdhër-puna.",
+        description:
+          "Fatura u gjenerua automatikisht nga urdhër-puna.",
         newValues: {
           serviceId: validatedServiceId,
           total: serviceTotal.toString(),
@@ -184,8 +220,12 @@ export async function createInvoiceFromServiceAction(serviceId) {
       });
     });
 
-    revalidatePath(`/dashboard/services/${validatedServiceId}`);
-    revalidatePath(`/dashboard/invoices/${invoice.id}`);
+    revalidatePath(
+      `/dashboard/services/${validatedServiceId}`,
+    );
+    revalidatePath(
+      `/dashboard/invoices/${invoice.id}`,
+    );
     revalidatePath("/dashboard/invoices");
 
     return {
@@ -204,11 +244,14 @@ export async function createInvoiceFromServiceAction(serviceId) {
   }
 }
 
-export async function recordCustomerPaymentAction(formData) {
+export async function recordCustomerPaymentAction(
+  formData,
+) {
   try {
-    const context = await requireBusinessActionPermission(
-      PERMISSIONS.INVOICES_MARK_PAID,
-    );
+    const context =
+      await requireBusinessActionPermission(
+        PERMISSIONS.INVOICES_MARK_PAID,
+      );
 
     const validationResult = validateFormData(
       recordCustomerPaymentSchema,
@@ -228,47 +271,61 @@ export async function recordCustomerPaymentAction(formData) {
 
     const {
       invoiceId,
-      amount,
+      amount: paymentAmount,
       method,
       reference,
       notes,
     } = validationResult.data;
 
-    const paymentAmount = toMoney(amount);
-
     await db.$transaction(async (transaction) => {
-      const invoice = await transaction.invoice.findFirst({
-        where: {
-          id: invoiceId,
-          businessId: context.businessId,
-        },
-        include: {
-          customerPayments: true,
-        },
-      });
+      const invoice =
+        await transaction.invoice.findFirst({
+          where: {
+            id: invoiceId,
+            businessId: context.businessId,
+          },
+          include: {
+            customerPayments: true,
+          },
+        });
 
       if (!invoice) {
-        throw createActionError("Fatura nuk u gjet.");
+        throw createActionError(
+          "Fatura nuk u gjet.",
+        );
       }
 
       const invoiceTotal = toMoney(invoice.total);
 
       const paid = invoice.customerPayments.reduce(
-        (sum, payment) => addMoney(sum, payment.amount),
+        (sum, payment) =>
+          addMoney(sum, payment.amount),
         toMoney(0),
       );
 
-      const calculatedRemaining = subtractMoney(invoiceTotal, paid);
+      const calculatedRemaining = subtractMoney(
+        invoiceTotal,
+        paid,
+      );
 
       const remaining = calculatedRemaining.lt(0)
         ? toMoney(0)
         : calculatedRemaining;
 
-      if (paymentAmount.gt(remaining)) {
+      if (
+        isMoneyGreaterThan(
+          paymentAmount,
+          remaining,
+        )
+      ) {
         throw createActionError(
-          `Pagesa tejkalon detyrimin e mbetur (${decimalToNumber(
+          `Pagesa tejkalon detyrimin e mbetur (${formatMoney(
             remaining,
-          ).toFixed(0)} Lek).`,
+            {
+              currency: "ALL",
+              locale: "sq-AL",
+            },
+          )}).`,
         );
       }
 
@@ -284,16 +341,18 @@ export async function recordCustomerPaymentAction(formData) {
         },
       });
 
-      const newPaid = addMoney(paid, paymentAmount);
-
-      const calculatedRemainingAfter = subtractMoney(
-        invoiceTotal,
-        newPaid,
+      const newPaid = addMoney(
+        paid,
+        paymentAmount,
       );
 
-      const remainingAfter = calculatedRemainingAfter.lt(0)
-        ? toMoney(0)
-        : calculatedRemainingAfter;
+      const calculatedRemainingAfter =
+        subtractMoney(invoiceTotal, newPaid);
+
+      const remainingAfter =
+        calculatedRemainingAfter.lt(0)
+          ? toMoney(0)
+          : calculatedRemainingAfter;
 
       const isPaid = remainingAfter.eq(0);
 
@@ -312,7 +371,9 @@ export async function recordCustomerPaymentAction(formData) {
           businessId: context.businessId,
           invoiceId,
           invoiceNumber: invoice.number,
-          remaining: decimalToNumber(remainingAfter),
+          remaining: moneyToString(
+            remainingAfter,
+          ),
         });
       }
 
@@ -320,21 +381,28 @@ export async function recordCustomerPaymentAction(formData) {
         context,
         entityType: "INVOICE",
         entityId: invoiceId,
-        title: `U regjistrua pagesa ${decimalToNumber(
+        title: `U regjistrua pagesa ${formatMoney(
           paymentAmount,
-        ).toFixed(0)} Lek`,
+          {
+            currency: "ALL",
+            locale: "sq-AL",
+          },
+        )}`,
         description: `Pagesa u regjistrua me metodën ${method}.`,
-        amount: paymentAmount.toString(),
+        amount: moneyToString(paymentAmount),
         metadata: {
           method,
           reference,
-          remainingAfter: remainingAfter.toString(),
+          remainingAfter:
+            moneyToString(remainingAfter),
         },
         database: transaction,
       });
     });
 
-    revalidatePath(`/dashboard/invoices/${invoiceId}`);
+    revalidatePath(
+      `/dashboard/invoices/${invoiceId}`,
+    );
     revalidatePath("/dashboard/invoices");
     revalidatePath("/dashboard/workspace");
 

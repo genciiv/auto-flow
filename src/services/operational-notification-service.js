@@ -1,4 +1,8 @@
 import { db } from "@/lib/db";
+import {
+  formatMoney,
+  toQuantity,
+} from "@/lib/money";
 
 const ROLE_GROUPS = {
   MANAGEMENT: ["OWNER", "MANAGER"],
@@ -118,13 +122,25 @@ export async function notifyLowStock({ database = db, businessId, partId, partNa
   });
 }
 
-export async function notifyPartialPayment({ database = db, businessId, invoiceId, invoiceNumber, remaining }) {
+export async function notifyPartialPayment({
+  database = db,
+  businessId,
+  invoiceId,
+  invoiceNumber,
+  remaining,
+}) {
   return notifyUsersByRoles({
     database,
     businessId,
     roles: ROLE_GROUPS.FINANCE,
     title: "Pagesë e pjesshme",
-    message: `Fatura ${invoiceNumber} ka ende ${Math.max(remaining, 0).toFixed(0)} Lekë pa paguar.`,
+    message: `Fatura ${invoiceNumber} ka ende ${formatMoney(
+      remaining,
+      {
+        currency: "ALL",
+        locale: "sq-AL",
+      },
+    )} pa paguar.`,
     type: "WARNING",
     entityType: "PAYMENT",
     entityId: invoiceId,
@@ -172,7 +188,13 @@ export async function syncOperationalReminders({ businessId }) {
       where: { businessId },
       select: { id: true, name: true, stock: true, minStock: true },
       take: 500,
-    }).then((items) => items.filter((item) => Number(item.stock) <= Number(item.minStock))),
+    }).then((items) =>
+      items.filter((item) =>
+        toQuantity(item.stock).lte(
+          toQuantity(item.minStock),
+        ),
+      ),
+    ),
   ]);
 
   const tasks = [];
@@ -199,7 +221,13 @@ export async function syncOperationalReminders({ businessId }) {
         database: db,
         userId,
         title: "Faturë e papaguar",
-        message: `Fatura ${invoice.number} (${Number(invoice.total).toFixed(0)} Lekë) është e papaguar prej më shumë se 7 ditësh.`,
+        message: `Fatura ${invoice.number} (${formatMoney(
+          invoice.total,
+          {
+            currency: "ALL",
+            locale: "sq-AL",
+          },
+        )}) është e papaguar prej më shumë se 7 ditësh.`,
         type: "WARNING",
         entityType: "PAYMENT",
         entityId: invoice.id,
