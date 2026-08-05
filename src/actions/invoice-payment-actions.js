@@ -15,12 +15,16 @@ import {
   toMoney,
 } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
+import { recalculateServiceTotal } from "@/lib/service-total";
 import {
   getFirstValidationMessage,
   validateFormData,
   validateObject,
 } from "@/lib/validation";
-import { logCreate, logPayment } from "@/services/audit-events";
+import {
+  logCreate,
+  logPayment,
+} from "@/services/audit-events";
 import { notifyPartialPayment } from "@/services/operational-notification-service";
 
 const requiredIdSchema = z
@@ -39,8 +43,7 @@ const recordCustomerPaymentSchema = z.object({
     .trim()
     .min(1, "Shuma e pagesës është e detyrueshme.")
     .refine(
-      (value) =>
-        /^-?\d+(?:[.,]\d+)?$/.test(value),
+      (value) => /^-?\d+(?:[.,]\d+)?$/.test(value),
       "Shuma e pagesës nuk është e vlefshme.",
     )
     .transform((value) => toMoney(value))
@@ -48,18 +51,48 @@ const recordCustomerPaymentSchema = z.object({
       (value) => value.gt(0),
       "Shuma e pagesës duhet të jetë më e madhe se zero.",
     ),
-  method: z
-    .string()
-    .trim()
-    .transform((value) => value || "CASH"),
-  reference: z
-    .string()
-    .trim()
-    .transform((value) => value || null),
-  notes: z
-    .string()
-    .trim()
-    .transform((value) => value || null),
+  method: z.preprocess(
+    (value) => {
+      const normalized = String(value ?? "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+
+      const aliases = {
+        CASH: "CASH",
+        PARA_NE_DORE: "CASH",
+        CASH_PAYMENT: "CASH",
+        BANK: "BANK_TRANSFER",
+        BANK_TRANSFER: "BANK_TRANSFER",
+        TRANSFERTE_BANKARE: "BANK_TRANSFER",
+        CARD: "CARD",
+        KARTE: "CARD",
+        PAYPAL: "PAYPAL",
+        OTHER: "OTHER",
+        TJETER: "OTHER",
+      };
+
+      return aliases[normalized] || normalized || "CASH";
+    },
+    z.enum(
+      ["CASH", "BANK_TRANSFER", "CARD", "PAYPAL", "OTHER"],
+      {
+        error: "Metoda e pagesës nuk është e vlefshme.",
+      },
+    ),
+  ),
+  reference: z.preprocess(
+    (value) => String(value ?? "").trim(),
+    z
+      .string()
+      .transform((value) => value || null),
+  ),
+  notes: z.preprocess(
+    (value) => String(value ?? "").trim(),
+    z
+      .string()
+      .transform((value) => value || null),
+  ),
 });
 
 function getActionValidationError(
@@ -106,9 +139,7 @@ export async function createInvoiceFromServiceAction(
 
     const validationResult = validateObject(
       createInvoiceFromServiceSchema,
-      {
-        serviceId,
-      },
+      { serviceId },
     );
 
     if (!validationResult.success) {
@@ -134,9 +165,7 @@ export async function createInvoiceFromServiceAction(
             invoice: true,
             laborItems: true,
             partsUsed: {
-              include: {
-                part: true,
-              },
+              include: { part: true },
             },
           },
         });
@@ -165,7 +194,11 @@ export async function createInvoiceFromServiceAction(
         );
       }
 
-      const serviceTotal = toMoney(service.total);
+      const serviceTotal =
+        await recalculateServiceTotal(
+          transaction,
+          service.id,
+        );
 
       const number = await nextInvoiceNumber(
         transaction,
@@ -227,6 +260,7 @@ export async function createInvoiceFromServiceAction(
       `/dashboard/invoices/${invoice.id}`,
     );
     revalidatePath("/dashboard/invoices");
+    revalidatePath("/dashboard/finance");
 
     return {
       success: true,
@@ -357,9 +391,7 @@ export async function recordCustomerPaymentAction(
       const isPaid = remainingAfter.eq(0);
 
       await transaction.invoice.update({
-        where: {
-          id: invoiceId,
-        },
+        where: { id: invoiceId },
         data: {
           status: isPaid ? "PAID" : "UNPAID",
         },
@@ -405,6 +437,7 @@ export async function recordCustomerPaymentAction(
     );
     revalidatePath("/dashboard/invoices");
     revalidatePath("/dashboard/workspace");
+    revalidatePath("/dashboard/finance");
 
     return {
       success: true,
