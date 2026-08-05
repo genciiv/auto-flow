@@ -11,6 +11,7 @@ import {
   Landmark,
   Home,
   Link2,
+  MessagesSquare,
   BriefcaseBusiness,
   LayoutDashboard,
   History,
@@ -83,6 +84,12 @@ const sidebarGroups = [
         icon: FileText,
         href: "/dashboard/invoices",
         permission: PERMISSIONS.INVOICES_VIEW,
+      },
+      {
+        name: "Mesazhet",
+        icon: MessagesSquare,
+        href: "/dashboard/messages",
+        permission: PERMISSIONS.MESSAGES_VIEW,
       },
       {
         name: "Kërkesat për lidhje",

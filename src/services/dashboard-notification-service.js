@@ -160,6 +160,7 @@ export async function getDashboardNotifications(businessId, userId = null) {
     if (notification.entityType === "SERVICE" && notification.entityId) return `/dashboard/services/${notification.entityId}`;
     if (notification.entityType === "APPOINTMENT") return "/dashboard/appointments";
     if (notification.entityType === "PAYMENT" && notification.entityId) return `/dashboard/invoices/${notification.entityId}`;
+    if (notification.entityType === "CHAT" && notification.entityId) return `/dashboard/messages/${notification.entityId}`;
     if (notification.entityType === "SYSTEM") return "/dashboard/inventory";
     if (notification.entityType === "CUSTOMER") return "/dashboard/customers";
     if (notification.entityType === "VEHICLE") return "/dashboard/vehicles";
