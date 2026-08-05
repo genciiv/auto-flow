@@ -2,8 +2,14 @@
 
 import { useState } from "react";
 
+import AiAssistantWidget from "@/components/ai/AiAssistantWidget";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
+
+import {
+  hasPermission,
+  PERMISSIONS,
+} from "@/lib/permissions";
 
 export default function DashboardShell({
   children,
@@ -11,7 +17,13 @@ export default function DashboardShell({
   notificationData = null,
   badgeCounts = {},
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] =
+    useState(false);
+
+  const canUseAiAssistant = hasPermission(
+    user.businessRole,
+    PERMISSIONS.AI_ASSISTANT_USE,
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -36,10 +48,16 @@ export default function DashboardShell({
           onOpenMenu={() => setSidebarOpen(true)}
         />
 
-        <main className="px-4 py-5 sm:px-6 sm:py-8 lg:px-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        <main className="w-full">
+          <div className="mx-auto w-full max-w-7xl">
+            {children}
+          </div>
         </main>
       </div>
+
+      {canUseAiAssistant ? (
+        <AiAssistantWidget />
+      ) : null}
     </div>
   );
 }

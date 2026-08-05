@@ -156,6 +156,7 @@ export default function ServicesTable({
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
+  const [paymentStatus, setPaymentStatus] = useState("ALL");
   const [sort, setSort] = useState("NEWEST");
 
   const deferredSearch = useDeferredValue(search);
@@ -165,8 +166,14 @@ export default function ServicesTable({
 
     const filtered = services.filter((service) => {
       const matchesStatus = status === "ALL" || service.status === status;
+      const servicePaymentStatus = getInvoicePaymentSummary(
+        service.invoice,
+      ).status;
+      const matchesPaymentStatus =
+        paymentStatus === "ALL" ||
+        servicePaymentStatus === paymentStatus;
 
-      if (!matchesStatus) {
+      if (!matchesStatus || !matchesPaymentStatus) {
         return false;
       }
 
@@ -178,14 +185,18 @@ export default function ServicesTable({
     });
 
     return sortServices(filtered, sort);
-  }, [services, deferredSearch, status, sort]);
+  }, [services, deferredSearch, status, paymentStatus, sort]);
 
   const hasActiveFilters =
-    search.trim() !== "" || status !== "ALL" || sort !== "NEWEST";
+    search.trim() !== "" ||
+    status !== "ALL" ||
+    paymentStatus !== "ALL" ||
+    sort !== "NEWEST";
 
   function handleResetFilters() {
     setSearch("");
     setStatus("ALL");
+    setPaymentStatus("ALL");
     setSort("NEWEST");
   }
 
@@ -194,11 +205,13 @@ export default function ServicesTable({
       <ServiceFilters
         search={search}
         status={status}
+        paymentStatus={paymentStatus}
         sort={sort}
         resultCount={filteredServices.length}
         totalCount={services.length}
         onSearchChange={setSearch}
         onStatusChange={setStatus}
+        onPaymentStatusChange={setPaymentStatus}
         onSortChange={setSort}
         onReset={handleResetFilters}
       />

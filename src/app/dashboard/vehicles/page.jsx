@@ -43,6 +43,14 @@ export default async function VehiclesPage() {
     }),
   ]);
 
+  const clientVehicles = JSON.parse(
+    JSON.stringify(vehicles),
+  );
+
+  const clientCustomers = JSON.parse(
+    JSON.stringify(customers),
+  );
+
   const totalVehicles = vehicles.length;
 
   const vehiclesInService = vehicles.filter((vehicle) => {
@@ -102,15 +110,15 @@ export default async function VehiclesPage() {
           </div>
 
           {canCreateVehicle ? (
-            <CreateVehicleModal customers={customers} />
+            <CreateVehicleModal customers={clientCustomers} />
           ) : null}
         </div>
 
         <VehicleStats stats={stats} />
 
         <VehiclesTable
-          vehicles={vehicles}
-          customers={customers}
+          vehicles={clientVehicles}
+          customers={clientCustomers}
           canUpdateVehicle={canUpdateVehicle}
           canDeleteVehicle={canDeleteVehicle}
         />

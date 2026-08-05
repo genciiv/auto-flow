@@ -27,7 +27,7 @@ export default async function InventoryPage() {
     PLAN_FEATURES.INVENTORY,
   );
 
-  const parts = await db.part.findMany({
+  const databaseParts = await db.part.findMany({
     where: {
       businessId,
     },
@@ -35,6 +35,21 @@ export default async function InventoryPage() {
       createdAt: "desc",
     },
   });
+
+  const parts = databaseParts.map((part) => ({
+    id: part.id,
+    businessId: part.businessId,
+    code: part.code,
+    name: part.name,
+    category: part.category,
+    supplier: part.supplier,
+    stock: part.stock,
+    minStock: part.minStock,
+    buyPrice: Number(part.buyPrice ?? 0),
+    sellPrice: Number(part.sellPrice ?? 0),
+    createdAt: part.createdAt.toISOString(),
+    updatedAt: part.updatedAt.toISOString(),
+  }));
 
   const totalParts = parts.length;
 
