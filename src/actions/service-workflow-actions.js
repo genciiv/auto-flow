@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { AppError, ERROR_CODES } from "@/lib/errors";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   assertServiceReadyToClose,
@@ -263,13 +264,20 @@ export async function transitionServiceAction(
         });
 
         if (!service) {
-          throw new Error("Urdhër-puna nuk u gjet.");
+          throw new AppError({
+            code: ERROR_CODES.NOT_FOUND,
+            message: "Urdhër-puna nuk u gjet.",
+            status: 404,
+          });
         }
 
         if (businessRole === "MECHANIC" && service.assignedUserId !== userId) {
-          throw new Error(
-            "Mund të ndryshosh vetëm statusin e punëve që të janë caktuar.",
-          );
+          throw new AppError({
+            code: ERROR_CODES.FORBIDDEN,
+            message:
+              "Mund të ndryshosh vetëm statusin e punëve që të janë caktuar.",
+            status: 403,
+          });
         }
 
         if (service.status === target) {
@@ -310,9 +318,12 @@ export async function transitionServiceAction(
             return { service: { ...service, status: target }, changed: false };
           }
 
-          throw new Error(
-            "Statusi ndryshoi ndërkohë. Rifresko faqen dhe provo përsëri.",
-          );
+          throw new AppError({
+            code: ERROR_CODES.CONFLICT,
+            message:
+              "Statusi ndryshoi ndërkohë. Rifresko faqen dhe provo përsëri.",
+            status: 409,
+          });
         }
 
         await transaction.serviceStatusHistory.create({
