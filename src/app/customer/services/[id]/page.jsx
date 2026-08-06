@@ -19,6 +19,7 @@ import {
 
 import { requireCustomerContext } from "@/lib/customer-context";
 import { db } from "@/lib/db";
+import { customerServiceAccessWhere } from "@/lib/customer-access";
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
@@ -96,19 +97,7 @@ export default async function CustomerServiceDetailsPage({ params }) {
   const serviceId = resolvedParams.id;
 
   const service = await db.serviceRecord.findFirst({
-    where: {
-      id: serviceId,
-      vehicle: {
-        customerLinks: {
-          some: {
-            isActive: true,
-            customerVehicle: {
-              profileId,
-            },
-          },
-        },
-      },
-    },
+    where: customerServiceAccessWhere(profileId, serviceId),
     include: {
       business: {
         select: {

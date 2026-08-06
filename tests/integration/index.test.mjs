@@ -24,3 +24,5 @@ import "./vehicle-and-purchase-inventory-fixes.test.mjs";
 import "./dashboard-localization.test.mjs";
 
 import "./financial-period-consistency.test.mjs";
+
+import "./customer-portal-isolation.test.mjs";

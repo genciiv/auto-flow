@@ -4,14 +4,19 @@ import NewConversationForm from "@/components/chat/NewConversationForm";
 import { createCustomerConversationAction } from "@/actions/chat-actions";
 import { requireCustomerContext } from "@/lib/customer-context";
 import { db } from "@/lib/db";
+import {
+  activeCustomerVehicleLinkWhere,
+  customerConversationAccessWhere,
+  customerServiceAccessWhere,
+} from "@/lib/customer-access";
 
 export const metadata = { title: "Mesazhet | AutoFlow" };
 export default async function CustomerMessagesPage() {
   const { profileId } = await requireCustomerContext();
   const [conversations, links, services] = await Promise.all([
-    db.conversation.findMany({ where: { customerProfileId:profileId, status:"ACTIVE" }, include: { business:{ select:{ id:true,name:true } }, vehicle:{ select:{ id:true,plate:true,brand:true,model:true } }, service:{ select:{ id:true,title:true } }, messages:{ orderBy:{ createdAt:"desc" }, take:1, select:{ body:true,senderType:true,createdAt:true } } }, orderBy:{ lastMessageAt:"desc" } }),
-    db.customerVehicleLink.findMany({ where:{ isActive:true, customerVehicle:{ profileId } }, include:{ vehicle:{ include:{ business:{ select:{ id:true,name:true } } } } }, orderBy:{ linkedAt:"desc" } }),
-    db.serviceRecord.findMany({ where: { vehicle: { customerLinks: { some: { isActive:true, customerVehicle: { profileId } } } } }, select: { id:true, title:true, vehicle: { select: { plate:true, brand:true, model:true } } }, orderBy: { createdAt:"desc" }, take:100 }),
+    db.conversation.findMany({ where: { ...customerConversationAccessWhere(profileId), status:"ACTIVE" }, include: { business:{ select:{ id:true,name:true } }, vehicle:{ select:{ id:true,plate:true,brand:true,model:true } }, service:{ select:{ id:true,title:true } }, messages:{ orderBy:{ createdAt:"desc" }, take:1, select:{ body:true,senderType:true,createdAt:true } } }, orderBy:{ lastMessageAt:"desc" } }),
+    db.customerVehicleLink.findMany({ where: activeCustomerVehicleLinkWhere(profileId), include:{ vehicle:{ include:{ business:{ select:{ id:true,name:true } } } } }, orderBy:{ linkedAt:"desc" } }),
+    db.serviceRecord.findMany({ where: customerServiceAccessWhere(profileId), select: { id:true, title:true, vehicle: { select: { plate:true, brand:true, model:true } } }, orderBy: { createdAt:"desc" }, take:100 }),
   ]);
   const rows=conversations.map(c=>({ ...c, displayName:c.business.name, unread:c.messages[0]?.senderType === "BUSINESS" && (!c.customerLastReadAt || new Date(c.lastMessageAt)>new Date(c.customerLastReadAt)) }));
   const contacts=links.map(link=>({ key:link.id, businessName:link.vehicle.business.name, vehicleId:link.vehicle.id, vehicleLabel:`${link.vehicle.brand} ${link.vehicle.model || ""} · ${link.vehicle.plate}` }));

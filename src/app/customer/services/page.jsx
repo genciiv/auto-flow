@@ -15,6 +15,10 @@ import {
 
 import { requireCustomerContext } from "@/lib/customer-context";
 import { db } from "@/lib/db";
+import {
+  activeCustomerVehicleLinkWhere,
+  customerServiceAccessWhere,
+} from "@/lib/customer-access";
 
 export const metadata = {
   title: "Historiku i serviseve | AutoFlow",
@@ -75,18 +79,7 @@ export default async function CustomerServicesPage() {
 
   const [services, activeLinksCount] = await Promise.all([
     db.serviceRecord.findMany({
-      where: {
-        vehicle: {
-          customerLinks: {
-            some: {
-              isActive: true,
-              customerVehicle: {
-                profileId,
-              },
-            },
-          },
-        },
-      },
+      where: customerServiceAccessWhere(profileId),
       include: {
         business: {
           select: {
@@ -128,12 +121,7 @@ export default async function CustomerServicesPage() {
     }),
 
     db.customerVehicleLink.count({
-      where: {
-        isActive: true,
-        customerVehicle: {
-          profileId,
-        },
-      },
+      where: activeCustomerVehicleLinkWhere(profileId),
     }),
   ]);
 
