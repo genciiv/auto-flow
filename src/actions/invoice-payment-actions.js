@@ -7,6 +7,11 @@ import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { createActionError } from "@/lib/errors";
 import {
+  getPaidAndRemaining,
+  nextInvoiceNumberInTransaction,
+  runSerializableInvoiceTransaction,
+} from "@/lib/invoice-financial-safety";
+import {
   addMoney,
   formatMoney,
   isMoneyGreaterThan,
@@ -107,27 +112,6 @@ function getActionValidationError(
   );
 }
 
-async function nextInvoiceNumber(
-  transaction,
-  businessId,
-) {
-  const year = new Date().getFullYear();
-
-  const count = await transaction.invoice.count({
-    where: {
-      businessId,
-      number: {
-        startsWith: `INV-${year}-`,
-      },
-    },
-  });
-
-  return `INV-${year}-${String(count + 1).padStart(
-    4,
-    "0",
-  )}`;
-}
-
 export async function createInvoiceFromServiceAction(
   serviceId,
 ) {
@@ -154,7 +138,9 @@ export async function createInvoiceFromServiceAction(
 
     let invoice;
 
-    await db.$transaction(async (transaction) => {
+    await runSerializableInvoiceTransaction(
+      db,
+      async (transaction) => {
       const service =
         await transaction.serviceRecord.findFirst({
           where: {
@@ -200,7 +186,7 @@ export async function createInvoiceFromServiceAction(
           service.id,
         );
 
-      const number = await nextInvoiceNumber(
+      const number = await nextInvoiceNumberInTransaction(
         transaction,
         context.businessId,
       );
@@ -251,7 +237,8 @@ export async function createInvoiceFromServiceAction(
         },
         database: transaction,
       });
-    });
+      },
+    );
 
     revalidatePath(
       `/dashboard/services/${validatedServiceId}`,
@@ -311,7 +298,11 @@ export async function recordCustomerPaymentAction(
       notes,
     } = validationResult.data;
 
-    await db.$transaction(async (transaction) => {
+    let paymentResult;
+
+    await runSerializableInvoiceTransaction(
+      db,
+      async (transaction) => {
       const invoice =
         await transaction.invoice.findFirst({
           where: {
@@ -329,22 +320,34 @@ export async function recordCustomerPaymentAction(
         );
       }
 
-      const invoiceTotal = toMoney(invoice.total);
-
-      const paid = invoice.customerPayments.reduce(
-        (sum, payment) =>
-          addMoney(sum, payment.amount),
-        toMoney(0),
-      );
-
-      const calculatedRemaining = subtractMoney(
-        invoiceTotal,
+      const {
+        total: invoiceTotal,
         paid,
-      );
+        remaining,
+      } = getPaidAndRemaining(invoice);
 
-      const remaining = calculatedRemaining.lt(0)
-        ? toMoney(0)
-        : calculatedRemaining;
+      if (reference) {
+        const existingPayment =
+          invoice.customerPayments.find(
+            (payment) =>
+              payment.reference === reference &&
+              payment.method === method,
+          );
+
+        if (existingPayment) {
+          if (!toMoney(existingPayment.amount).eq(paymentAmount)) {
+            throw createActionError(
+              "Kjo referencë pagese është përdorur me një shumë tjetër.",
+            );
+          }
+
+          paymentResult = {
+            duplicate: true,
+            paymentId: existingPayment.id,
+          };
+          return;
+        }
+      }
 
       if (
         isMoneyGreaterThan(
@@ -363,7 +366,8 @@ export async function recordCustomerPaymentAction(
         );
       }
 
-      await transaction.customerPayment.create({
+      const createdPayment =
+        await transaction.customerPayment.create({
         data: {
           businessId: context.businessId,
           invoiceId,
@@ -409,6 +413,11 @@ export async function recordCustomerPaymentAction(
         });
       }
 
+      paymentResult = {
+        duplicate: false,
+        paymentId: createdPayment.id,
+      };
+
       await logPayment({
         context,
         entityType: "INVOICE",
@@ -430,7 +439,16 @@ export async function recordCustomerPaymentAction(
         },
         database: transaction,
       });
-    });
+      },
+    );
+
+    if (paymentResult?.duplicate) {
+      return {
+        success: true,
+        message: "Kjo pagesë ishte regjistruar më parë.",
+        duplicate: true,
+      };
+    }
 
     revalidatePath(
       `/dashboard/invoices/${invoiceId}`,
