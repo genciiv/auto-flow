@@ -9,7 +9,7 @@ import {
   errorFailure,
   validationFailure,
 } from "@/lib/action-result";
-import { requireBusinessPermission } from "@/lib/business-context";
+import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { EMAIL_CONFIG, sendEmail } from "@/lib/email";
 import { ERROR_CODES, logServerError } from "@/lib/errors";
@@ -53,7 +53,7 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
   const { planId } = validationResult.data;
 
   try {
-    const { businessId, business, user } = await requireBusinessPermission(
+    const { businessId, business, user } = await requireBusinessActionPermission(
       PERMISSIONS.BILLING_MANAGE,
     );
 

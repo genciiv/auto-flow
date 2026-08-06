@@ -5,9 +5,13 @@ import ServicePerformance from "@/components/analytics/ServicePerformance";
 import InventoryPerformance from "@/components/analytics/InventoryPerformance";
 import TopCustomersTable from "@/components/analytics/TopCustomersTable";
 
-import { requireBusinessFeature } from "@/lib/business-context";
+import {
+  requireBusinessFeature,
+  requireBusinessPermission,
+} from "@/lib/business-context";
 import { PLAN_FEATURES } from "@/services/plan-access-service";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 import { getAppMonthKey, getAppMonthRange } from "@/lib/financial-period";
 
 const MONTH_NAMES = [
@@ -61,6 +65,7 @@ function normalizeServiceTitle(title) {
 }
 
 export default async function AnalyticsPage() {
+  await requireBusinessPermission(PERMISSIONS.ANALYTICS_VIEW);
   const { businessId } = await requireBusinessFeature(PLAN_FEATURES.ANALYTICS);
 
   const now = new Date();

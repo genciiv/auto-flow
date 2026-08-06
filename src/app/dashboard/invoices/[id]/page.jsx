@@ -4,12 +4,13 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CustomerPaymentsPanel from "@/components/invoices/CustomerPaymentsPanel";
 import InvoiceDetails from "@/components/invoices/details/InvoiceDetails";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 export default async function InvoiceDetailsPage({ params }) {
   const { businessId, businessRole } =
-    await requireBusinessContext();
+    await requireBusinessPermission(PERMISSIONS.INVOICES_VIEW);
 
   const { id } = await params;
 
@@ -129,12 +130,10 @@ export default async function InvoiceDetailsPage({ params }) {
     JSON.stringify(services),
   );
 
-  const canRecordPayment = [
-    "OWNER",
-    "MANAGER",
-    "RECEPTIONIST",
-    "ACCOUNTANT",
-  ].includes(businessRole);
+  const canRecordPayment = hasPermission(
+    businessRole,
+    PERMISSIONS.INVOICES_MARK_PAID,
+  );
 
   return (
     <DashboardLayout>
