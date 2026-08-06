@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, CreditCard } from "lucide-react";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { requireBusinessPermission } from "@/lib/business-context";
@@ -85,23 +85,30 @@ export default async function SubscriptionSettingsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
+        <div className="space-y-5">
           <Link
             href="/dashboard/settings"
-            className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700"
+            className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 transition hover:text-blue-600"
           >
             <ArrowLeft size={16} />
             Kthehu te cilësimet
           </Link>
 
-          <p className="mt-6 text-sm font-semibold text-blue-600">Abonimi</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-            Zgjidh planin e AutoFlow
-          </h1>
-          <p className="mt-2 max-w-2xl text-slate-500">
-            Shiko planet aktive dhe dërgo kërkesën për ndryshim. Aktivizimi
-            përfundimtar bëhet pasi pagesa të konfirmohet nga administratori.
-          </p>
+          <section className="relative overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-9">
+            <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl" />
+            <div className="relative">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300">
+                <CreditCard size={14} />
+                Planet dhe faturimi
+              </div>
+              <h1 className="mt-5 text-3xl font-bold tracking-tight sm:text-4xl">
+                Zgjidh planin e AutoFlow
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+                Shiko planet aktive dhe dërgo kërkesën për ndryshim. Aktivizimi përfundimtar bëhet pasi pagesa të konfirmohet nga administratori.
+              </p>
+            </div>
+          </section>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
@@ -111,7 +118,7 @@ export default async function SubscriptionSettingsPage() {
             return (
               <article
                 key={plan.id}
-                className={`relative rounded-[2rem] border bg-white p-7 shadow-sm ${
+                className={`relative rounded-[2rem] border bg-white p-7 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                   plan.isRecommended
                     ? "border-blue-500 ring-4 ring-blue-50"
                     : "border-slate-200"

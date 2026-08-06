@@ -75,8 +75,8 @@ export default function ChatThread({
   }, [router]);
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="h-[56vh] min-h-[420px] overflow-y-auto bg-slate-50 p-4 sm:p-6">
+    <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+      <div className="h-[58vh] min-h-[440px] overflow-y-auto bg-slate-50/80 p-4 sm:p-6">
         <div className="mx-auto max-w-3xl space-y-4">
           {messages.map((message) => {
             const mine =
@@ -148,7 +148,7 @@ export default function ChatThread({
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? (
               <Loader2
