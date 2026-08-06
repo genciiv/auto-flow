@@ -161,9 +161,26 @@ export async function getPlanUsage(businessId, { database = db } = {}) {
   return {
     access,
     usage: {
-      users: { used: users, limit: access.plan.maxUsers },
-      customers: { used: customers, limit: access.plan.maxCustomers },
-      vehicles: { used: vehicles, limit: access.plan.maxVehicles },
+      users: {
+        used: users,
+        limit: access.plan.maxUsers,
+        overLimit:
+          access.plan.maxUsers != null && users > Number(access.plan.maxUsers),
+      },
+      customers: {
+        used: customers,
+        limit: access.plan.maxCustomers,
+        overLimit:
+          access.plan.maxCustomers != null &&
+          customers > Number(access.plan.maxCustomers),
+      },
+      vehicles: {
+        used: vehicles,
+        limit: access.plan.maxVehicles,
+        overLimit:
+          access.plan.maxVehicles != null &&
+          vehicles > Number(access.plan.maxVehicles),
+      },
     },
   };
 }
