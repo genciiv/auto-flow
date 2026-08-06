@@ -20,3 +20,5 @@ import "./payment-optional-fields.test.mjs";
 import "./customer-decimal-serialization.test.mjs";
 
 import "./vehicle-and-purchase-inventory-fixes.test.mjs";
+
+import "./dashboard-localization.test.mjs";

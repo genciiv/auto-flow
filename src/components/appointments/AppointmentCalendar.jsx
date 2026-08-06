@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 
 import AppointmentRowActions from "@/components/appointments/AppointmentRowActions";
+import {
+  formatAppDate,
+  formatAppTime,
+} from "@/lib/date-time";
 import { rescheduleAppointment } from "@/actions/appointment-actions";
 
 const STATUS = {
@@ -66,17 +70,6 @@ function toLocalInput(date) {
   const value = new Date(date);
   const offset = value.getTimezoneOffset() * 60000;
   return new Date(value.getTime() - offset).toISOString().slice(0, 16);
-}
-
-function formatTime(value) {
-  return new Intl.DateTimeFormat("sq-AL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatDate(value, options = {}) {
-  return new Intl.DateTimeFormat("sq-AL", options).format(new Date(value));
 }
 
 function startOfWeek(value) {
@@ -146,7 +139,7 @@ function AppointmentCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-            <span>{formatTime(appointment.date)}</span>
+            <span>{formatAppTime(appointment.date)}</span>
             <span>·</span>
             <span>{appointment.durationMinutes || 60} min</span>
           </div>
@@ -316,17 +309,17 @@ export default function AppointmentCalendar({
 
   const title =
     view === "MONTH"
-      ? formatDate(anchor, { month: "long", year: "numeric" })
+      ? formatAppDate(anchor, { month: "long", year: "numeric" })
       : view === "WEEK"
-        ? `${formatDate(days[0], {
+        ? `${formatAppDate(days[0], {
             day: "numeric",
             month: "short",
-          })} – ${formatDate(days[6], {
+          })} – ${formatAppDate(days[6], {
             day: "numeric",
             month: "short",
             year: "numeric",
           })}`
-        : formatDate(anchor, {
+        : formatAppDate(anchor, {
             weekday: "long",
             day: "numeric",
             month: "long",
@@ -558,10 +551,10 @@ export default function AppointmentCalendar({
                 >
                   <div className="mb-3 border-b border-slate-100 pb-3">
                     <p className="text-xs font-bold uppercase text-slate-500">
-                      {formatDate(day, { weekday: "short" })}
+                      {formatAppDate(day, { weekday: "short" })}
                     </p>
                     <p className="mt-1 text-lg font-black text-slate-950">
-                      {formatDate(day, { day: "numeric", month: "short" })}
+                      {formatAppDate(day, { day: "numeric", month: "short" })}
                     </p>
                   </div>
 
@@ -618,7 +611,7 @@ export default function AppointmentCalendar({
           </p>
 
           <h2 className="mt-2 text-base font-bold capitalize text-slate-950">
-            {formatDate(selectedDate, {
+            {formatAppDate(selectedDate, {
               weekday: "long",
               day: "numeric",
               month: "long",

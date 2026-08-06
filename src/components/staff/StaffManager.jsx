@@ -18,6 +18,7 @@ import {
   updateStaffRoleAction,
 } from "@/app/dashboard/staff/actions";
 import { STAFF_ROLE_LABELS, STAFF_ROLES } from "@/config/staff";
+import { formatAppDate } from "@/lib/date-time";
 
 const initialState = {
   success: false,
@@ -52,18 +53,6 @@ function ActionForm({ action, children }) {
       {children(pending)}
     </form>
   );
-}
-
-function formatDate(value) {
-  if (!value) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat("sq-AL", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
 }
 
 function getInitials(name, email) {
@@ -266,7 +255,7 @@ export default function StaffManager({
                     </td>
 
                     <td className="px-6 py-5 text-sm text-slate-500">
-                      {formatDate(member.user.lastLoginAt)}
+                      {formatAppDate(member.user.lastLoginAt)}
                     </td>
 
                     <td className="px-6 py-5 text-right">
@@ -337,7 +326,7 @@ export default function StaffManager({
                   </p>
                   <p className="mt-1 text-sm text-slate-500">
                     {STAFF_ROLE_LABELS[invitation.role]} · skadon më{" "}
-                    {formatDate(invitation.expiresAt)}
+                    {formatAppDate(invitation.expiresAt)}
                   </p>
                 </div>
 

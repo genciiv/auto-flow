@@ -20,6 +20,12 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  formatAppDate,
+  formatAppDateTime,
+  formatAppTime,
+} from "@/lib/date-time";
+
 import AuditActionBadge, {
   getAuditActionLabel,
 } from "@/components/audit/AuditActionBadge";
@@ -77,40 +83,6 @@ const ACTION_OPTIONS = [
     label: "Veprim tjetër",
   },
 ];
-
-function formatDateTime(value) {
-  if (!value) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat("sq-AL", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-function formatShortDate(value) {
-  if (!value) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat("sq-AL", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function formatTime(value) {
-  if (!value) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat("sq-AL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
 
 function formatValue(value) {
   if (value === null || value === undefined || value === "") {
@@ -283,7 +255,7 @@ function DetailsDrawer({ log, onClose }) {
                 </p>
 
                 <p className="mt-2 text-sm font-bold text-slate-900">
-                  {formatDateTime(log.createdAt)}
+                  {formatAppDateTime(log.createdAt)}
                 </p>
               </div>
 
@@ -652,11 +624,11 @@ export default function AuditLogClient({
                       >
                         <td className="whitespace-nowrap px-6 py-5">
                           <p className="text-sm font-bold text-slate-900">
-                            {formatShortDate(log.createdAt)}
+                            {formatAppDate(log.createdAt)}
                           </p>
 
                           <p className="mt-1 text-xs text-slate-400">
-                            {formatTime(log.createdAt)}
+                            {formatAppTime(log.createdAt)}
                           </p>
                         </td>
 
@@ -755,7 +727,7 @@ export default function AuditLogClient({
 
                     <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-400">
                       <CalendarDays size={14} />
-                      {formatDateTime(log.createdAt)}
+                      {formatAppDateTime(log.createdAt)}
                     </div>
                   </button>
                 );
