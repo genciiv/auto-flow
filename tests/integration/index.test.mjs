@@ -36,3 +36,5 @@ import "./inventory-count-lifecycle.test.mjs";
 import "./appointment-conflict-lifecycle.test.mjs";
 
 import "./operational-notification-hardening.test.mjs";
+
+import "./service-workflow-hardening.test.mjs";

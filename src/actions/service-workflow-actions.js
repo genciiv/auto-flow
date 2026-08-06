@@ -7,6 +7,14 @@ import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
+  assertServiceReadyToClose,
+  assertServiceTransitionAllowed,
+  getServiceTransitionTimestamps,
+  runSerializableServiceWorkflow,
+  SERVICE_STATUS_LABELS as LABELS,
+  SERVICE_WORKFLOW_STATUSES as SERVICE_STATUSES,
+} from "@/lib/service-workflow";
+import {
   getFirstValidationMessage,
   validateFormData,
   validateObject,
@@ -17,44 +25,6 @@ import {
   notifyServiceReadyForPickup,
   notifyServiceWaitingForParts,
 } from "@/services/operational-notification-service";
-
-const SERVICE_STATUSES = [
-  "DRAFT",
-  "PENDING",
-  "IN_PROGRESS",
-  "WAITING_FOR_PARTS",
-  "READY_FOR_PICKUP",
-  "COMPLETED",
-  "DELIVERED",
-  "CANCELLED",
-];
-
-const TRANSITIONS = {
-  DRAFT: ["PENDING", "CANCELLED"],
-  PENDING: ["IN_PROGRESS", "CANCELLED"],
-  IN_PROGRESS: [
-    "WAITING_FOR_PARTS",
-    "READY_FOR_PICKUP",
-    "COMPLETED",
-    "CANCELLED",
-  ],
-  WAITING_FOR_PARTS: ["IN_PROGRESS", "READY_FOR_PICKUP", "CANCELLED"],
-  READY_FOR_PICKUP: ["COMPLETED", "DELIVERED", "IN_PROGRESS"],
-  COMPLETED: ["DELIVERED"],
-  DELIVERED: [],
-  CANCELLED: [],
-};
-
-const LABELS = {
-  DRAFT: "Draft",
-  PENDING: "Në pritje",
-  IN_PROGRESS: "Në proces",
-  WAITING_FOR_PARTS: "Në pritje të pjesëve",
-  READY_FOR_PICKUP: "Gati për dorëzim",
-  COMPLETED: "Përfunduar",
-  DELIVERED: "Dorëzuar",
-  CANCELLED: "Anuluar",
-};
 
 const optionalTextSchema = z
   .string()
@@ -271,135 +241,153 @@ export async function transitionServiceAction(
 
     const { businessId, userId, businessRole } = context;
 
-    const service = await db.serviceRecord.findFirst({
-      where: {
-        id: validatedServiceId,
-        businessId,
-      },
-      include: {
-        vehicle: {
-          select: {
-            plate: true,
-          },
-        },
-      },
-    });
-
-    if (!service) {
-      return failure("Urdhër-puna nuk u gjet.");
-    }
-
-    if (businessRole === "MECHANIC" && service.assignedUserId !== userId) {
-      return failure(
-        "Mund të ndryshosh vetëm statusin e punëve që të janë caktuar.",
-      );
-    }
-
-    if (!TRANSITIONS[service.status]?.includes(target)) {
-      return failure(
-        `Kalimi nga “${LABELS[service.status]}” në “${LABELS[target]}” nuk lejohet.`,
-      );
-    }
-
-    const timestamps = {};
-
-    if (target === "IN_PROGRESS" && !service.startedAt) {
-      timestamps.startedAt = new Date();
-    }
-
-    if (target === "READY_FOR_PICKUP") {
-      timestamps.readyAt = new Date();
-    }
-
-    if (target === "COMPLETED") {
-      timestamps.completedAt = new Date();
-    }
-
-    if (target === "DELIVERED") {
-      timestamps.deliveredAt = new Date();
-    }
-
-    await db.$transaction(async (transaction) => {
-      await transaction.serviceRecord.update({
-        where: {
-          id: service.id,
-        },
-        data: {
-          status: target,
-          customerApprovalRequired: false,
-          customerApprovedAt: null,
-          ...timestamps,
-        },
-      });
-
-      await transaction.serviceStatusHistory.create({
-        data: {
-          serviceId: service.id,
-          changedById: userId,
-          fromStatus: service.status,
-          toStatus: target,
-          note: validatedNote,
-        },
-      });
-
-      await logStatusChange({
-        context,
-        entityType: "SERVICE",
-        entityId: service.id,
-        title: `Ndryshoi statusi i urdhër-punës ${service.title}`,
-        description: `Statusi ndryshoi nga “${LABELS[service.status]}” në “${LABELS[target]}”.`,
-        oldStatus: service.status,
-        newStatus: target,
-        metadata: {
-          source: "service-workflow-actions",
-          operation: "transitionServiceAction",
-          vehiclePlate: service.vehicle?.plate || null,
-          note: validatedNote,
-        },
-        database: transaction,
-      });
-
-      if (target === "WAITING_FOR_PARTS") {
-        await notifyServiceWaitingForParts({
-          database: transaction,
-          businessId,
-          serviceId: service.id,
-          serviceTitle: service.title,
-          plate: service.vehicle?.plate || null,
-        });
-      }
-
-      if (target === "READY_FOR_PICKUP") {
-        await notifyServiceReadyForPickup({
-          database: transaction,
-          businessId,
-          serviceId: service.id,
-          serviceTitle: service.title,
-          plate: service.vehicle?.plate || null,
-        });
-      }
-
-      if (["READY_FOR_PICKUP", "COMPLETED", "DELIVERED"].includes(target)) {
-        await transaction.notification.create({
-          data: {
+    const result = await runSerializableServiceWorkflow(
+      db,
+      async (transaction) => {
+        const service = await transaction.serviceRecord.findFirst({
+          where: {
+            id: validatedServiceId,
             businessId,
-            title: LABELS[target],
-            message: `${service.title} (${
-              service.vehicle?.plate || "automjeti"
-            }) është ${LABELS[target].toLowerCase()}.`,
-            type: "INFO",
-            entityType: "SERVICE",
-            entityId: service.id,
+          },
+          include: {
+            vehicle: {
+              select: { plate: true },
+            },
+            _count: {
+              select: {
+                laborItems: true,
+                partsUsed: true,
+              },
+            },
           },
         });
-      }
-    });
 
-    refreshServicePages(service.id);
+        if (!service) {
+          throw new Error("Urdhër-puna nuk u gjet.");
+        }
+
+        if (businessRole === "MECHANIC" && service.assignedUserId !== userId) {
+          throw new Error(
+            "Mund të ndryshosh vetëm statusin e punëve që të janë caktuar.",
+          );
+        }
+
+        if (service.status === target) {
+          return { service, changed: false };
+        }
+
+        assertServiceTransitionAllowed(service.status, target);
+        assertServiceReadyToClose(service, target);
+
+        const now = new Date();
+        const timestamps = getServiceTransitionTimestamps(
+          service,
+          target,
+          now,
+        );
+
+        const claimed = await transaction.serviceRecord.updateMany({
+          where: {
+            id: service.id,
+            businessId,
+            status: service.status,
+          },
+          data: {
+            status: target,
+            customerApprovalRequired: false,
+            customerApprovedAt: null,
+            ...timestamps,
+          },
+        });
+
+        if (claimed.count !== 1) {
+          const current = await transaction.serviceRecord.findFirst({
+            where: { id: service.id, businessId },
+            select: { status: true },
+          });
+
+          if (current?.status === target) {
+            return { service: { ...service, status: target }, changed: false };
+          }
+
+          throw new Error(
+            "Statusi ndryshoi ndërkohë. Rifresko faqen dhe provo përsëri.",
+          );
+        }
+
+        await transaction.serviceStatusHistory.create({
+          data: {
+            serviceId: service.id,
+            changedById: userId,
+            fromStatus: service.status,
+            toStatus: target,
+            note: validatedNote,
+          },
+        });
+
+        await logStatusChange({
+          context,
+          entityType: "SERVICE",
+          entityId: service.id,
+          title: `Ndryshoi statusi i urdhër-punës ${service.title}`,
+          description: `Statusi ndryshoi nga “${LABELS[service.status]}” në “${LABELS[target]}”.`,
+          oldStatus: service.status,
+          newStatus: target,
+          metadata: {
+            source: "service-workflow-actions",
+            operation: "transitionServiceAction",
+            vehiclePlate: service.vehicle?.plate || null,
+            note: validatedNote,
+          },
+          database: transaction,
+        });
+
+        if (target === "WAITING_FOR_PARTS") {
+          await notifyServiceWaitingForParts({
+            database: transaction,
+            businessId,
+            serviceId: service.id,
+            serviceTitle: service.title,
+            plate: service.vehicle?.plate || null,
+          });
+        }
+
+        if (target === "READY_FOR_PICKUP") {
+          await notifyServiceReadyForPickup({
+            database: transaction,
+            businessId,
+            serviceId: service.id,
+            serviceTitle: service.title,
+            plate: service.vehicle?.plate || null,
+          });
+        }
+
+        if (["READY_FOR_PICKUP", "COMPLETED", "DELIVERED"].includes(target)) {
+          await transaction.notification.create({
+            data: {
+              businessId,
+              title: LABELS[target],
+              message: `${service.title} (${
+                service.vehicle?.plate || "automjeti"
+              }) është ${LABELS[target].toLowerCase()}.`,
+              type: "INFO",
+              entityType: "SERVICE",
+              entityId: service.id,
+            },
+          });
+        }
+
+        return { service: { ...service, status: target }, changed: true };
+      },
+    );
+
+    refreshServicePages(validatedServiceId);
 
     return {
       success: true,
-      message: `Statusi u ndryshua në “${LABELS[target]}”.`,
+      message: result.changed
+        ? `Statusi u ndryshua në “${LABELS[target]}”.`
+        : `Statusi është tashmë “${LABELS[target]}”.`,
     };
   } catch (error) {
     console.error("[transitionServiceAction]", error);
