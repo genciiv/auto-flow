@@ -45,18 +45,22 @@ export default async function StaffPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-blue-600">Ekipi</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+      <div className="space-y-7">
+        <section className="relative overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-9">
+          <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl" />
+          <div className="relative">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300">
+              <Users size={14} />
+              Menaxhimi i ekipit
+            </div>
+            <h1 className="mt-5 text-3xl font-bold tracking-tight sm:text-4xl">
               Stafi dhe rolet
             </h1>
-            <p className="mt-2 max-w-2xl text-slate-500">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
               Fto punonjës, cakto role dhe kontrollo aksesin e ekipit në një vend.
             </p>
           </div>
-        </div>
+        </section>
 
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat) => {
@@ -65,12 +69,12 @@ export default async function StaffPage() {
             return (
               <div
                 key={stat.label}
-                className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
+                className="group rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                   <Icon size={22} />
                 </div>
-                <p className="mt-6 text-sm font-medium text-slate-500">
+                <p className="mt-5 text-sm font-medium text-slate-500">
                   {stat.label}
                 </p>
                 <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
