@@ -48,7 +48,7 @@ export default async function FinancePage({ searchParams }) {
         businessId,
         paidAt: {
           gte: period.start,
-          lte: period.end,
+          lt: period.endExclusive,
         },
       },
       _sum: {
@@ -65,7 +65,7 @@ export default async function FinancePage({ searchParams }) {
         },
         createdAt: {
           gte: period.start,
-          lte: period.end,
+          lt: period.endExclusive,
         },
       },
       _sum: {
@@ -80,7 +80,7 @@ export default async function FinancePage({ searchParams }) {
         status: "POSTED",
         expenseDate: {
           gte: period.start,
-          lte: period.end,
+          lt: period.endExclusive,
         },
       },
       _sum: {
@@ -95,7 +95,7 @@ export default async function FinancePage({ searchParams }) {
         status: "RECEIVED",
         createdAt: {
           gte: period.start,
-          lte: period.end,
+          lt: period.endExclusive,
         },
       },
       _sum: {

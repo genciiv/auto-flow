@@ -8,6 +8,7 @@ import TopCustomersTable from "@/components/analytics/TopCustomersTable";
 import { requireBusinessFeature } from "@/lib/business-context";
 import { PLAN_FEATURES } from "@/services/plan-access-service";
 import { db } from "@/lib/db";
+import { getAppMonthKey, getAppMonthRange } from "@/lib/financial-period";
 
 const MONTH_NAMES = [
   "Jan",
@@ -24,29 +25,17 @@ const MONTH_NAMES = [
   "Dhj",
 ];
 
-function getMonthKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-
-  return `${year}-${month}`;
-}
-
-function getLastTwelveMonths() {
+function getLastTwelveMonths(referenceDate = new Date()) {
   const months = [];
-  const currentDate = new Date();
 
   for (let index = 11; index >= 0; index -= 1) {
-    const date = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth() - index,
-      1,
-    );
+    const period = getAppMonthRange(referenceDate, -index);
 
     months.push({
-      key: getMonthKey(date),
-      label: MONTH_NAMES[date.getMonth()],
-      month: date.getMonth(),
-      year: date.getFullYear(),
+      key: `${period.year}-${String(period.month).padStart(2, "0")}`,
+      label: MONTH_NAMES[period.month - 1],
+      month: period.month - 1,
+      year: period.year,
       revenue: 0,
     });
   }
@@ -76,16 +65,16 @@ export default async function AnalyticsPage() {
 
   const now = new Date();
 
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
-  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-  const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  const currentMonth = getAppMonthRange(now);
+  const previousMonth = getAppMonthRange(now, -1);
+  const twelveMonthsBack = getAppMonthRange(now, -11);
+  const currentMonthStart = currentMonth.start;
+  const nextMonthStart = currentMonth.endExclusive;
+  const previousMonthStart = previousMonth.start;
+  const twelveMonthsAgo = twelveMonthsBack.start;
 
   const [
-    paidInvoices,
+    customerPayments,
     services,
     vehicles,
     partsUsed,
@@ -97,38 +86,25 @@ export default async function AnalyticsPage() {
     currentMonthPartsUsage,
     previousMonthPartsUsage,
   ] = await Promise.all([
-    db.invoice.findMany({
+    db.customerPayment.findMany({
       where: {
         businessId,
-        status: "PAID",
-        createdAt: {
+        paidAt: {
           gte: twelveMonthsAgo,
           lt: nextMonthStart,
         },
       },
       select: {
-        id: true,
-        customerId: true,
-        vehicleId: true,
-        total: true,
-        createdAt: true,
-        customer: {
+        amount: true,
+        paidAt: true,
+        invoice: {
           select: {
-            id: true,
-            name: true,
-          },
-        },
-        vehicle: {
-          select: {
-            id: true,
-            plate: true,
-            brand: true,
-            model: true,
+            customerId: true,
           },
         },
       },
       orderBy: {
-        createdAt: "asc",
+        paidAt: "asc",
       },
     }),
 
@@ -298,25 +274,23 @@ export default async function AnalyticsPage() {
     }),
   ]);
 
-  const currentMonthInvoices = paidInvoices.filter((invoice) => {
-    const invoiceDate = new Date(invoice.createdAt);
-
-    return invoiceDate >= currentMonthStart && invoiceDate < nextMonthStart;
+  const currentMonthPayments = customerPayments.filter((payment) => {
+    const paidAt = new Date(payment.paidAt);
+    return paidAt >= currentMonthStart && paidAt < nextMonthStart;
   });
 
-  const previousMonthInvoices = paidInvoices.filter((invoice) => {
-    const invoiceDate = new Date(invoice.createdAt);
-
-    return invoiceDate >= previousMonthStart && invoiceDate < currentMonthStart;
+  const previousMonthPayments = customerPayments.filter((payment) => {
+    const paidAt = new Date(payment.paidAt);
+    return paidAt >= previousMonthStart && paidAt < currentMonthStart;
   });
 
-  const currentMonthRevenue = currentMonthInvoices.reduce(
-    (sum, invoice) => sum + Number(invoice.total || 0),
+  const currentMonthRevenue = currentMonthPayments.reduce(
+    (sum, payment) => sum + Number(payment.amount || 0),
     0,
   );
 
-  const previousMonthRevenue = previousMonthInvoices.reduce(
-    (sum, invoice) => sum + Number(invoice.total || 0),
+  const previousMonthRevenue = previousMonthPayments.reduce(
+    (sum, payment) => sum + Number(payment.amount || 0),
     0,
   );
 
@@ -352,17 +326,16 @@ export default async function AnalyticsPage() {
 
   const monthlyRevenueMap = new Map();
 
-  for (const month of getLastTwelveMonths()) {
+  for (const month of getLastTwelveMonths(now)) {
     monthlyRevenueMap.set(month.key, month);
   }
 
-  for (const invoice of paidInvoices) {
-    const invoiceDate = new Date(invoice.createdAt);
-    const monthKey = getMonthKey(invoiceDate);
+  for (const payment of customerPayments) {
+    const monthKey = getAppMonthKey(payment.paidAt);
     const existingMonth = monthlyRevenueMap.get(monthKey);
 
     if (existingMonth) {
-      existingMonth.revenue += Number(invoice.total || 0);
+      existingMonth.revenue += Number(payment.amount || 0);
     }
   }
 
