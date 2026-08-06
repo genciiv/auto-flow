@@ -3,6 +3,7 @@ import { ArrowRight, CarFront, Plus, Sparkles, Wrench } from "lucide-react";
 
 import { db } from "@/lib/db";
 import { requireCustomerContext } from "@/lib/customer-context";
+import { activeCustomerVehicleLinkWhere } from "@/lib/customer-access";
 
 export const metadata = {
   title: "Përmbledhje | AutoFlow",
@@ -15,7 +16,7 @@ export default async function CustomerDashboardPage() {
   const [vehicleCount, linkedVehicleCount] = await Promise.all([
     db.customerVehicle.count({ where: { profileId } }),
     db.customerVehicleLink.count({
-      where: { customerVehicle: { profileId }, isActive: true },
+      where: activeCustomerVehicleLinkWhere(profileId),
     }),
   ]);
 

@@ -1,5 +1,9 @@
 import { createForbiddenError, createNotFoundError } from "@/lib/errors";
 import { db } from "@/lib/db";
+import {
+  activeCustomerVehicleLinkWhere,
+  customerConversationAccessWhere,
+} from "@/lib/customer-access";
 
 export async function requireActiveCustomerVehicleLink({
   businessId,
@@ -8,12 +12,10 @@ export async function requireActiveCustomerVehicleLink({
   database = db,
 }) {
   const link = await database.customerVehicleLink.findFirst({
-    where: {
-      isActive: true,
+    where: activeCustomerVehicleLinkWhere(customerProfileId, {
       vehicleId,
-      vehicle: { businessId },
-      customerVehicle: { profileId: customerProfileId },
-    },
+      businessId,
+    }),
     select: { id: true },
   });
 
@@ -60,7 +62,10 @@ export async function requireCustomerConversation({
   database = db,
 }) {
   const conversation = await database.conversation.findFirst({
-    where: { id: conversationId, customerProfileId },
+    where: customerConversationAccessWhere(
+      customerProfileId,
+      conversationId,
+    ),
     include: {
       business: { select: { id: true, name: true, city: true } },
       customerProfile: {

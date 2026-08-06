@@ -18,6 +18,7 @@ import DeleteCustomerVehicleButton from "@/components/customer/DeleteCustomerVeh
 import { updateCustomerVehicle } from "@/app/customer/vehicles/actions";
 import { db } from "@/lib/db";
 import { requireCustomerContext } from "@/lib/customer-context";
+import { customerVehicleAccessWhere } from "@/lib/customer-access";
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
@@ -41,10 +42,7 @@ export default async function CustomerVehicleDetailsPage({ params }) {
   const vehicleId = resolvedParams.id;
 
   const vehicle = await db.customerVehicle.findFirst({
-    where: {
-      id: vehicleId,
-      profileId,
-    },
+    where: customerVehicleAccessWhere(profileId, vehicleId),
   });
 
   if (!vehicle) {

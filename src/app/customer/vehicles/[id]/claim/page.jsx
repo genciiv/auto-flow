@@ -7,6 +7,7 @@ import VehicleClaimSearch from "@/components/customer/VehicleClaimSearch";
 import { searchWorkshopVehicles } from "@/app/customer/vehicles/claim-actions";
 import { db } from "@/lib/db";
 import { requireCustomerContext } from "@/lib/customer-context";
+import { customerVehicleAccessWhere } from "@/lib/customer-access";
 
 export const metadata = {
   title: "Lidh automjetin me servisin | AutoFlow",
@@ -17,10 +18,7 @@ export default async function VehicleClaimPage({ params }) {
   const resolvedParams = await params;
 
   const customerVehicle = await db.customerVehicle.findFirst({
-    where: {
-      id: resolvedParams.id,
-      profileId,
-    },
+    where: customerVehicleAccessWhere(profileId, resolvedParams.id),
 
     select: {
       id: true,
