@@ -5,11 +5,7 @@ import { useState } from "react";
 import AiAssistantWidget from "@/components/ai/AiAssistantWidget";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
-
-import {
-  hasPermission,
-  PERMISSIONS,
-} from "@/lib/permissions";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 export default function DashboardShell({
   children,
@@ -17,8 +13,7 @@ export default function DashboardShell({
   notificationData = null,
   badgeCounts = {},
 }) {
-  const [sidebarOpen, setSidebarOpen] =
-    useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const canUseAiAssistant = hasPermission(
     user.businessRole,
@@ -26,7 +21,7 @@ export default function DashboardShell({
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="af-app-shell">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -38,7 +33,7 @@ export default function DashboardShell({
         badgeCounts={badgeCounts ?? {}}
       />
 
-      <div className="min-h-screen lg:pl-72">
+      <div className="min-h-screen lg:pl-64">
         <Topbar
           businessName={user.businessName}
           userName={user.name}
@@ -49,15 +44,11 @@ export default function DashboardShell({
         />
 
         <main className="w-full">
-          <div className="mx-auto w-full max-w-7xl">
-            {children}
-          </div>
+          <div className="af-content-container">{children}</div>
         </main>
       </div>
 
-      {canUseAiAssistant ? (
-        <AiAssistantWidget />
-      ) : null}
+      {canUseAiAssistant ? <AiAssistantWidget /> : null}
     </div>
   );
 }

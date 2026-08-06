@@ -8,19 +8,20 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
-  Landmark,
+  History,
   Home,
+  Landmark,
+  LayoutDashboard,
   Link2,
   MessagesSquare,
-  BriefcaseBusiness,
-  LayoutDashboard,
-  History,
   Package,
   Settings,
-  Users,
+  Sparkles,
   UserRoundCog,
+  Users,
   Wrench,
   X,
+  BriefcaseBusiness,
 } from "lucide-react";
 
 import SidebarGroup from "@/components/dashboard/SidebarGroup";
@@ -32,13 +33,13 @@ const sidebarGroups = [
     title: "Kryesore",
     items: [
       {
-        name: "Workspace im",
+        name: "Hapësira ime",
         icon: LayoutDashboard,
         href: "/dashboard/workspace",
         permission: PERMISSIONS.DASHBOARD_VIEW,
       },
       {
-        name: "Dashboard",
+        name: "Paneli kryesor",
         icon: Home,
         href: "/dashboard",
         permission: PERMISSIONS.DASHBOARD_VIEW,
@@ -58,7 +59,7 @@ const sidebarGroups = [
     ],
   },
   {
-    title: "Servisi",
+    title: "Operacionet",
     items: [
       {
         name: "Terminet",
@@ -125,16 +126,16 @@ const sidebarGroups = [
     ],
   },
   {
-    title: "Rritja",
+    title: "Raportimi",
     items: [
       {
-        name: "Financa & Raporte",
+        name: "Financa dhe raportet",
         icon: Landmark,
         href: "/dashboard/finance",
         permission: PERMISSIONS.FINANCE_VIEW,
       },
       {
-        name: "Analytics",
+        name: "Analitika",
         icon: BarChart3,
         href: "/dashboard/analytics",
         permission: PERMISSIONS.ANALYTICS_VIEW,
@@ -142,7 +143,7 @@ const sidebarGroups = [
     ],
   },
   {
-    title: "Sistemi",
+    title: "Administrimi",
     items: [
       {
         name: "Stafi",
@@ -151,13 +152,13 @@ const sidebarGroups = [
         permission: PERMISSIONS.STAFF_VIEW,
       },
       {
-        name: "Audit Log",
+        name: "Regjistri i aktivitetit",
         icon: ClipboardList,
         href: "/dashboard/audit-log",
         permission: PERMISSIONS.AUDIT_VIEW,
       },
       {
-        name: "Settings",
+        name: "Cilësimet",
         icon: Settings,
         href: "/dashboard/settings",
         permission: PERMISSIONS.SETTINGS_VIEW,
@@ -182,9 +183,10 @@ export default function Sidebar({
     .map((group) => ({
       ...group,
       items: group.items
-        .filter((item) =>
-          hasPermission(businessRole, item.permission) &&
-          (!item.roles || item.roles.includes(businessRole)),
+        .filter(
+          (item) =>
+            hasPermission(businessRole, item.permission) &&
+            (!item.roles || item.roles.includes(businessRole)),
         )
         .map((item) => ({
           ...item,
@@ -200,58 +202,73 @@ export default function Sidebar({
           type="button"
           aria-label="Mbyll menunë"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm lg:hidden"
         />
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto border-r border-slate-200 bg-white p-5 transition-transform duration-300 lg:translate-x-0 ${
+        className={`af-scrollbar fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-y-auto border-r border-slate-200/90 bg-white px-4 py-4 shadow-[8px_0_30px_rgba(15,23,42,0.025)] transition-transform duration-300 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-      <div className="mb-6 flex items-center justify-between gap-3 px-2">
-        <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white">
-          <Car size={23} />
+        <div className="flex items-center justify-between gap-3 px-2 py-1">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+              <Car size={21} strokeWidth={2.2} />
+            </div>
+
+            <div className="min-w-0">
+              <p className="truncate text-base font-extrabold tracking-tight text-slate-950">
+                AutoFlow
+              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Service OS
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            aria-label="Mbyll menunë"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 lg:hidden"
+          >
+            <X size={19} />
+          </button>
         </div>
 
-        <div>
-          <p className="text-lg font-bold tracking-tight text-slate-950">
-            AutoFlow
-          </p>
-
-          <p className="text-xs font-medium text-slate-500">Service OS</p>
-        </div>
-        </div>
-
-        <button
-          type="button"
-          aria-label="Mbyll menunë"
-          onClick={onClose}
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 lg:hidden"
-        >
-          <X size={20} />
-        </button>
-      </div>
-
-      <WorkspaceSwitcher
-        businessName={businessName}
-        businessId={businessId}
-        memberships={memberships}
-        canAccessCustomerPortal={globalRole === "CUSTOMER"}
-      />
-
-      <nav className="mt-8 space-y-7">
-        {visibleGroups.map((group) => (
-          <SidebarGroup
-            key={group.title}
-            title={group.title}
-            items={group.items}
-            pathname={pathname}
-            onNavigate={onClose}
+        <div className="mt-5">
+          <WorkspaceSwitcher
+            businessName={businessName}
+            businessId={businessId}
+            memberships={memberships}
+            canAccessCustomerPortal={globalRole === "CUSTOMER"}
           />
-        ))}
-      </nav>
+        </div>
+
+        <nav className="mt-6 flex-1 space-y-6">
+          {visibleGroups.map((group) => (
+            <SidebarGroup
+              key={group.title}
+              title={group.title}
+              items={group.items}
+              pathname={pathname}
+              onNavigate={onClose}
+            />
+          ))}
+        </nav>
+
+        <div className="mt-6 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-3.5">
+          <div className="flex items-center gap-2 text-blue-700">
+            <Sparkles size={15} />
+            <p className="text-xs font-extrabold uppercase tracking-[0.12em]">
+              AutoFlow
+            </p>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Menaxhim i qartë për ekipin, servisin dhe financat.
+          </p>
+        </div>
       </aside>
     </>
   );

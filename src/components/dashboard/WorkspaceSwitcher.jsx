@@ -88,13 +88,13 @@ export default function WorkspaceSwitcher({
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        aria-label="Ndrysho workspace"
+        aria-label="Ndrysho hapësirën e punës"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((current) => !current)}
         disabled={isPending}
-        className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-left transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-70"
+        className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-left shadow-sm transition hover:border-slate-300 hover:bg-white disabled:cursor-wait disabled:opacity-70"
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
           {isPending ? (
             <LoaderCircle size={19} className="animate-spin" />
           ) : (
@@ -108,7 +108,7 @@ export default function WorkspaceSwitcher({
           </p>
 
           <p className="mt-0.5 text-xs font-medium text-slate-500">
-            Workspace aktiv
+            Hapësira aktive
           </p>
         </div>
 
@@ -121,9 +121,9 @@ export default function WorkspaceSwitcher({
       </button>
 
       {isOpen ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-950/10">
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden af-popover p-2">
           <p className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-            Workspace
+            Hapësirat e punës
           </p>
 
           <div className="space-y-1">

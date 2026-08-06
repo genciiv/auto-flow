@@ -201,7 +201,7 @@ export default function SearchCommand() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Hap kërkimin"
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-slate-300 hover:bg-white sm:h-11 sm:w-11 lg:w-full lg:max-w-md lg:justify-between lg:px-4 lg:py-3"
+        className="af-control flex h-10 w-10 items-center justify-center bg-slate-50/70 text-slate-500 shadow-sm transition hover:bg-white sm:w-11 lg:w-full lg:max-w-md lg:justify-between lg:px-3.5"
       >
         <span className="flex items-center gap-3">
           <Search size={18} className="text-slate-400" />
@@ -210,7 +210,7 @@ export default function SearchCommand() {
           </span>
         </span>
 
-        <span className="hidden rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-400 lg:inline">
+        <span className="hidden rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-400 lg:inline">
           Ctrl K
         </span>
       </button>
@@ -224,7 +224,7 @@ export default function SearchCommand() {
             }
           }}
         >
-          <div className="mx-auto mt-16 max-w-2xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl sm:mt-24">
+          <div className="mx-auto mt-16 max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:mt-24">
             <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
               {isLoading ? (
                 <Loader2 className="h-5 w-5 shrink-0 animate-spin text-blue-600" />
