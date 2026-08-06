@@ -132,6 +132,22 @@ export default async function SettingsPage() {
             canManage={canManageBilling}
           />
         </div>
+
+        {canUpdateSettings && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-sm font-semibold text-blue-600">Privatësia</p>
+            <h2 className="mt-2 text-xl font-bold text-slate-950">Eksporto të dhënat e biznesit</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Shkarko një kopje JSON të të dhënave operative të biznesit. Eksporti është i kufizuar sipas biznesit aktiv dhe regjistrohet në Audit Log.
+            </p>
+            <a
+              href="/api/dashboard/privacy/export"
+              className="mt-5 inline-flex rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800"
+            >
+              Shkarko eksportin JSON
+            </a>
+          </section>
+        )}
       </div>
     </DashboardLayout>
   );
