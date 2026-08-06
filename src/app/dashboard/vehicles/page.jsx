@@ -99,7 +99,7 @@ export default async function VehiclesPage() {
       <div className="space-y-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-semibold text-blue-600">Vehicles</p>
+            <p className="text-sm font-semibold text-blue-600">Automjetet</p>
 
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
               Automjetet

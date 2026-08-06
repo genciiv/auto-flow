@@ -494,7 +494,7 @@ export default async function AnalyticsPage() {
     <DashboardLayout>
       <div className="space-y-8">
         <div>
-          <p className="text-sm font-semibold text-blue-600">Analytics</p>
+          <p className="text-sm font-semibold text-blue-600">Analitika</p>
 
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
             Analitika
