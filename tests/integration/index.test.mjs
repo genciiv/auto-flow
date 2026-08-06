@@ -18,3 +18,5 @@ import "./payment-method-normalization.test.mjs";
 import "./payment-optional-fields.test.mjs";
 
 import "./customer-decimal-serialization.test.mjs";
+
+import "./vehicle-and-purchase-inventory-fixes.test.mjs";
