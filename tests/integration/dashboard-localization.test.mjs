@@ -44,6 +44,10 @@ test("dashboard-i përdor etiketa shqip dhe formatin kohor të Tiranës", async 
   assert.doesNotMatch(analyticsPage, />Analytics</);
 
   assert.match(appointmentCalendar, /formatAppTime/);
-  assert.match(appointmentCalendar, /formatAppDate/);
+  assert.match(appointmentCalendar, /formatCalendarDate/);
+  assert.match(appointmentCalendar, /ALBANIAN_MONTHS/);
+  assert.match(appointmentCalendar, /ALBANIAN_WEEKDAYS/);
+  assert.match(appointmentCalendar, /"gusht"/);
+  assert.doesNotMatch(appointmentCalendar, /formatAppDate/);
   assert.match(auditLog, /formatAppDateTime/);
 });
