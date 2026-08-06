@@ -67,6 +67,7 @@ export default async function VehiclesPage() {
     return (
       !latestService ||
       latestService.status === "COMPLETED" ||
+      latestService.status === "DELIVERED" ||
       latestService.status === "CANCELLED"
     );
   }).length;

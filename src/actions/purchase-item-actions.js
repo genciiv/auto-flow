@@ -155,7 +155,7 @@ export async function receivePurchaseOrder(purchaseOrderId) {
       PERMISSIONS.INVENTORY_MANAGE_STOCK,
     );
 
-    const { businessId } = purchaseContext;
+    const { businessId, userId } = purchaseContext;
 
     if (stockContext.businessId !== businessId) {
       return {
@@ -250,11 +250,18 @@ export async function receivePurchaseOrder(purchaseOrderId) {
         }
 
         const quantity = toQuantity(item.quantity);
+        const movementQuantity = Number(quantity.toString());
         const unitPrice = toMoney(item.unitPrice ?? 0);
 
         if (quantity.lte(0)) {
           throw createActionError(
             `Sasia e artikullit "${itemName}" nuk është e vlefshme.`,
+          );
+        }
+
+        if (!Number.isSafeInteger(movementQuantity)) {
+          throw createActionError(
+            `Sasia e artikullit "${itemName}" duhet të jetë numër i plotë.`,
           );
         }
 
@@ -272,11 +279,15 @@ export async function receivePurchaseOrder(purchaseOrderId) {
 
           select: {
             id: true,
+            stock: true,
           },
         });
 
         if (existingPart) {
-          await transaction.part.updateMany({
+          const stockBefore = existingPart.stock;
+          const stockAfter = stockBefore + movementQuantity;
+
+          const stockUpdate = await transaction.part.updateMany({
             where: {
               id: existingPart.id,
               businessId,
@@ -284,23 +295,55 @@ export async function receivePurchaseOrder(purchaseOrderId) {
 
             data: {
               stock: {
-                increment: quantity,
+                increment: movementQuantity,
               },
 
               buyPrice: unitPrice,
               supplier: purchase.supplier,
             },
           });
+
+          if (stockUpdate.count !== 1) {
+            throw createActionError(
+              `Stoku i artikullit "${itemName}" nuk u përditësua.`,
+            );
+          }
+
+          await transaction.inventoryMovement.create({
+            data: {
+              businessId,
+              partId: existingPart.id,
+              userId,
+              type: "PURCHASE_IN",
+              quantity: movementQuantity,
+              stockBefore,
+              stockAfter,
+              note: `Marrje nga porosia e furnitorit ${purchase.supplier}.`,
+            },
+          });
         } else {
-          await transaction.part.create({
+          const createdPart = await transaction.part.create({
             data: {
               businessId,
               name: itemName,
-              stock: quantity,
+              stock: movementQuantity,
               minStock: 0,
               buyPrice: unitPrice,
               sellPrice: unitPrice,
               supplier: purchase.supplier,
+            },
+          });
+
+          await transaction.inventoryMovement.create({
+            data: {
+              businessId,
+              partId: createdPart.id,
+              userId,
+              type: "PURCHASE_IN",
+              quantity: movementQuantity,
+              stockBefore: 0,
+              stockAfter: movementQuantity,
+              note: `Marrje nga porosia e furnitorit ${purchase.supplier}.`,
             },
           });
         }
