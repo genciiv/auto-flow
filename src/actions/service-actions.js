@@ -5,13 +5,13 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import { transitionServiceAction } from "@/actions/service-workflow-actions";
 import {
   getFirstValidationMessage,
   validateFormData,
   validateObject,
 } from "@/lib/validation";
 import {
-  changeServiceStatusSchema,
   createServiceSchema,
   deleteServiceSchema,
   updateServiceSchema,
@@ -19,7 +19,6 @@ import {
 import {
   logCreate,
   logDelete,
-  logStatusChange,
   logUpdate,
 } from "@/services/audit-events";
 
@@ -48,16 +47,6 @@ function getServiceAuditValues(service) {
     status: service.status,
     total: service.total,
   };
-}
-
-function getStatusLabel(status) {
-  const labels = {
-    DRAFT: "Draft", PENDING: "Në pritje", IN_PROGRESS: "Në proces",
-    WAITING_FOR_PARTS: "Në pritje të pjesëve", READY_FOR_PICKUP: "Gati për dorëzim",
-    COMPLETED: "Përfunduar", DELIVERED: "Dorëzuar", CANCELLED: "Anuluar",
-  };
-
-  return labels[status] || status;
 }
 
 function refreshServicePages(serviceId) {
@@ -202,7 +191,7 @@ export async function updateService(formData) {
       };
     }
 
-    const { id, vehicleId, title, description, status, total } =
+    const { id, vehicleId, title, description, total } =
       validationResult.data;
 
     const [existingService, vehicle] = await Promise.all([
@@ -264,7 +253,7 @@ export async function updateService(formData) {
           customerId: vehicle.customerId || null,
           title,
           description,
-          status,
+          status: existingService.status,
           total,
         },
 
@@ -296,28 +285,6 @@ export async function updateService(formData) {
 
         database: transaction,
       });
-
-      if (existingService.status !== updatedService.status) {
-        await logStatusChange({
-          context,
-          entityType: "SERVICE",
-          entityId: updatedService.id,
-          title: `Ndryshoi statusi i shërbimit ${updatedService.title}`,
-          description: `Statusi ndryshoi nga "${getStatusLabel(
-            existingService.status,
-          )}" në "${getStatusLabel(updatedService.status)}".`,
-          oldStatus: existingService.status,
-          newStatus: updatedService.status,
-
-          metadata: {
-            source: "service-actions",
-            operation: "updateService",
-            vehiclePlate: vehicle.plate,
-          },
-
-          database: transaction,
-        });
-      }
     });
 
     refreshServicePages(existingService.id);
@@ -341,119 +308,7 @@ export async function updateService(formData) {
 }
 
 export async function updateServiceStatus(serviceId, status) {
-  try {
-    const context = await requireBusinessActionPermission(
-      PERMISSIONS.SERVICES_UPDATE,
-    );
-
-    const { businessId } = context;
-
-    const validationResult = validateObject(changeServiceStatusSchema, {
-      serviceId,
-      status,
-    });
-
-    if (!validationResult.success) {
-      return {
-        success: false,
-        message: getFirstValidationMessage(
-          validationResult.error,
-          "Statusi i zgjedhur nuk është i vlefshëm.",
-        ),
-      };
-    }
-
-    const { serviceId: validatedServiceId, status: validatedStatus } =
-      validationResult.data;
-
-    const service = await db.serviceRecord.findFirst({
-      where: {
-        id: validatedServiceId,
-        businessId,
-      },
-
-      select: {
-        id: true,
-        title: true,
-        status: true,
-
-        vehicle: {
-          select: {
-            plate: true,
-          },
-        },
-      },
-    });
-
-    if (!service) {
-      return {
-        success: false,
-        message: "Shërbimi nuk u gjet.",
-      };
-    }
-
-    if (service.status === validatedStatus) {
-      return {
-        success: true,
-        message: "Statusi është tashmë i përditësuar.",
-      };
-    }
-
-    await db.$transaction(async (transaction) => {
-      const updatedService = await transaction.serviceRecord.update({
-        where: {
-          id: service.id,
-        },
-
-        data: {
-          status: validatedStatus,
-        },
-
-        select: {
-          id: true,
-          title: true,
-          status: true,
-        },
-      });
-
-      await logStatusChange({
-        context,
-        entityType: "SERVICE",
-        entityId: updatedService.id,
-        title: `Ndryshoi statusi i shërbimit ${updatedService.title}`,
-        description: `Statusi ndryshoi nga "${getStatusLabel(
-          service.status,
-        )}" në "${getStatusLabel(updatedService.status)}".`,
-        oldStatus: service.status,
-        newStatus: updatedService.status,
-
-        metadata: {
-          source: "service-actions",
-          operation: "updateServiceStatus",
-          vehiclePlate: service.vehicle?.plate || null,
-        },
-
-        database: transaction,
-      });
-    });
-
-    refreshServicePages(service.id);
-
-    return {
-      success: true,
-      message: "Statusi u përditësua me sukses.",
-    };
-  } catch (error) {
-    console.error("Gabim gjatë ndryshimit të statusit:", error);
-
-    const permissionMessage = getPermissionErrorMessage(error);
-
-    return {
-      success: false,
-      message:
-        permissionMessage || "Ndodhi një gabim gjatë ndryshimit të statusit.",
-    };
-  }
+  return transitionServiceAction(serviceId, status);
 }
 
 export async function deleteService(serviceId) {
