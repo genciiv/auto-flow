@@ -14,6 +14,7 @@ import {
 import { PERMISSIONS } from "@/lib/permissions";
 import { assertServiceBillingEditable } from "@/lib/service-billing-guard";
 import { recalculateServiceTotal } from "@/lib/service-total";
+import { runSerializableServicePartTransaction } from "@/lib/service-part-stock";
 import {
   getFirstValidationMessage,
   validateFormData,
@@ -102,7 +103,9 @@ export async function addPartToService(formData) {
       quantity,
     } = validationResult.data;
 
-    await db.$transaction(async (transaction) => {
+    await runSerializableServicePartTransaction(
+      db,
+      async (transaction) => {
       const service = await getEditableService(
         transaction,
         context,
@@ -156,9 +159,7 @@ export async function addPartToService(formData) {
         where: {
           id: part.id,
           businessId: context.businessId,
-          stock: {
-            gte: requestedQuantity,
-          },
+          stock: currentStock,
         },
         data: {
           stock: {
@@ -173,39 +174,29 @@ export async function addPartToService(formData) {
         );
       }
 
-      const existingUsage =
-        await transaction.servicePartUsage.findUnique({
-          where: {
-            serviceId_partId: {
-              serviceId: service.id,
-              partId: part.id,
-            },
-          },
-        });
-
-      if (existingUsage) {
-        await transaction.servicePartUsage.update({
-          where: { id: existingUsage.id },
-          data: {
-            quantity: {
-              increment: requestedQuantity,
-            },
-            total: {
-              increment: total,
-            },
-          },
-        });
-      } else {
-        await transaction.servicePartUsage.create({
-          data: {
+      await transaction.servicePartUsage.upsert({
+        where: {
+          serviceId_partId: {
             serviceId: service.id,
             partId: part.id,
-            quantity: requestedQuantity,
-            unitPrice,
-            total,
           },
-        });
-      }
+        },
+        create: {
+          serviceId: service.id,
+          partId: part.id,
+          quantity: requestedQuantity,
+          unitPrice,
+          total,
+        },
+        update: {
+          quantity: {
+            increment: requestedQuantity,
+          },
+          total: {
+            increment: total,
+          },
+        },
+      });
 
       const stockAfter =
         currentStock.minus(requestedQuantity);
@@ -240,7 +231,8 @@ export async function addPartToService(formData) {
           minStock,
         });
       }
-    });
+      },
+    );
 
     refreshServicePartPages(serviceId);
 
@@ -283,7 +275,9 @@ export async function removePartFromServiceAction(
 
     let serviceId = null;
 
-    await db.$transaction(async (transaction) => {
+    await runSerializableServicePartTransaction(
+      db,
+      async (transaction) => {
       const usage =
         await transaction.servicePartUsage.findFirst({
           where: {
@@ -338,8 +332,27 @@ export async function removePartFromServiceAction(
       const returnedQuantity = toQuantity(usage.quantity);
       const stockAfter = stockBefore.plus(returnedQuantity);
 
-      await transaction.part.update({
-        where: { id: usage.part.id },
+      const usageDelete =
+        await transaction.servicePartUsage.deleteMany({
+          where: {
+            id: usage.id,
+            serviceId,
+            partId: usage.part.id,
+          },
+        });
+
+      if (usageDelete.count !== 1) {
+        throw createActionError(
+          "Pjesa është hequr ndërkohë. Rifresko faqen dhe provo përsëri.",
+        );
+      }
+
+      const stockReturn = await transaction.part.updateMany({
+        where: {
+          id: usage.part.id,
+          businessId: context.businessId,
+          stock: stockBefore,
+        },
         data: {
           stock: {
             increment: returnedQuantity,
@@ -347,9 +360,11 @@ export async function removePartFromServiceAction(
         },
       });
 
-      await transaction.servicePartUsage.delete({
-        where: { id: usage.id },
-      });
+      if (stockReturn.count !== 1) {
+        throw createActionError(
+          "Stoku ndryshoi ndërkohë. Rifresko faqen dhe provo përsëri.",
+        );
+      }
 
       await transaction.inventoryMovement.create({
         data: {
@@ -366,7 +381,8 @@ export async function removePartFromServiceAction(
       });
 
       await recalculateServiceTotal(transaction, serviceId);
-    });
+      },
+    );
 
     refreshServicePartPages(serviceId);
 
