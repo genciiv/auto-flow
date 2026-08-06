@@ -28,3 +28,5 @@ import "./financial-period-consistency.test.mjs";
 import "./customer-portal-isolation.test.mjs";
 
 import "./staff-role-access.test.mjs";
+
+import "./critical-audit-coverage.test.mjs";
