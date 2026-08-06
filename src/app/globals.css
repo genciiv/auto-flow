@@ -199,3 +199,94 @@ a {
   padding: 1rem 1.1rem;
   color: #1e40af;
 }
+
+/* AutoFlow application design system */
+:root {
+  --af-app-bg: #f6f8fc;
+  --af-surface: #ffffff;
+  --af-surface-subtle: #f8fafc;
+  --af-surface-muted: #f1f5f9;
+  --af-border: #e2e8f0;
+  --af-border-strong: #cbd5e1;
+  --af-text: #0f172a;
+  --af-text-muted: #64748b;
+  --af-primary: #2563eb;
+  --af-primary-hover: #1d4ed8;
+  --af-primary-soft: #eff6ff;
+  --af-success: #16a34a;
+  --af-warning: #d97706;
+  --af-danger: #dc2626;
+  --af-radius-control: 0.75rem;
+  --af-radius-card: 1rem;
+  --af-radius-panel: 1.25rem;
+  --af-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 28px rgba(15, 23, 42, 0.035);
+  --af-shadow-popover: 0 18px 48px rgba(15, 23, 42, 0.14);
+}
+
+.af-app-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 70% -10%, rgba(37, 99, 235, 0.055), transparent 28rem),
+    var(--af-app-bg);
+  color: var(--af-text);
+}
+
+.af-content-container {
+  width: 100%;
+  max-width: 96rem;
+  margin-inline: auto;
+}
+
+.af-card {
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-card);
+  background: var(--af-surface);
+  box-shadow: var(--af-shadow-card);
+}
+
+.af-control {
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-control);
+  background: var(--af-surface);
+  transition: border-color 160ms ease, box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.af-control:hover {
+  border-color: var(--af-border-strong);
+}
+
+.af-control:focus-within {
+  border-color: var(--af-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.11);
+}
+
+.af-popover {
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-card);
+  background: var(--af-surface);
+  box-shadow: var(--af-shadow-popover);
+}
+
+.af-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.af-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.af-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #cbd5e1;
+  background-clip: padding-box;
+}
+
+.af-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  background-clip: padding-box;
+}

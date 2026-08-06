@@ -19,8 +19,8 @@ import {
 
 import { askAiAssistantAction } from "@/actions/ai-assistant-actions";
 
-const STORAGE_KEY = "autoflow.ai-launcher-position.v1";
-const BUTTON_SIZE = 58;
+const STORAGE_KEY = "autoflow.ai-launcher-position.v2";
+const BUTTON_SIZE = 52;
 const EDGE_GAP = 18;
 const DRAG_THRESHOLD = 5;
 
@@ -47,8 +47,8 @@ function getDefaultPosition() {
   }
 
   return {
-    x: Math.max(EDGE_GAP, window.innerWidth - BUTTON_SIZE - 28),
-    y: Math.max(EDGE_GAP, window.innerHeight - BUTTON_SIZE - 28),
+    x: Math.max(EDGE_GAP, window.innerWidth - BUTTON_SIZE - 24),
+    y: Math.max(EDGE_GAP, window.innerHeight - BUTTON_SIZE - 24),
   };
 }
 
@@ -220,8 +220,8 @@ export default function AiAssistantWidget() {
         top: `${position.y}px`,
       }
     : {
-        right: "28px",
-        bottom: "28px",
+        right: "24px",
+        bottom: "24px",
       };
 
   return (
@@ -369,11 +369,11 @@ export default function AiAssistantWidget() {
         onPointerUp={finishDrag}
         onPointerCancel={finishDrag}
         style={launcherStyle}
-        className="fixed z-[80] flex h-[58px] w-[58px] touch-none select-none items-center justify-center rounded-2xl bg-blue-600 text-white shadow-xl ring-4 ring-white/80 transition hover:bg-blue-700 focus:outline-none focus:ring-blue-300"
+        className="fixed z-[80] flex h-[52px] w-[52px] touch-none select-none items-center justify-center rounded-2xl border border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-600/20 ring-4 ring-white/90 transition hover:-translate-y-0.5 hover:bg-blue-700 focus:outline-none focus:ring-blue-300"
       >
-        <Bot size={25} />
-        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-950 text-white shadow-sm">
-          <Grip size={11} />
+        <Bot size={22} />
+        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
+          <Grip size={9} />
         </span>
       </button>
     </>

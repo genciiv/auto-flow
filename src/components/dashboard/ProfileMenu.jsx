@@ -110,9 +110,9 @@ export default function ProfileMenu({
         onClick={() => setOpen((currentValue) => !currentValue)}
         aria-expanded={open}
         aria-label="Hap menunë e profilit"
-        className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-2 transition hover:bg-slate-50"
+        className="flex min-h-10 items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-bold text-slate-600">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-xs font-extrabold text-blue-700">
           {initials}
         </div>
 
@@ -141,7 +141,7 @@ export default function ProfileMenu({
             className="fixed inset-0 z-40 cursor-default"
           />
 
-          <div className="absolute right-0 z-50 mt-3 w-64 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/10">
+          <div className="af-popover absolute right-0 z-50 mt-2 w-72 p-2.5">
             <div className="border-b border-slate-100 px-3 py-3">
               <p className="truncate font-bold text-slate-950">
                 {displayedBusinessName}
@@ -169,7 +169,7 @@ export default function ProfileMenu({
                     key={item.title}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                   >
                     <Icon size={18} />
 
@@ -184,7 +184,7 @@ export default function ProfileMenu({
                 type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isLoggingOut ? (
                   <LoaderCircle size={18} className="animate-spin" />
