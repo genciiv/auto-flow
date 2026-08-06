@@ -93,7 +93,7 @@ export default function ServiceOperationsPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {isBillingLocked ? (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <LockKeyhole
@@ -112,8 +112,8 @@ export default function ServiceOperationsPanel({
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid items-start gap-5 xl:grid-cols-3">
+        <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-bold text-slate-950">
@@ -142,7 +142,7 @@ export default function ServiceOperationsPanel({
                 name="description"
                 required
                 placeholder="P.sh. Ndërrim vaji"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
               />
               <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2.5">
                 <input
@@ -152,7 +152,7 @@ export default function ServiceOperationsPanel({
                   step="0.1"
                   defaultValue="1"
                   aria-label="Sasia e punës"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
                 />
                 <input
                   name="unitPrice"
@@ -161,7 +161,7 @@ export default function ServiceOperationsPanel({
                   step="0.01"
                   required
                   placeholder="Çmimi"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
                 />
               </div>
               <button
@@ -173,7 +173,7 @@ export default function ServiceOperationsPanel({
             </form>
           ) : null}
 
-          <div className="mt-4 max-h-56 divide-y divide-slate-100 overflow-y-auto pr-1">
+          <div className="mt-5 max-h-64 divide-y divide-slate-100 overflow-y-auto pr-1">
             {service.laborItems.length === 0 ? (
               <p className="py-3 text-sm text-slate-500">
                 Nuk ka ende punë të regjistruara.
@@ -219,7 +219,7 @@ export default function ServiceOperationsPanel({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm">
           <div>
             <h2 className="text-base font-bold text-slate-950">
               Pjesët e përdorura
@@ -242,7 +242,7 @@ export default function ServiceOperationsPanel({
               <select
                 name="partId"
                 required
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
               >
                 <option value="">
                   Zgjidh pjesën...
@@ -265,11 +265,11 @@ export default function ServiceOperationsPanel({
                   step="0.001"
                   defaultValue="1"
                   aria-label="Sasia e pjesës"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
                 />
                 <button
                   disabled={busy}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
                 >
                   <Plus size={16} /> Regjistro pjesën
                 </button>
@@ -277,7 +277,7 @@ export default function ServiceOperationsPanel({
             </form>
           ) : null}
 
-          <div className="mt-4 max-h-56 divide-y divide-slate-100 overflow-y-auto pr-1">
+          <div className="mt-5 max-h-64 divide-y divide-slate-100 overflow-y-auto pr-1">
             {service.partsUsed.length === 0 ? (
               <p className="py-3 text-sm text-slate-500">
                 Nuk ka pjesë të përdorura.
@@ -326,7 +326,7 @@ export default function ServiceOperationsPanel({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-bold text-slate-950">
               Faturimi
@@ -338,17 +338,17 @@ export default function ServiceOperationsPanel({
             </span>
           </div>
 
-          <div className="mt-4 rounded-xl bg-slate-50 p-3">
+          <div className="mt-5 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4">
             <p className="text-xs font-medium text-slate-500">
               Totali i fletës së punës
             </p>
-            <p className="mt-1 text-xl font-bold text-slate-950">
+            <p className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
               {formatCurrency(service.total)}
             </p>
           </div>
 
           {service.invoice ? (
-            <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+            <div className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
               <div className="rounded-xl border border-slate-100 p-2.5">
                 <p className="text-xs text-slate-500">
                   Fatura
@@ -407,7 +407,7 @@ export default function ServiceOperationsPanel({
                     ),
                   )
                 }
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
               >
                 <ReceiptText size={17} /> Krijo faturën
               </button>
