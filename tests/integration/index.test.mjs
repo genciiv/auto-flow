@@ -20,3 +20,5 @@ import "./appointment-conflict-lifecycle.test.mjs";
 import "./operational-notification-hardening.test.mjs";
 import "./service-workflow-hardening.test.mjs";
 import "./service-part-stock-hardening.test.mjs";
+
+import "./invoice-payment-hardening.test.mjs";

@@ -34,6 +34,11 @@ import {
 } from "@/services/audit-events";
 
 import { createActionError } from "@/lib/errors";
+import {
+  getPaidAndRemaining,
+  nextInvoiceNumberInTransaction,
+  runSerializableInvoiceTransaction,
+} from "@/lib/invoice-financial-safety";
 function getStatusLabel(status) {
   const labels = {
     DRAFT: "Draft",
@@ -118,40 +123,6 @@ async function ensurePaidInvoicePayment(
   });
 
   return remaining;
-}
-
-async function generateInvoiceNumber(businessId) {
-  const currentYear = new Date().getFullYear();
-
-  const invoices = await db.invoice.findMany({
-    where: {
-      businessId,
-
-      number: {
-        startsWith: `INV-${currentYear}-`,
-      },
-    },
-
-    select: {
-      number: true,
-    },
-  });
-
-  let highestNumber = 0;
-
-  for (const invoice of invoices) {
-    const numberParts = invoice.number.split("-");
-
-    const sequence = Number(numberParts[numberParts.length - 1]);
-
-    if (Number.isInteger(sequence) && sequence > highestNumber) {
-      highestNumber = sequence;
-    }
-  }
-
-  const nextNumber = String(highestNumber + 1).padStart(4, "0");
-
-  return `INV-${currentYear}-${nextNumber}`;
 }
 
 async function getServiceData(serviceId, businessId) {
@@ -356,30 +327,18 @@ export async function createInvoice(formData) {
     customerId = validatedCustomerId;
     vehicleId = validatedVehicle?.id || null;
 
-    const number = requestedNumber || (await generateInvoiceNumber(businessId));
-
-    const duplicateNumber = await db.invoice.findFirst({
-      where: {
-        businessId,
-        number,
-      },
-
-      select: {
-        id: true,
-      },
-    });
-
-    if (duplicateNumber) {
-      return {
-        success: false,
-
-        message: "Ekziston tashmë një faturë me këtë numër.",
-      };
-    }
-
     let createdInvoice = null;
 
-    await db.$transaction(async (transaction) => {
+    await runSerializableInvoiceTransaction(
+      db,
+      async (transaction) => {
+      const number =
+        requestedNumber ||
+        (await nextInvoiceNumberInTransaction(
+          transaction,
+          businessId,
+        ));
+
       const invoice = await transaction.invoice.create({
         data: {
           businessId,
@@ -453,7 +412,8 @@ export async function createInvoice(formData) {
           database: transaction,
         });
       }
-    });
+      },
+    );
 
     revalidateInvoicePaths(createdInvoice.id);
 
@@ -537,6 +497,12 @@ export async function updateInvoice(invoiceId, formData) {
         number: true,
         status: true,
         total: true,
+        customerPayments: {
+          select: {
+            id: true,
+            amount: true,
+          },
+        },
       },
     });
 
@@ -629,7 +595,26 @@ export async function updateInvoice(invoiceId, formData) {
     customerId = validatedCustomerId;
     vehicleId = validatedVehicle?.id || null;
 
-    await db.$transaction(async (transaction) => {
+    const paymentSummary = getPaidAndRemaining(existingInvoice);
+
+    if (paymentSummary.paid.gt(total)) {
+      return {
+        success: false,
+        message:
+          "Totali i faturës nuk mund të jetë më i vogël se pagesat e regjistruara.",
+      };
+    }
+
+    const financiallyConsistentStatus =
+      paymentSummary.paid.eq(total) && total.gt(0)
+        ? "PAID"
+        : paymentSummary.paid.gt(0)
+          ? "UNPAID"
+          : status;
+
+    await runSerializableInvoiceTransaction(
+      db,
+      async (transaction) => {
       const updatedInvoice = await transaction.invoice.update({
         where: {
           id: existingInvoice.id,
@@ -640,7 +625,7 @@ export async function updateInvoice(invoiceId, formData) {
           vehicleId,
           serviceId,
           number,
-          status,
+          status: financiallyConsistentStatus,
           total,
         },
 
@@ -731,7 +716,8 @@ export async function updateInvoice(invoiceId, formData) {
           });
         }
       }
-    });
+      },
+    );
 
     revalidateInvoicePaths(existingInvoice.id);
 
@@ -792,6 +778,11 @@ export async function updateInvoiceStatus(invoiceId, status) {
         number: true,
         status: true,
         total: true,
+        customerPayments: {
+          select: {
+            amount: true,
+          },
+        },
       },
     });
 
@@ -799,6 +790,20 @@ export async function updateInvoiceStatus(invoiceId, status) {
       return {
         success: false,
         message: "Fatura nuk u gjet.",
+      };
+    }
+
+    const paymentSummary = getPaidAndRemaining(invoice);
+
+    if (
+      normalizedStatus !== "PAID" &&
+      paymentSummary.remaining.eq(0) &&
+      paymentSummary.total.gt(0)
+    ) {
+      return {
+        success: false,
+        message:
+          "Një faturë e paguar plotësisht nuk mund të kthehet në status të papaguar.",
       };
     }
 
@@ -813,7 +818,9 @@ export async function updateInvoiceStatus(invoiceId, status) {
       };
     }
 
-    await db.$transaction(async (transaction) => {
+    await runSerializableInvoiceTransaction(
+      db,
+      async (transaction) => {
       const updatedInvoice = await transaction.invoice.update({
         where: {
           id: invoice.id,
@@ -887,7 +894,8 @@ export async function updateInvoiceStatus(invoiceId, status) {
           database: transaction,
         });
       }
-    });
+      },
+    );
 
     revalidateInvoicePaths(invoice.id);
 
@@ -948,6 +956,11 @@ export async function deleteInvoice(invoiceId) {
         number: true,
         status: true,
         total: true,
+        _count: {
+          select: {
+            customerPayments: true,
+          },
+        },
       },
     });
 
@@ -958,7 +971,17 @@ export async function deleteInvoice(invoiceId) {
       };
     }
 
-    await db.$transaction(async (transaction) => {
+    if (invoice._count.customerPayments > 0) {
+      return {
+        success: false,
+        message:
+          "Fatura ka pagesa të regjistruara dhe nuk mund të fshihet. Ruaje për historikun financiar.",
+      };
+    }
+
+    await runSerializableInvoiceTransaction(
+      db,
+      async (transaction) => {
       await transaction.invoice.delete({
         where: {
           id: invoice.id,
@@ -986,7 +1009,8 @@ export async function deleteInvoice(invoiceId) {
 
         database: transaction,
       });
-    });
+      },
+    );
 
     revalidateInvoicePaths(invoice.id);
 
