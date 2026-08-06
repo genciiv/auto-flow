@@ -13,6 +13,7 @@ import ExecutiveDashboard from "@/components/dashboard/ExecutiveDashboard";
 
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { getAppMonthKey, getAppMonthRange } from "@/lib/financial-period";
 
 const MONTH_NAMES = ["Jan", "Shk", "Mar", "Pri", "Maj", "Qer", "Kor", "Gus", "Sht", "Tet", "Nën", "Dhj"];
 const ACTIVE_SERVICE_STATUSES = ["PENDING", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_PICKUP"];
@@ -30,20 +31,15 @@ function percentageChange(current, previous) {
   return ((currentValue - previousValue) / previousValue) * 100;
 }
 
-function monthStart(date, offset = 0) {
-  return new Date(date.getFullYear(), date.getMonth() + offset, 1);
-}
-
-function monthKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
 async function getExecutiveDashboardData(businessId) {
   const now = new Date();
-  const currentStart = monthStart(now);
-  const nextStart = monthStart(now, 1);
-  const previousStart = monthStart(now, -1);
-  const sixMonthsStart = monthStart(now, -5);
+  const currentMonth = getAppMonthRange(now);
+  const previousMonth = getAppMonthRange(now, -1);
+  const sixMonthsAgo = getAppMonthRange(now, -5);
+  const currentStart = currentMonth.start;
+  const nextStart = currentMonth.endExclusive;
+  const previousStart = previousMonth.start;
+  const sixMonthsStart = sixMonthsAgo.start;
 
   const [
     payments,
@@ -111,17 +107,22 @@ async function getExecutiveDashboardData(businessId) {
   ]);
 
   const months = Array.from({ length: 6 }, (_, index) => {
-    const date = monthStart(now, index - 5);
-    return { key: monthKey(date), label: MONTH_NAMES[date.getMonth()], revenue: 0, expenses: 0 };
+    const period = getAppMonthRange(now, index - 5);
+    return {
+      key: `${period.year}-${String(period.month).padStart(2, "0")}`,
+      label: MONTH_NAMES[period.month - 1],
+      revenue: 0,
+      expenses: 0,
+    };
   });
   const monthMap = new Map(months.map((item) => [item.key, item]));
 
   for (const payment of payments) {
-    const bucket = monthMap.get(monthKey(new Date(payment.paidAt)));
+    const bucket = monthMap.get(getAppMonthKey(payment.paidAt));
     if (bucket) bucket.revenue += Number(payment.amount || 0);
   }
   for (const expense of expenses) {
-    const bucket = monthMap.get(monthKey(new Date(expense.expenseDate)));
+    const bucket = monthMap.get(getAppMonthKey(expense.expenseDate));
     if (bucket) bucket.expenses += Number(expense.amount || 0);
   }
 
