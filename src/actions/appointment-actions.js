@@ -21,6 +21,10 @@ import {
 } from "@/schemas/appointment-schema";
 
 import { createActionError } from "@/lib/errors";
+import {
+  assertAppointmentSlotAvailable,
+  runSerializableAppointmentTransaction,
+} from "@/lib/appointment-scheduling";
 import { notifyUsersByRoles } from "@/services/operational-notification-service";
 function revalidateAppointmentPages() {
   revalidatePath("/dashboard");
@@ -157,20 +161,33 @@ export async function createAppointment(formData) {
       return relationsResult;
     }
 
-    const appointment = await db.appointment.create({
-      data: {
-        businessId,
-        customerId,
-        vehicleId,
-        assignedUserId,
-        durationMinutes,
-        title,
-        description,
-        date,
-        status,
-        customerConfirmedAt: status === "CONFIRMED" ? new Date() : null,
+    const appointment = await runSerializableAppointmentTransaction(
+      db,
+      async (transaction) => {
+        await assertAppointmentSlotAvailable({
+          database: transaction,
+          businessId,
+          assignedUserId,
+          date,
+          durationMinutes,
+        });
+
+        return transaction.appointment.create({
+          data: {
+            businessId,
+            customerId,
+            vehicleId,
+            assignedUserId,
+            durationMinutes,
+            title,
+            description,
+            date,
+            status,
+            customerConfirmedAt: status === "CONFIRMED" ? new Date() : null,
+          },
+        });
       },
-    });
+    );
 
     await notifyUsersByRoles({
       businessId,
@@ -250,6 +267,14 @@ export async function updateAppointment(formData) {
 
       select: {
         id: true,
+        assignedUserId: true,
+        date: true,
+        durationMinutes: true,
+        status: true,
+        title: true,
+        description: true,
+        customerId: true,
+        vehicleId: true,
       },
     });
 
@@ -271,22 +296,33 @@ export async function updateAppointment(formData) {
       return relationsResult;
     }
 
-    await db.appointment.update({
-      where: {
-        id: appointment.id,
-      },
-
-      data: {
-        customerId,
-        vehicleId,
+    await runSerializableAppointmentTransaction(db, async (transaction) => {
+      await assertAppointmentSlotAvailable({
+        database: transaction,
+        businessId,
         assignedUserId,
-        durationMinutes,
-        title,
-        description,
         date,
-        status,
-        customerConfirmedAt: status === "CONFIRMED" ? new Date() : null,
-      },
+        durationMinutes,
+        excludeAppointmentId: appointment.id,
+      });
+
+      await transaction.appointment.update({
+        where: {
+          id: appointment.id,
+        },
+
+        data: {
+          customerId,
+          vehicleId,
+          assignedUserId,
+          durationMinutes,
+          title,
+          description,
+          date,
+          status,
+          customerConfirmedAt: status === "CONFIRMED" ? new Date() : null,
+        },
+      });
     });
 
     await createAuditLog({
@@ -495,7 +531,9 @@ export async function startServiceFromAppointment(appointmentId) {
 
     const validatedAppointmentId = validationResult.data.appointmentId;
 
-    const service = await db.$transaction(async (transaction) => {
+    const serviceResult = await runSerializableAppointmentTransaction(
+      db,
+      async (transaction) => {
       const appointment = await transaction.appointment.findFirst({
         where: {
           id: validatedAppointmentId,
@@ -509,11 +547,25 @@ export async function startServiceFromAppointment(appointmentId) {
           title: true,
           description: true,
           status: true,
+          serviceId: true,
         },
       });
 
       if (!appointment) {
         throw createActionError("Termini nuk u gjet.");
+      }
+
+      if (appointment.serviceId) {
+        const existingService = await transaction.serviceRecord.findFirst({
+          where: {
+            id: appointment.serviceId,
+            businessId,
+          },
+        });
+
+        if (existingService) {
+          return { service: existingService, created: false };
+        }
       }
 
       if (!appointment.vehicleId) {
@@ -613,26 +665,34 @@ export async function startServiceFromAppointment(appointmentId) {
         data: { serviceId: createdService.id },
       });
 
-      return createdService;
-    });
+      return { service: createdService, created: true };
+      },
+    );
 
-    await createAuditLog({
-      businessId,
-      userId,
-      action: "CREATE",
-      entityType: "SERVICE_FROM_APPOINTMENT",
-      entityId: service.id,
-      title: "U nis servisi nga termini",
-      metadata: { appointmentId },
-      newValues: { serviceId: service.id, status: "IN_PROGRESS" },
-    });
+    if (serviceResult.created) {
+      await createAuditLog({
+        businessId,
+        userId,
+        action: "CREATE",
+        entityType: "SERVICE_FROM_APPOINTMENT",
+        entityId: serviceResult.service.id,
+        title: "U nis servisi nga termini",
+        metadata: { appointmentId },
+        newValues: {
+          serviceId: serviceResult.service.id,
+          status: "IN_PROGRESS",
+        },
+      });
+    }
 
     revalidateAppointmentPages();
 
     return {
       success: true,
-      message: "Servisi u krijua dhe u nis me sukses.",
-      serviceId: service.id,
+      message: serviceResult.created
+        ? "Servisi u krijua dhe u nis me sukses."
+        : "Servisi për këtë termin është nisur tashmë.",
+      serviceId: serviceResult.service.id,
     };
   } catch (error) {
     console.error("Gabim gjatë nisjes së servisit:", error);
@@ -652,10 +712,34 @@ export async function rescheduleAppointment(formData) {
       return { success: false, message: getFirstValidationMessage(validationResult.error, "Termini nuk mund të riplanifikohej.") };
     }
     const { appointmentId, date } = validationResult.data;
-    const appointment = await db.appointment.findFirst({ where: { id: appointmentId, businessId }, select: { id: true, status: true } });
+    const appointment = await db.appointment.findFirst({
+      where: { id: appointmentId, businessId },
+      select: {
+        id: true,
+        status: true,
+        assignedUserId: true,
+        durationMinutes: true,
+        date: true,
+      },
+    });
     if (!appointment) return { success: false, message: "Termini nuk u gjet." };
     if (["COMPLETED", "CANCELLED", "NO_SHOW"].includes(appointment.status)) return { success: false, message: "Ky termin nuk mund të riplanifikohet." };
-    await db.appointment.update({ where: { id: appointment.id }, data: { date, reminderSentAt: null } });
+
+    await runSerializableAppointmentTransaction(db, async (transaction) => {
+      await assertAppointmentSlotAvailable({
+        database: transaction,
+        businessId,
+        assignedUserId: appointment.assignedUserId,
+        date,
+        durationMinutes: appointment.durationMinutes,
+        excludeAppointmentId: appointment.id,
+      });
+
+      await transaction.appointment.update({
+        where: { id: appointment.id },
+        data: { date, reminderSentAt: null },
+      });
+    });
     await createAuditLog({
       businessId,
       userId,

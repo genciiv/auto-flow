@@ -32,3 +32,5 @@ import "./staff-role-access.test.mjs";
 import "./critical-audit-coverage.test.mjs";
 
 import "./inventory-count-lifecycle.test.mjs";
+
+import "./appointment-conflict-lifecycle.test.mjs";
