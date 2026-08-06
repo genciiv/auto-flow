@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { createAuditLog } from "@/services/audit-log-service";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getFirstValidationMessage,
@@ -34,7 +35,7 @@ function getErrorMessage(error, fallbackMessage) {
 
 export async function createPurchaseOrder(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const { businessId, userId } = await requireBusinessActionPermission(
       PERMISSIONS.PURCHASES_CREATE,
     );
 
@@ -55,7 +56,7 @@ export async function createPurchaseOrder(formData) {
 
     const { supplier, status, total, notes } = validationResult.data;
 
-    await db.purchaseOrder.create({
+    const purchase = await db.purchaseOrder.create({
       data: {
         businessId,
         supplier,
@@ -63,6 +64,17 @@ export async function createPurchaseOrder(formData) {
         total,
         notes,
       },
+    });
+
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "CREATE",
+      entityType: "PURCHASE_ORDER",
+      entityId: purchase.id,
+      title: "U krijua porosia e furnizimit",
+      description: `Porosia për ${supplier} u krijua me status ${status}.`,
+      newValues: { supplier, status, total, notes },
     });
 
     refreshPurchasePages();
@@ -83,7 +95,7 @@ export async function createPurchaseOrder(formData) {
 
 export async function updatePurchaseOrder(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const { businessId, userId } = await requireBusinessActionPermission(
       PERMISSIONS.PURCHASES_UPDATE,
     );
 
@@ -112,7 +124,10 @@ export async function updatePurchaseOrder(formData) {
 
       select: {
         id: true,
+        supplier: true,
         status: true,
+        total: true,
+        notes: true,
       },
     });
 
@@ -143,6 +158,17 @@ export async function updatePurchaseOrder(formData) {
       },
     });
 
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "UPDATE",
+      entityType: "PURCHASE_ORDER",
+      entityId: purchase.id,
+      title: "U përditësua porosia e furnizimit",
+      oldValues: purchase,
+      newValues: { supplier, status, total, notes },
+    });
+
     refreshPurchasePages();
 
     return {
@@ -161,7 +187,7 @@ export async function updatePurchaseOrder(formData) {
 
 export async function updatePurchaseStatus(purchaseId, status) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const { businessId, userId } = await requireBusinessActionPermission(
       PERMISSIONS.PURCHASES_UPDATE,
     );
 
@@ -220,6 +246,17 @@ export async function updatePurchaseStatus(purchaseId, status) {
       },
     });
 
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "STATUS_CHANGE",
+      entityType: "PURCHASE_ORDER",
+      entityId: purchase.id,
+      title: "U ndryshua statusi i porosisë",
+      oldValues: { status: purchase.status },
+      newValues: { status: validatedStatus },
+    });
+
     refreshPurchasePages();
 
     return {
@@ -238,7 +275,7 @@ export async function updatePurchaseStatus(purchaseId, status) {
 
 export async function deletePurchaseOrder(purchaseId) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const { businessId, userId } = await requireBusinessActionPermission(
       PERMISSIONS.PURCHASES_DELETE,
     );
 
@@ -315,6 +352,17 @@ export async function deletePurchaseOrder(purchaseId) {
           "Porosia është ndryshuar ose është marrë ndërkohë në magazinë.",
         );
       }
+    });
+
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "DELETE",
+      entityType: "PURCHASE_ORDER",
+      entityId: purchase.id,
+      title: "U fshi porosia e furnizimit",
+      oldValues: purchase,
+      metadata: { deletedItems: purchase._count.items },
     });
 
     refreshPurchasePages();

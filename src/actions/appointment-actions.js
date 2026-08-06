@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { createAuditLog } from "@/services/audit-log-service";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getFirstValidationMessage,
@@ -123,7 +124,7 @@ async function validateAppointmentRelations({
 
 export async function createAppointment(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const { businessId, userId } = await requireBusinessActionPermission(
       PERMISSIONS.APPOINTMENTS_CREATE,
     );
 
@@ -181,6 +182,17 @@ export async function createAppointment(formData) {
       entityId: appointment.id,
     });
 
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "CREATE",
+      entityType: "APPOINTMENT",
+      entityId: appointment.id,
+      title: "U krijua termini",
+      description: `${title} u planifikua.`,
+      newValues: { title, date, status, customerId, vehicleId, assignedUserId, durationMinutes },
+    });
+
     revalidateAppointmentPages();
 
     return {
@@ -199,7 +211,7 @@ export async function createAppointment(formData) {
 
 export async function updateAppointment(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const { businessId, userId } = await requireBusinessActionPermission(
       PERMISSIONS.APPOINTMENTS_UPDATE,
     );
 
@@ -277,6 +289,17 @@ export async function updateAppointment(formData) {
       },
     });
 
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "UPDATE",
+      entityType: "APPOINTMENT",
+      entityId: appointment.id,
+      title: "U përditësua termini",
+      oldValues: appointment,
+      newValues: { title, description, customerId, vehicleId, assignedUserId, durationMinutes, date, status },
+    });
+
     revalidateAppointmentPages();
 
     return {
@@ -295,7 +318,7 @@ export async function updateAppointment(formData) {
 
 export async function deleteAppointment(appointmentId) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const { businessId, userId } = await requireBusinessActionPermission(
       PERMISSIONS.APPOINTMENTS_DELETE,
     );
 
@@ -339,6 +362,16 @@ export async function deleteAppointment(appointmentId) {
       },
     });
 
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "DELETE",
+      entityType: "APPOINTMENT",
+      entityId: appointment.id,
+      title: "U fshi termini",
+      oldValues: appointment,
+    });
+
     revalidateAppointmentPages();
 
     return {
@@ -357,7 +390,7 @@ export async function deleteAppointment(appointmentId) {
 
 export async function updateAppointmentStatus(appointmentId, status) {
   try {
-    const { businessId } = await requireBusinessActionPermission(
+    const { businessId, userId } = await requireBusinessActionPermission(
       PERMISSIONS.APPOINTMENTS_UPDATE,
     );
 
@@ -387,6 +420,7 @@ export async function updateAppointmentStatus(appointmentId, status) {
 
       select: {
         id: true,
+        status: true,
       },
     });
 
@@ -406,6 +440,17 @@ export async function updateAppointmentStatus(appointmentId, status) {
         status: validatedStatus,
         customerConfirmedAt: validatedStatus === "CONFIRMED" ? new Date() : undefined,
       },
+    });
+
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "STATUS_CHANGE",
+      entityType: "APPOINTMENT",
+      entityId: appointment.id,
+      title: "U ndryshua statusi i terminit",
+      oldValues: { status: appointment.status },
+      newValues: { status: validatedStatus },
     });
 
     revalidateAppointmentPages();
@@ -432,7 +477,7 @@ export async function startServiceFromAppointment(appointmentId) {
 
     await requireBusinessActionPermission(PERMISSIONS.SERVICES_CREATE);
 
-    const { businessId } = appointmentContext;
+    const { businessId, userId } = appointmentContext;
 
     const validationResult = validateObject(startAppointmentServiceSchema, {
       appointmentId,
@@ -571,6 +616,17 @@ export async function startServiceFromAppointment(appointmentId) {
       return createdService;
     });
 
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "CREATE",
+      entityType: "SERVICE_FROM_APPOINTMENT",
+      entityId: service.id,
+      title: "U nis servisi nga termini",
+      metadata: { appointmentId },
+      newValues: { serviceId: service.id, status: "IN_PROGRESS" },
+    });
+
     revalidateAppointmentPages();
 
     return {
@@ -590,7 +646,7 @@ export async function startServiceFromAppointment(appointmentId) {
 
 export async function rescheduleAppointment(formData) {
   try {
-    const { businessId } = await requireBusinessActionPermission(PERMISSIONS.APPOINTMENTS_UPDATE);
+    const { businessId, userId } = await requireBusinessActionPermission(PERMISSIONS.APPOINTMENTS_UPDATE);
     const validationResult = validateFormData(rescheduleAppointmentSchema, formData);
     if (!validationResult.success) {
       return { success: false, message: getFirstValidationMessage(validationResult.error, "Termini nuk mund të riplanifikohej.") };
@@ -600,6 +656,16 @@ export async function rescheduleAppointment(formData) {
     if (!appointment) return { success: false, message: "Termini nuk u gjet." };
     if (["COMPLETED", "CANCELLED", "NO_SHOW"].includes(appointment.status)) return { success: false, message: "Ky termin nuk mund të riplanifikohet." };
     await db.appointment.update({ where: { id: appointment.id }, data: { date, reminderSentAt: null } });
+    await createAuditLog({
+      businessId,
+      userId,
+      action: "UPDATE",
+      entityType: "APPOINTMENT",
+      entityId: appointment.id,
+      title: "U riplanifikua termini",
+      oldValues: { status: appointment.status },
+      newValues: { date },
+    });
     revalidateAppointmentPages();
     return { success: true, message: "Termini u riplanifikua me sukses." };
   } catch (error) {
