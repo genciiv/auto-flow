@@ -257,7 +257,7 @@ export default async function FinancePage({ searchParams }) {
   return (
     <DashboardLayout>
       <div className="space-y-7">
-        <div>
+        <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <p className="text-sm font-bold text-blue-600">
             Financa & raportim
           </p>
@@ -281,18 +281,17 @@ export default async function FinancePage({ searchParams }) {
             return (
               <div
                 key={card.label}
-                className="rounded-2xl border bg-white p-5 shadow-sm"
+                className="group rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
               >
-                <Icon
-                  size={22}
-                  className="text-blue-600"
-                />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <Icon size={20} />
+                </div>
 
-                <p className="mt-4 text-sm text-slate-500">
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                   {card.label}
                 </p>
 
-                <p className="mt-1 text-2xl font-bold">
+                <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
                   {formatMoney(card.value, {
                     currency: business.currency,
                     locale: "sq-AL",
@@ -308,7 +307,7 @@ export default async function FinancePage({ searchParams }) {
             <Link
               key={item.title}
               href={item.href}
-              className="rounded-2xl border bg-white p-6 shadow-sm transition hover:border-blue-300"
+              className="group rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
             >
               <FileSpreadsheet className="text-blue-600" />
 

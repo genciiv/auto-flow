@@ -91,18 +91,18 @@ export default async function PurchasesPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="space-y-7">
+        <div className="flex flex-col gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between md:p-6">
           <div>
             <p className="text-sm font-semibold text-blue-600">
               Porositë
             </p>
 
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+            <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-slate-950">
               Porositë
             </h1>
 
-            <p className="mt-2 text-slate-500">
+            <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-500">
               Menaxho blerjet, furnitorët, porositë e
               pjesëve dhe statuset.
             </p>

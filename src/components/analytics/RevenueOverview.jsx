@@ -14,6 +14,10 @@ function formatCompactMoney(value) {
 }
 
 function formatChange(value) {
+  if (value === null || value === undefined) {
+    return "Pa bazë krahasimi";
+  }
+
   const number = Number(value || 0);
   const sign = number > 0 ? "+" : "";
 
@@ -34,10 +38,11 @@ export default function RevenueOverview({
     0,
   );
 
+  const hasComparison = revenueChange !== null && revenueChange !== undefined;
   const isPositive = Number(revenueChange || 0) >= 0;
 
   return (
-    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-950">Të ardhurat</h2>
@@ -53,9 +58,11 @@ export default function RevenueOverview({
 
         <span
           className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${
-            isPositive
-              ? "bg-emerald-50 text-emerald-700"
-              : "bg-red-50 text-red-700"
+            !hasComparison
+              ? "bg-slate-100 text-slate-600"
+              : isPositive
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-red-50 text-red-700"
           }`}
         >
           {formatChange(revenueChange)}

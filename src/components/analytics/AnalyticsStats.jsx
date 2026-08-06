@@ -13,6 +13,10 @@ function formatNumber(value) {
 }
 
 function formatChange(value) {
+  if (value === null || value === undefined) {
+    return "Pa bazë krahasimi";
+  }
+
   const number = Number(value || 0);
   const sign = number > 0 ? "+" : "";
 
@@ -51,12 +55,13 @@ export default function AnalyticsStats({ stats }) {
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => {
         const Icon = item.icon;
+        const hasComparison = item.change !== null && item.change !== undefined;
         const isPositive = Number(item.change || 0) >= 0;
 
         return (
           <div
             key={item.title}
-            className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
+            className="rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
@@ -65,9 +70,11 @@ export default function AnalyticsStats({ stats }) {
 
               <span
                 className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  isPositive
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-red-50 text-red-700"
+                  !hasComparison
+                    ? "bg-slate-100 text-slate-600"
+                    : isPositive
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-red-50 text-red-700"
                 }`}
               >
                 {formatChange(item.change)}

@@ -14,7 +14,7 @@ function formatNumber(value) {
 
 export default function TopCustomersTable({ customers = [] }) {
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-6">
         <h2 className="text-xl font-bold text-slate-950">Klientët kryesorë</h2>
 
@@ -49,7 +49,7 @@ export default function TopCustomersTable({ customers = [] }) {
 
             <tbody className="divide-y divide-slate-100">
               {customers.map((customer) => (
-                <tr key={customer.id} className="transition hover:bg-slate-50">
+                <tr key={customer.id} className="transition hover:bg-blue-50/40">
                   <td className="px-6 py-5">
                     <p className="font-bold text-slate-950">{customer.name}</p>
 

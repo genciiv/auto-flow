@@ -226,14 +226,14 @@ export default function InventoryTable({
             <button
               type="button"
               onClick={handleResetFilters}
-              className="mt-5 inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              className="mt-5 inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-blue-50/40"
             >
               Pastro filtrat
             </button>
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div>
               <h2 className="text-sm font-semibold text-slate-900">
@@ -277,7 +277,7 @@ export default function InventoryTable({
                   return (
                     <tr
                       key={part.id}
-                      className="transition hover:bg-slate-50/70"
+                      className="transition hover:bg-blue-50/40"
                     >
                       <td className="whitespace-nowrap px-6 py-5 text-sm font-semibold text-blue-600">
                         {part.code || "—"}

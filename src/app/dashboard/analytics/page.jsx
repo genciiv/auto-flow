@@ -52,7 +52,7 @@ function calculatePercentageChange(currentValue, previousValue) {
   const previous = Number(previousValue || 0);
 
   if (previous === 0) {
-    return current > 0 ? 100 : 0;
+    return current > 0 ? null : 0;
   }
 
   return ((current - previous) / previous) * 100;
@@ -470,15 +470,15 @@ export default async function AnalyticsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div>
+      <div className="space-y-7">
+        <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <p className="text-sm font-semibold text-blue-600">Analitika</p>
 
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+          <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-slate-950">
             Analitika
           </h1>
 
-          <p className="mt-2 text-slate-500">
+          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-500">
             Analizo të ardhurat, shërbimet, magazinën dhe klientët më të
             vlefshëm.
           </p>
