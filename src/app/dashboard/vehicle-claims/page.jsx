@@ -179,43 +179,30 @@ export default async function VehicleClaimsPage({ searchParams }) {
   return (
     <DashboardLayout>
       <div className="space-y-7">
-        <section className="overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-9">
-          <div className="relative">
-            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-blue-500/15 blur-3xl" />
+        <div className="af-page-header">
+          <div>
+            <p className="af-page-eyebrow">Lidhja e automjeteve</p>
+            <h1 className="af-page-title">Kërkesat e klientëve</h1>
+            <p className="af-page-description">
+              Aprovo vetëm kërkesat e klientëve që zotërojnë ose përdorin
+              automjetet e regjistruara në servisin tuaj.
+            </p>
+          </div>
 
-            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300">
-                  <Link2 size={14} />
-                  Lidhja e automjeteve
-                </div>
+          <div className="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <ShieldCheck size={20} className="text-blue-600" />
 
-                <h1 className="mt-5 text-3xl font-bold tracking-tight sm:text-4xl">
-                  Kërkesat e klientëve
-                </h1>
+            <div>
+              <p className="text-xs font-semibold text-slate-500">
+                Në pritje për shqyrtim
+              </p>
 
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                  Aprovo vetëm kërkesat e klientëve që zotërojnë ose përdorin
-                  automjetet e regjistruara në servisin tuaj.
-                </p>
-              </div>
-
-              <div className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <ShieldCheck size={22} className="text-blue-300" />
-
-                <div>
-                  <p className="text-xs font-semibold text-slate-400">
-                    Në pritje për shqyrtim
-                  </p>
-
-                  <p className="text-xl font-black text-white">
-                    {pendingCount}
-                  </p>
-                </div>
-              </div>
+              <p className="text-xl font-black text-slate-950">
+                {pendingCount}
+              </p>
             </div>
           </div>
-        </section>
+        </div>
 
         <section className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
