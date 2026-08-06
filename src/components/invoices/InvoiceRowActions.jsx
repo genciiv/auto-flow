@@ -42,7 +42,12 @@ const statusOptions = [
   },
 ];
 
-export default function InvoiceRowActions({ invoice, onEdit }) {
+export default function InvoiceRowActions({
+  invoice,
+  onEdit,
+  canUpdate = false,
+  canDelete = false,
+}) {
   const router = useRouter();
   const { confirm } = useConfirm();
   const toast = useToast();
@@ -168,6 +173,7 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
               Shiko detajet
             </button>
 
+            {canUpdate ? (
             <button
               type="button"
               onClick={handleEdit}
@@ -177,7 +183,9 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
               <FilePenLine className="h-4 w-4 text-slate-500" />
               Modifiko faturën
             </button>
+            ) : null}
 
+            {canUpdate ? (<>
             <div className="my-2 border-t border-slate-100" />
 
             <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -217,6 +225,9 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
               );
             })}
 
+            </>) : null}
+
+            {canDelete ? (<>
             <div className="my-2 border-t border-slate-100" />
 
             <button
@@ -228,6 +239,7 @@ export default function InvoiceRowActions({ invoice, onEdit }) {
               <Trash2 className="h-4 w-4" />
               Fshi faturën
             </button>
+            </>) : null}
           </div>
         </div>
       )}

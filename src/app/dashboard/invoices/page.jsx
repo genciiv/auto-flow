@@ -3,8 +3,9 @@ import CreateInvoiceModal from "@/components/invoices/CreateInvoiceModal";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
 import InvoicesTable from "@/components/invoices/InvoicesTable";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import {
   addMoney,
   serializeMoney,
@@ -12,7 +13,9 @@ import {
 } from "@/lib/money";
 
 export default async function InvoicesPage() {
-  const { businessId } = await requireBusinessContext();
+  const { businessId, businessRole } = await requireBusinessPermission(
+    PERMISSIONS.INVOICES_VIEW,
+  );
 
   const [invoices, customers, vehicles, services] =
     await Promise.all([
@@ -102,6 +105,19 @@ export default async function InvoicesPage() {
   const clientVehicles = JSON.parse(JSON.stringify(vehicles));
   const clientServices = JSON.parse(JSON.stringify(services));
 
+  const canCreateInvoice = hasPermission(
+    businessRole,
+    PERMISSIONS.INVOICES_CREATE,
+  );
+  const canUpdateInvoice = hasPermission(
+    businessRole,
+    PERMISSIONS.INVOICES_UPDATE,
+  );
+  const canDeleteInvoice = hasPermission(
+    businessRole,
+    PERMISSIONS.INVOICES_DELETE,
+  );
+
   const stats = {
     totalInvoices,
     paidInvoices,
@@ -131,11 +147,13 @@ export default async function InvoicesPage() {
             </p>
           </div>
 
-          <CreateInvoiceModal
-            customers={clientCustomers}
-            vehicles={clientVehicles}
-            services={clientServices}
-          />
+          {canCreateInvoice ? (
+            <CreateInvoiceModal
+              customers={clientCustomers}
+              vehicles={clientVehicles}
+              services={clientServices}
+            />
+          ) : null}
         </div>
 
         <InvoiceStats stats={stats} />
@@ -145,6 +163,8 @@ export default async function InvoicesPage() {
           customers={clientCustomers}
           vehicles={clientVehicles}
           services={clientServices}
+          canUpdate={canUpdateInvoice}
+          canDelete={canDeleteInvoice}
         />
       </div>
     </DashboardLayout>

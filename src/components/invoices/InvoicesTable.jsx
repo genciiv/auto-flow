@@ -122,6 +122,8 @@ export default function InvoicesTable({
   customers = [],
   vehicles = [],
   services = [],
+  canUpdate = false,
+  canDelete = false,
 }) {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
@@ -402,7 +404,9 @@ export default function InvoicesTable({
                         <td className="whitespace-nowrap px-6 py-4 text-right">
                           <InvoiceRowActions
                             invoice={invoice}
-                            onEdit={handleEdit}
+                            onEdit={canUpdate ? handleEdit : undefined}
+                            canUpdate={canUpdate}
+                            canDelete={canDelete}
                           />
                         </td>
                       </tr>
@@ -415,7 +419,7 @@ export default function InvoicesTable({
         )}
       </div>
 
-      {selectedInvoice && (
+      {selectedInvoice && canUpdate && (
         <EditInvoiceModal
           key={selectedInvoice.id}
           invoice={selectedInvoice}

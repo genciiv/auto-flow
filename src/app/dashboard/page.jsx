@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import BusinessOnboardingCard from "@/components/dashboard/BusinessOnboardingCard";
 import GettingStartedChecklist from "@/components/dashboard/GettingStartedChecklist";
@@ -11,8 +13,9 @@ import ActivityTimeline from "@/components/dashboard/ActivityTimeline";
 import AiAssistantWidget from "@/components/dashboard/AiAssistantWidget";
 import ExecutiveDashboard from "@/components/dashboard/ExecutiveDashboard";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
 import { getAppMonthKey, getAppMonthRange } from "@/lib/financial-period";
 
 const MONTH_NAMES = ["Jan", "Shk", "Mar", "Pri", "Maj", "Qer", "Kor", "Gus", "Sht", "Tet", "Nën", "Dhj"];
@@ -228,7 +231,13 @@ async function getExecutiveDashboardData(businessId) {
 }
 
 export default async function DashboardPage() {
-  const { businessId, businessRole } = await requireBusinessContext();
+  const { businessId, businessRole } = await requireBusinessPermission(
+    PERMISSIONS.DASHBOARD_VIEW,
+  );
+
+  if (!["OWNER", "MANAGER", "ACCOUNTANT"].includes(businessRole)) {
+    redirect("/dashboard/workspace");
+  }
 
   if (["OWNER", "MANAGER"].includes(businessRole)) {
     const [business, executiveData] = await Promise.all([
