@@ -29,7 +29,7 @@ function MetricCard({ title, value, subtitle, change, icon: Icon, href }) {
   return (
     <Link
       href={href}
-      className="group rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+      className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
@@ -49,8 +49,8 @@ function MetricCard({ title, value, subtitle, change, icon: Icon, href }) {
         ) : null}
       </div>
 
-      <p className="mt-5 text-sm font-semibold text-slate-500">{title}</p>
-      <p className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+      <p className="mt-4 text-sm font-semibold text-slate-500">{title}</p>
+      <p className="mt-1 text-[1.7rem] font-black tracking-tight text-slate-950">
         {value}
       </p>
       <div className="mt-3 flex items-center justify-between gap-3">
@@ -71,7 +71,7 @@ function RevenueProfitChart({ months }) {
   );
 
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
@@ -130,7 +130,7 @@ function ServicePipeline({ statuses, total }) {
   ];
 
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
@@ -172,7 +172,7 @@ function ServicePipeline({ statuses, total }) {
 
 function MechanicsTable({ mechanics }) {
   return (
-    <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-100 p-6">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
@@ -273,7 +273,7 @@ function AlertsPanel({ data }) {
   ];
 
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
         Kërkojnë vëmendje
       </p>
@@ -310,7 +310,7 @@ function AlertsPanel({ data }) {
 
 function TopCustomers({ customers }) {
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">

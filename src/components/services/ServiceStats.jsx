@@ -50,14 +50,14 @@ export default function ServiceStats({ stats }) {
   ];
 
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {items.map((stat) => {
         const Icon = stat.icon;
 
         return (
           <div
             key={stat.title}
-            className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
+            className="af-stat-tile"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <Icon size={22} />
