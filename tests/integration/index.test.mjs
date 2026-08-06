@@ -34,3 +34,5 @@ import "./critical-audit-coverage.test.mjs";
 import "./inventory-count-lifecycle.test.mjs";
 
 import "./appointment-conflict-lifecycle.test.mjs";
+
+import "./operational-notification-hardening.test.mjs";

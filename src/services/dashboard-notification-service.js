@@ -109,12 +109,14 @@ export async function getDashboardNotifications(businessId, userId = null) {
     }),
 
     userId
-      ? db.notification.count({ where: { userId, isRead: false } })
+      ? db.notification.count({
+          where: { userId, businessId, isRead: false },
+        })
       : Promise.resolve(0),
 
     userId
       ? db.notification.findMany({
-          where: { userId },
+          where: { userId, businessId },
           select: {
             id: true,
             title: true,

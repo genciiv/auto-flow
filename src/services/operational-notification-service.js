@@ -23,13 +23,81 @@ function endOfDay(value = new Date()) {
   return date;
 }
 
-async function getActiveRoleUsers(database, businessId, roles) {
+export async function getActiveRoleUsers(database, businessId, roles) {
   const memberships = await database.businessUser.findMany({
     where: { businessId, isActive: true, role: { in: roles } },
     select: { userId: true },
   });
 
   return [...new Set(memberships.map((item) => item.userId).filter(Boolean))];
+}
+
+
+function notificationIdentityWhere({
+  userId,
+  businessId,
+  title,
+  entityType,
+  entityId,
+  onlyUnread = true,
+}) {
+  return {
+    userId,
+    businessId,
+    title,
+    entityType,
+    entityId,
+    ...(onlyUnread ? { isRead: false } : {}),
+  };
+}
+
+export async function createUserNotificationOnce({
+  database = db,
+  userId,
+  businessId,
+  title,
+  message,
+  type = "INFO",
+  entityType = "SYSTEM",
+  entityId = null,
+  dayStart = null,
+  dayEnd = null,
+}) {
+  if (!userId || !businessId) return false;
+
+  const where = notificationIdentityWhere({
+    userId,
+    businessId,
+    title,
+    entityType,
+    entityId,
+    onlyUnread: !(dayStart && dayEnd),
+  });
+
+  if (dayStart && dayEnd) {
+    where.createdAt = { gte: dayStart, lte: dayEnd };
+  }
+
+  const exists = await database.notification.findFirst({
+    where,
+    select: { id: true },
+  });
+
+  if (exists) return false;
+
+  await database.notification.create({
+    data: {
+      userId,
+      businessId,
+      title,
+      message,
+      type,
+      entityType,
+      entityId,
+    },
+  });
+
+  return true;
 }
 
 export async function notifyUsersByRoles({
@@ -48,17 +116,22 @@ export async function notifyUsersByRoles({
 
   if (recipients.length === 0) return { count: 0 };
 
-  return database.notification.createMany({
-    data: recipients.map((userId) => ({
-      userId,
-      businessId: null,
-      title,
-      message,
-      type,
-      entityType,
-      entityId,
-    })),
-  });
+  const results = await Promise.all(
+    recipients.map((userId) =>
+      createUserNotificationOnce({
+        database,
+        userId,
+        businessId,
+        title,
+        message,
+        type,
+        entityType,
+        entityId,
+      }),
+    ),
+  );
+
+  return { count: results.filter(Boolean).length };
 }
 
 export async function notifyAssignedMechanic({
@@ -71,15 +144,15 @@ export async function notifyAssignedMechanic({
 }) {
   if (!mechanicUserId) return null;
 
-  return database.notification.create({
-    data: {
-      userId: mechanicUserId,
-      title: "Punë e re e caktuar",
-      message: `${serviceTitle}${plate ? ` (${plate})` : ""} të është caktuar për përpunim.`,
-      type: "INFO",
-      entityType: "SERVICE",
-      entityId: serviceId,
-    },
+  return createUserNotificationOnce({
+    database,
+    userId: mechanicUserId,
+    businessId,
+    title: "Punë e re e caktuar",
+    message: `${serviceTitle}${plate ? ` (${plate})` : ""} të është caktuar për përpunim.`,
+    type: "INFO",
+    entityType: "SERVICE",
+    entityId: serviceId,
   });
 }
 
@@ -147,18 +220,8 @@ export async function notifyPartialPayment({
   });
 }
 
-async function createDailyNotificationOnce({ database, userId, title, message, type, entityType, entityId, dayStart, dayEnd }) {
-  const exists = await database.notification.findFirst({
-    where: { userId, title, entityType, entityId, createdAt: { gte: dayStart, lte: dayEnd } },
-    select: { id: true },
-  });
-
-  if (exists) return false;
-
-  await database.notification.create({
-    data: { userId, title, message, type, entityType, entityId },
-  });
-  return true;
+async function createDailyNotificationOnce(options) {
+  return createUserNotificationOnce(options);
 }
 
 export async function syncOperationalReminders({ businessId }) {
@@ -176,7 +239,7 @@ export async function syncOperationalReminders({ businessId }) {
     getActiveRoleUsers(db, businessId, ROLE_GROUPS.WAREHOUSE),
     db.appointment.findMany({
       where: { businessId, date: { gte: dayStart, lte: dayEnd }, status: { notIn: ["COMPLETED", "CANCELLED"] } },
-      select: { id: true, title: true, date: true },
+      select: { id: true, title: true, date: true, assignedUserId: true },
       take: 50,
     }),
     db.invoice.findMany({
@@ -200,10 +263,17 @@ export async function syncOperationalReminders({ businessId }) {
   const tasks = [];
 
   for (const appointment of appointments) {
-    for (const userId of frontDeskUsers) {
+    const appointmentRecipients = new Set(frontDeskUsers);
+
+    if (appointment.assignedUserId) {
+      appointmentRecipients.add(appointment.assignedUserId);
+    }
+
+    for (const userId of appointmentRecipients) {
       tasks.push(createDailyNotificationOnce({
         database: db,
         userId,
+        businessId,
         title: "Termin sot",
         message: `${appointment.title} është planifikuar sot në ${new Intl.DateTimeFormat("sq-AL", { hour: "2-digit", minute: "2-digit" }).format(appointment.date)}.`,
         type: "INFO",
@@ -220,6 +290,7 @@ export async function syncOperationalReminders({ businessId }) {
       tasks.push(createDailyNotificationOnce({
         database: db,
         userId,
+        businessId,
         title: "Faturë e papaguar",
         message: `Fatura ${invoice.number} (${formatMoney(
           invoice.total,
@@ -242,6 +313,7 @@ export async function syncOperationalReminders({ businessId }) {
       tasks.push(createDailyNotificationOnce({
         database: db,
         userId,
+        businessId,
         title: "Stok nën minimum",
         message: `${part.name}: ${part.stock} në stok, minimumi ${part.minStock}.`,
         type: "WARNING",

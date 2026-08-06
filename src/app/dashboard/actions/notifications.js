@@ -70,6 +70,7 @@ export async function markDashboardNotificationAsReadAction(
             notificationId:
               validatedNotificationId,
             userId: context.userId,
+            businessId: context.businessId,
           })
         : await markBusinessNotificationAsRead({
             notificationId:
