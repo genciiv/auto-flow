@@ -14,7 +14,7 @@ function formatNumber(value) {
 
 export default function InventoryPerformance({ items = [] }) {
   return (
-    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
       <h2 className="text-xl font-bold text-slate-950">
         Pjesët më të përdorura
       </h2>
