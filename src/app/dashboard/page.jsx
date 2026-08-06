@@ -30,7 +30,7 @@ function hasValue(value) {
 function percentageChange(current, previous) {
   const currentValue = Number(current || 0);
   const previousValue = Number(previous || 0);
-  if (previousValue === 0) return currentValue > 0 ? 100 : 0;
+  if (previousValue === 0) return currentValue > 0 ? null : 0;
   return ((currentValue - previousValue) / previousValue) * 100;
 }
 

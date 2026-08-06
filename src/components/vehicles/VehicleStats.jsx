@@ -32,7 +32,7 @@ export default function VehicleStats({ stats }) {
         return (
           <div
             key={card.label}
-            className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
+            className="af-stat-tile"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <Icon size={21} />

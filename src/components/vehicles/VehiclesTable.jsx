@@ -190,7 +190,7 @@ export default function VehiclesTable({
       />
 
       {vehicles.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
+        <div className="af-empty-state">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
             <Car className="h-6 w-6" />
           </div>
@@ -205,7 +205,7 @@ export default function VehiclesTable({
           </p>
         </div>
       ) : filteredVehicles.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
+        <div className="af-empty-state">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
             <FileSearch className="h-6 w-6" />
           </div>
@@ -229,8 +229,8 @@ export default function VehiclesTable({
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div className="af-data-panel">
+          <div className="af-data-panel-head">
             <div>
               <h2 className="text-sm font-semibold text-slate-900">
                 Lista e automjeteve
@@ -251,7 +251,7 @@ export default function VehiclesTable({
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px]">
-              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <thead className="af-table-head text-left">
                 <tr>
                   <th className="px-6 py-4">Targa</th>
                   <th className="px-6 py-4">Automjeti</th>
@@ -274,7 +274,7 @@ export default function VehiclesTable({
                   return (
                     <tr
                       key={vehicle.id}
-                      className="transition hover:bg-slate-50/70"
+                      className="af-table-row"
                     >
                       <td className="whitespace-nowrap px-6 py-5">
                         <p className="text-sm font-semibold text-slate-950">

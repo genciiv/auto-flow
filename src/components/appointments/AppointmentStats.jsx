@@ -25,14 +25,14 @@ export default function AppointmentStats({ stats }) {
   ];
 
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+    <div className="af-stat-grid">
       {items.map((stat) => {
         const Icon = stat.icon;
 
         return (
           <div
             key={stat.title}
-            className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
+            className="af-stat-tile"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <Icon size={22} />
