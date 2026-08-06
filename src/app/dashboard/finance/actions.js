@@ -365,6 +365,18 @@ export async function submitInventoryCountAction(formData) {
     },
   });
 
+  await createAuditLog({
+    businessId: context.businessId,
+    userId: context.userId,
+    action: "STATUS_CHANGE",
+    entityType: "InventoryCount",
+    entityId: inventoryCountId,
+    title: "Inventarizimi u dërgua për shqyrtim",
+    description: count.name,
+    oldValues: { status: "DRAFT" },
+    newValues: { status: "IN_REVIEW" },
+  });
+
   revalidateInventoryCountPage(inventoryCountId);
 }
 
@@ -407,6 +419,18 @@ export async function approveInventoryCountAction(formData) {
     },
   });
 
+  await createAuditLog({
+    businessId: context.businessId,
+    userId: context.userId,
+    action: "STATUS_CHANGE",
+    entityType: "InventoryCount",
+    entityId: inventoryCountId,
+    title: "Inventarizimi u aprovua",
+    description: count.name,
+    oldValues: { status: "IN_REVIEW" },
+    newValues: { status: "APPROVED", approvedById: context.userId },
+  });
+
   revalidateInventoryCountPage(inventoryCountId);
 }
 
@@ -441,12 +465,30 @@ export async function postInventoryCountAction(formData) {
     throw createActionError("Inventarizimi nuk është aprovuar.");
   }
 
-  await db.$transaction(async (transaction) => {
+  const postingResult = await db.$transaction(async (transaction) => {
+    const claimedCount = await transaction.inventoryCount.updateMany({
+      where: {
+        id: inventoryCountId,
+        businessId: context.businessId,
+        status: "APPROVED",
+        postedAt: null,
+      },
+      data: {
+        status: "POSTED",
+        postedAt: new Date(),
+      },
+    });
+
+    if (claimedCount.count !== 1) {
+      throw createActionError(
+        "Inventarizimi është postuar tashmë ose nuk është më i aprovuar.",
+      );
+    }
+
+    let adjustedItems = 0;
+
     for (const item of count.items) {
-      if (
-        item.actualQuantity === null ||
-        item.actualQuantity === item.expectedQuantity
-      ) {
+      if (item.actualQuantity === null) {
         continue;
       }
 
@@ -457,11 +499,11 @@ export async function postInventoryCountAction(formData) {
         },
       });
 
-      if (!part) {
+      if (!part || part.stock === item.actualQuantity) {
         continue;
       }
 
-      const difference = item.actualQuantity - item.expectedQuantity;
+      const difference = item.actualQuantity - part.stock;
 
       await transaction.part.update({
         where: {
@@ -484,17 +526,11 @@ export async function postInventoryCountAction(formData) {
           note: `Korrigjim nga ${count.name}`,
         },
       });
+
+      adjustedItems += 1;
     }
 
-    await transaction.inventoryCount.update({
-      where: {
-        id: inventoryCountId,
-      },
-      data: {
-        status: "POSTED",
-        postedAt: new Date(),
-      },
-    });
+    return { adjustedItems };
   });
 
   await createAuditLog({
@@ -505,6 +541,9 @@ export async function postInventoryCountAction(formData) {
     entityId: inventoryCountId,
     title: "Inventarizimi u postua",
     description: count.name,
+    oldValues: { status: "APPROVED" },
+    newValues: { status: "POSTED" },
+    metadata: { adjustedItems: postingResult.adjustedItems },
   });
 
   revalidatePath("/dashboard/inventory");
