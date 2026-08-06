@@ -11,10 +11,7 @@ import {
 } from "lucide-react";
 
 import AppointmentRowActions from "@/components/appointments/AppointmentRowActions";
-import {
-  formatAppDate,
-  formatAppTime,
-} from "@/lib/date-time";
+import { formatAppTime } from "@/lib/date-time";
 import { rescheduleAppointment } from "@/actions/appointment-actions";
 
 const STATUS = {
@@ -51,6 +48,79 @@ const STATUS = {
 };
 
 const WEEKDAYS = ["Hën", "Mar", "Mër", "Enj", "Pre", "Sht", "Die"];
+const ALBANIAN_MONTHS = {
+  long: [
+    "janar",
+    "shkurt",
+    "mars",
+    "prill",
+    "maj",
+    "qershor",
+    "korrik",
+    "gusht",
+    "shtator",
+    "tetor",
+    "nëntor",
+    "dhjetor",
+  ],
+  short: [
+    "jan",
+    "shk",
+    "mar",
+    "pri",
+    "maj",
+    "qer",
+    "kor",
+    "gush",
+    "sht",
+    "tet",
+    "nën",
+    "dhj",
+  ],
+};
+
+const ALBANIAN_WEEKDAYS = {
+  long: [
+    "e diel",
+    "e hënë",
+    "e martë",
+    "e mërkurë",
+    "e enjte",
+    "e premte",
+    "e shtunë",
+  ],
+  short: ["Die", "Hën", "Mar", "Mër", "Enj", "Pre", "Sht"],
+};
+
+function formatCalendarDate(value, options = {}) {
+  const date = new Date(value);
+  const parts = [];
+
+  if (options.weekday) {
+    parts.push(ALBANIAN_WEEKDAYS[options.weekday][date.getDay()]);
+  }
+
+  const dateParts = [];
+
+  if (options.day) {
+    dateParts.push(String(date.getDate()));
+  }
+
+  if (options.month) {
+    dateParts.push(ALBANIAN_MONTHS[options.month][date.getMonth()]);
+  }
+
+  if (options.year) {
+    dateParts.push(String(date.getFullYear()));
+  }
+
+  if (dateParts.length) {
+    parts.push(dateParts.join(" "));
+  }
+
+  return parts.join(", ");
+}
+
 
 function startOfDay(value) {
   const date = new Date(value);
@@ -309,17 +379,17 @@ export default function AppointmentCalendar({
 
   const title =
     view === "MONTH"
-      ? formatAppDate(anchor, { month: "long", year: "numeric" })
+      ? formatCalendarDate(anchor, { month: "long", year: "numeric" })
       : view === "WEEK"
-        ? `${formatAppDate(days[0], {
+        ? `${formatCalendarDate(days[0], {
             day: "numeric",
             month: "short",
-          })} – ${formatAppDate(days[6], {
+          })} – ${formatCalendarDate(days[6], {
             day: "numeric",
             month: "short",
             year: "numeric",
           })}`
-        : formatAppDate(anchor, {
+        : formatCalendarDate(anchor, {
             weekday: "long",
             day: "numeric",
             month: "long",
@@ -551,10 +621,10 @@ export default function AppointmentCalendar({
                 >
                   <div className="mb-3 border-b border-slate-100 pb-3">
                     <p className="text-xs font-bold uppercase text-slate-500">
-                      {formatAppDate(day, { weekday: "short" })}
+                      {formatCalendarDate(day, { weekday: "short" })}
                     </p>
                     <p className="mt-1 text-lg font-black text-slate-950">
-                      {formatAppDate(day, { day: "numeric", month: "short" })}
+                      {formatCalendarDate(day, { day: "numeric", month: "short" })}
                     </p>
                   </div>
 
@@ -611,7 +681,7 @@ export default function AppointmentCalendar({
           </p>
 
           <h2 className="mt-2 text-base font-bold capitalize text-slate-950">
-            {formatAppDate(selectedDate, {
+            {formatCalendarDate(selectedDate, {
               weekday: "long",
               day: "numeric",
               month: "long",
