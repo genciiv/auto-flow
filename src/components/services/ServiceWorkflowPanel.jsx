@@ -123,7 +123,7 @@ export default function ServiceWorkflowPanel({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-blue-600">Fleta e punës</p>
@@ -138,22 +138,22 @@ export default function ServiceWorkflowPanel({
           </span>
         </div>
 
-        <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="relative mt-7 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           {workflowSteps.map((step) => {
             const state = getStepState(service.status, step);
 
             return (
               <div
                 key={step}
-                className={`rounded-xl border px-3 py-4 text-sm ${
+                className={`relative rounded-2xl border px-4 py-4 text-sm transition ${
                   state === "current"
-                    ? "border-blue-300 bg-blue-50 text-blue-800"
+                    ? "border-blue-300 bg-blue-50 text-blue-800 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]"
                     : state === "complete"
                       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-slate-200 bg-slate-50 text-slate-500"
+                      : "border-slate-200 bg-slate-50/70 text-slate-500"
                 }`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   {state === "complete" ? (
                     <CheckCircle2 size={16} />
                   ) : state === "current" ? (
@@ -162,7 +162,7 @@ export default function ServiceWorkflowPanel({
                     <Clock3 size={16} />
                   )}
 
-                  <span className="font-semibold">{labels[step]}</span>
+                  <div><span className="block text-[11px] font-bold uppercase tracking-wider opacity-60">Hapi</span><span className="mt-0.5 block font-semibold leading-tight">{labels[step]}</span></div>
                 </div>
               </div>
             );
@@ -170,11 +170,11 @@ export default function ServiceWorkflowPanel({
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.72fr)]">
         <div className="space-y-6">
           <form
             action={save}
-            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+            className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
           >
             <div className="flex items-start gap-3">
               <div className="rounded-xl bg-blue-50 p-3 text-blue-700">
@@ -284,7 +284,7 @@ export default function ServiceWorkflowPanel({
             <div className="mt-5 flex justify-end">
               <button
                 disabled={busy}
-                className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
               >
                 {busy ? <Loader2 size={16} className="animate-spin" /> : null}
                 Ruaj fletën e punës
@@ -292,7 +292,7 @@ export default function ServiceWorkflowPanel({
             </div>
           </form>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-bold text-slate-950">
               Historiku i statusit
             </h2>
@@ -309,7 +309,7 @@ export default function ServiceWorkflowPanel({
                 service.statusHistory.map((history) => (
                   <div
                     key={history.id}
-                    className="border-l-2 border-blue-200 pl-4"
+                    className="relative border-l-2 border-blue-200 pb-1 pl-5 before:absolute before:-left-[7px] before:top-1 before:size-3 before:rounded-full before:border-2 before:border-white before:bg-blue-500"
                   >
                     <p className="text-sm font-semibold text-slate-900">
                       {labels[history.fromStatus] || "Krijuar"} →{" "}
@@ -331,8 +331,8 @@ export default function ServiceWorkflowPanel({
           </section>
         </div>
 
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="space-y-6 xl:sticky xl:top-24">
+          <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-bold text-slate-950">
               Hapi i radhës
             </h2>
@@ -362,7 +362,7 @@ export default function ServiceWorkflowPanel({
                     type="button"
                     disabled={busy}
                     onClick={() => transition(status)}
-                    className="rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60"
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-60"
                   >
                     Kalo në: {labels[status]}
                   </button>
@@ -377,7 +377,7 @@ export default function ServiceWorkflowPanel({
             ) : null}
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-bold text-slate-950">Afatet</h2>
             <div className="mt-4 space-y-3 text-sm">
               <DateRow label="Krijuar" value={service.createdAt} />
