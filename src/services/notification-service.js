@@ -170,7 +170,11 @@ export async function getBusinessNotificationSummary(
   };
 }
 
-export async function markUserNotificationAsRead({ notificationId, userId }) {
+export async function markUserNotificationAsRead({
+  notificationId,
+  userId,
+  businessId = null,
+}) {
   if (!notificationId || !userId) {
     return false;
   }
@@ -179,6 +183,7 @@ export async function markUserNotificationAsRead({ notificationId, userId }) {
     where: {
       id: notificationId,
       userId,
+      ...(businessId ? { businessId } : {}),
       isRead: false,
     },
     data: {
