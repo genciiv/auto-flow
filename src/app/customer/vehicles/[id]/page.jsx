@@ -20,9 +20,12 @@ import {
 import { updateCustomerVehicle } from "@/app/customer/vehicles/actions";
 import CustomerVehicleForm from "@/components/customer/CustomerVehicleForm";
 import CustomerVehicleHistoryForms from "@/components/customer/CustomerVehicleHistoryForms";
+import CustomerVehicleMaintenanceForms from "@/components/customer/CustomerVehicleMaintenanceForms";
+import CustomerVehicleMaintenanceOverview from "@/components/customer/CustomerVehicleMaintenanceOverview";
 import DeleteCustomerVehicleButton from "@/components/customer/DeleteCustomerVehicleButton";
 import DeleteCustomerVehicleExpenseButton from "@/components/customer/DeleteCustomerVehicleExpenseButton";
 import { CUSTOMER_VEHICLE_EXPENSE_LABELS } from "@/config/customer-vehicle-history";
+import { CUSTOMER_VEHICLE_MAINTENANCE_LABELS } from "@/config/customer-vehicle-maintenance";
 import { customerVehicleAccessWhere } from "@/lib/customer-access";
 import { requireCustomerContext } from "@/lib/customer-context";
 import { formatAppDate } from "@/lib/date-time";
@@ -56,7 +59,7 @@ function getTodayInputValue() {
 }
 
 function getHistoryBadge(entry) {
-  if (entry.kind === "SERVICE") {
+  if (entry.kind === "SERVICE" || entry.kind === "SERVICE_MAINTENANCE") {
     return {
       label: "E verifikuar nga servisi",
       className: "bg-blue-50 text-blue-700 ring-blue-100",
@@ -76,7 +79,13 @@ function getHistoryBadge(entry) {
   };
 }
 
-function buildTimeline({ mileageHistory, expenses, services }) {
+function buildTimeline({
+  mileageHistory,
+  expenses,
+  services,
+  maintenanceHistory,
+  verifiedMaintenance,
+}) {
   const mileageEntries = mileageHistory.map((entry) => ({
     id: `mileage-${entry.id}`,
     kind: "MILEAGE",
@@ -101,6 +110,21 @@ function buildTimeline({ mileageHistory, expenses, services }) {
     mileage: expense.mileage,
   }));
 
+  const maintenanceEntries = maintenanceHistory.map((item) => ({
+    id: `maintenance-${item.id}`,
+    kind: "MAINTENANCE",
+    date: item.performedAt,
+    source: item.source,
+    title: CUSTOMER_VEHICLE_MAINTENANCE_LABELS[item.type] || item.title,
+    description: item.notes,
+    value: item.nextDate
+      ? `Afati ${formatAppDate(item.nextDate)}`
+      : item.nextMileage !== null
+        ? `Afati ${formatMileage(item.nextMileage)}`
+        : "Mirëmbajtje e regjistruar",
+    mileage: item.mileage,
+  }));
+
   const serviceEntries = services.map((service) => ({
     id: `service-${service.id}`,
     kind: "SERVICE",
@@ -121,13 +145,35 @@ function buildTimeline({ mileageHistory, expenses, services }) {
     href: `/customer/services/${service.id}`,
   }));
 
-  return [...mileageEntries, ...expenseEntries, ...serviceEntries]
+  const verifiedMaintenanceEntries = verifiedMaintenance.map((item) => ({
+    id: `service-maintenance-${item.id}`,
+    kind: "SERVICE_MAINTENANCE",
+    date: item.lastDate || item.updatedAt,
+    title: item.title,
+    description: item.notes || "Mirëmbajtje e regjistruar nga servisi",
+    value: item.nextDate
+      ? `Afati ${formatAppDate(item.nextDate)}`
+      : item.nextMileage !== null
+        ? `Afati ${formatMileage(item.nextMileage)}`
+        : "E verifikuar",
+    mileage: item.lastMileage,
+  }));
+
+  return [
+    ...mileageEntries,
+    ...expenseEntries,
+    ...maintenanceEntries,
+    ...serviceEntries,
+    ...verifiedMaintenanceEntries,
+  ]
     .sort((left, right) => new Date(right.date) - new Date(left.date))
-    .slice(0, 40);
+    .slice(0, 50);
 }
 
 function HistoryIcon({ kind }) {
-  if (kind === "SERVICE") return <Wrench size={18} />;
+  if (kind === "SERVICE" || kind === "SERVICE_MAINTENANCE" || kind === "MAINTENANCE") {
+    return <Wrench size={18} />;
+  }
   if (kind === "EXPENSE") return <ReceiptText size={18} />;
   return <Gauge size={18} />;
 }
@@ -148,6 +194,15 @@ export default async function CustomerVehicleDetailsPage({ params }) {
         orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
         take: 12,
       },
+      maintenanceHistory: {
+        orderBy: [{ performedAt: "desc" }, { createdAt: "desc" }],
+        take: 30,
+      },
+      reminders: {
+        where: { isActive: true },
+        orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+        take: 12,
+      },
       links: {
         where: {
           isActive: true,
@@ -165,7 +220,7 @@ export default async function CustomerVehicleDetailsPage({ params }) {
 
   const linkedVehicleIds = [...new Set(vehicle.links.map((link) => link.vehicleId))];
 
-  const [services, expenseSummary] = await Promise.all([
+  const [services, verifiedMaintenance, expenseSummary] = await Promise.all([
     linkedVehicleIds.length
       ? db.serviceRecord.findMany({
           where: {
@@ -193,6 +248,30 @@ export default async function CustomerVehicleDetailsPage({ params }) {
                 currency: true,
               },
             },
+          },
+        })
+      : Promise.resolve([]),
+    linkedVehicleIds.length
+      ? db.maintenanceItem.findMany({
+          where: {
+            vehicleId: {
+              in: linkedVehicleIds,
+            },
+          },
+          orderBy: {
+            updatedAt: "desc",
+          },
+          take: 12,
+          select: {
+            id: true,
+            type: true,
+            title: true,
+            lastMileage: true,
+            nextMileage: true,
+            lastDate: true,
+            nextDate: true,
+            notes: true,
+            updatedAt: true,
           },
         })
       : Promise.resolve([]),
@@ -231,6 +310,8 @@ export default async function CustomerVehicleDetailsPage({ params }) {
     mileageHistory: vehicle.mileageHistory,
     expenses: vehicle.expenses,
     services,
+    maintenanceHistory: vehicle.maintenanceHistory,
+    verifiedMaintenance,
   });
 
   const details = [
@@ -352,7 +433,21 @@ export default async function CustomerVehicleDetailsPage({ params }) {
         defaultDate={defaultDate}
       />
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+      <CustomerVehicleMaintenanceForms
+        vehicleId={vehicle.id}
+        currentMileage={vehicle.mileage}
+        defaultDate={defaultDate}
+      />
+
+      <CustomerVehicleMaintenanceOverview
+        vehicleId={vehicle.id}
+        currentMileage={vehicle.mileage}
+        maintenanceRecords={vehicle.maintenanceHistory}
+        reminders={vehicle.reminders}
+        verifiedMaintenance={verifiedMaintenance}
+      />
+
+      <section id="historiku" className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
             <div className="flex items-start justify-between gap-4">
@@ -367,7 +462,7 @@ export default async function CustomerVehicleDetailsPage({ params }) {
                   Historiku i automjetit
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Kilometra, shpenzime personale dhe servise të verifikuara në një vend.
+                  Kilometra, mirëmbajtje, shpenzime personale dhe servise të verifikuara në një vend.
                 </p>
               </div>
 
@@ -532,7 +627,7 @@ export default async function CustomerVehicleDetailsPage({ params }) {
                   Të dhënat e servisit nuk ndryshohen nga klienti
                 </p>
                 <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Serviset shfaqen si të verifikuara. Kilometrat dhe shpenzimet personale shënohen qartë si të shtuara nga pronari.
+                  Serviset dhe mirëmbajtjet e servisit shfaqen si të verifikuara. Kilometrat, mirëmbajtjet dhe shpenzimet personale shënohen qartë si të shtuara nga pronari.
                 </p>
               </div>
             </div>

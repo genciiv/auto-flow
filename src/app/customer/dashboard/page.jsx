@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  CalendarClock,
   CarFront,
   Gauge,
   History,
@@ -9,7 +10,9 @@ import {
   Wrench,
 } from "lucide-react";
 
+import { CUSTOMER_VEHICLE_MAINTENANCE_LABELS } from "@/config/customer-vehicle-maintenance";
 import { activeCustomerVehicleLinkWhere } from "@/lib/customer-access";
+import { getMostUrgentVehicleDueItem } from "@/lib/customer-vehicle-maintenance";
 import { requireCustomerContext } from "@/lib/customer-context";
 import { formatAppDate } from "@/lib/date-time";
 import { db } from "@/lib/db";
@@ -49,6 +52,28 @@ export default async function CustomerDashboardPage() {
             recordedAt: true,
           },
         },
+        maintenanceHistory: {
+          orderBy: [{ performedAt: "desc" }, { createdAt: "desc" }],
+          take: 20,
+          select: {
+            id: true,
+            type: true,
+            title: true,
+            nextMileage: true,
+            nextDate: true,
+          },
+        },
+        reminders: {
+          where: { isActive: true },
+          orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+          take: 10,
+          select: {
+            id: true,
+            title: true,
+            dueDate: true,
+            dueMileage: true,
+          },
+        },
         _count: {
           select: {
             expenses: true,
@@ -57,6 +82,25 @@ export default async function CustomerDashboardPage() {
       },
     }),
   ]);
+
+  const latestMaintenance = primaryVehicle
+    ? primaryVehicle.maintenanceHistory.filter((item, index, records) =>
+        records.findIndex((candidate) => candidate.type === item.type) === index,
+      )
+    : [];
+
+  const nextDueItem = primaryVehicle
+    ? getMostUrgentVehicleDueItem(
+        [
+          ...latestMaintenance.map((item) => ({
+            ...item,
+            title: CUSTOMER_VEHICLE_MAINTENANCE_LABELS[item.type] || item.title,
+          })),
+          ...primaryVehicle.reminders,
+        ],
+        primaryVehicle.mileage,
+      )
+    : null;
 
   const firstName =
     String(user.name || "Klient")
@@ -94,7 +138,7 @@ export default async function CustomerDashboardPage() {
               Mirë se erdhe, {firstName}
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
-              Menaxho automjetet, kilometrat, shpenzimet personale dhe historikun e serviseve nga një vend i vetëm.
+              Menaxho automjetet, kilometrat, mirëmbajtjen, afatet, shpenzimet personale dhe historikun e serviseve nga një vend i vetëm.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
@@ -179,6 +223,34 @@ export default async function CustomerDashboardPage() {
               size={17}
               className="shrink-0 text-blue-500 transition group-hover:translate-x-0.5"
             />
+          </div>
+        </Link>
+      ) : null}
+
+      {primaryVehicle && nextDueItem ? (
+        <Link
+          href={`/customer/vehicles/${primaryVehicle.id}#mirembajtja`}
+          className="group flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-lg hover:shadow-slate-900/5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+              <CalendarClock size={22} />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                Mirëmbajtja e ardhshme
+              </p>
+              <h2 className="mt-1 text-base font-black text-slate-950">
+                {nextDueItem.title}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">{nextDueItem.dueState.text}</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 sm:justify-end">
+            <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ring-1 ring-inset ${nextDueItem.dueState.className}`}>
+              {nextDueItem.dueState.label}
+            </span>
+            <ArrowRight size={18} className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
           </div>
         </Link>
       ) : null}
