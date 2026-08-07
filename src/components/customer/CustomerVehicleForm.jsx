@@ -249,38 +249,57 @@ export default function CustomerVehicleForm({
           <FieldError message={state.errors?.engine} />
         </div>
 
-        <div>
-          <label
-            htmlFor="mileage"
-            className="mb-2 block text-sm font-bold text-slate-800"
-          >
-            Kilometrat
-          </label>
+        {vehicle ? (
+          <div>
+            <p className="mb-2 block text-sm font-bold text-slate-800">
+              Kilometrat
+            </p>
 
-          <div className="relative">
-            <Gauge
-              size={18}
-              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-            />
+            <div className="flex h-12 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-700">
+              <Gauge size={18} className="text-slate-400" />
+              {vehicle.mileage === null || vehicle.mileage === undefined
+                ? "Nuk janë vendosur"
+                : `${new Intl.NumberFormat("sq-AL").format(vehicle.mileage)} km`}
+            </div>
 
-            <input
-              id="mileage"
-              name="mileage"
-              type="number"
-              min="0"
-              defaultValue={vehicle?.mileage ?? ""}
-              placeholder="P.sh. 145000"
-              disabled={isPending}
-              className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-14 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50"
-            />
-
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">
-              km
-            </span>
+            <p className="mt-1.5 text-xs leading-5 text-slate-500">
+              Kilometrazhi përditësohet nga seksioni i historikut për të ruajtur çdo regjistrim.
+            </p>
           </div>
+        ) : (
+          <div>
+            <label
+              htmlFor="mileage"
+              className="mb-2 block text-sm font-bold text-slate-800"
+            >
+              Kilometrat
+            </label>
 
-          <FieldError message={state.errors?.mileage} />
-        </div>
+            <div className="relative">
+              <Gauge
+                size={18}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+
+              <input
+                id="mileage"
+                name="mileage"
+                type="number"
+                min="0"
+                defaultValue={vehicle?.mileage ?? ""}
+                placeholder="P.sh. 145000"
+                disabled={isPending}
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-14 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50"
+              />
+
+              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">
+                km
+              </span>
+            </div>
+
+            <FieldError message={state.errors?.mileage} />
+          </div>
+        )}
 
         <div>
           <label

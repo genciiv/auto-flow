@@ -96,6 +96,25 @@ enum MaintenanceStatus {
   OVERDUE
 }
 
+enum VehicleHistorySource {
+  CUSTOMER
+  SERVICE
+  SYSTEM
+}
+
+enum CustomerVehicleExpenseType {
+  FUEL
+  INSURANCE
+  TAX
+  TIRES
+  PARKING
+  WASH
+  REPAIR
+  PARTS
+  TOLL
+  OTHER
+}
+
 enum ServiceLineType {
   LABOR
   PART
@@ -525,14 +544,55 @@ model CustomerVehicle {
 
   profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  claims VehicleClaim[]
-  links  CustomerVehicleLink[]
+  claims         VehicleClaim[]
+  links          CustomerVehicleLink[]
+  mileageHistory CustomerVehicleMileage[]
+  expenses       CustomerVehicleExpense[]
 
   @@unique([profileId, plate])
   @@index([profileId])
   @@index([plate])
   @@index([brand])
   @@index([vin])
+}
+
+model CustomerVehicleMileage {
+  id String @id @default(cuid())
+
+  customerVehicleId String
+  mileage           Int
+  recordedAt        DateTime
+  source            VehicleHistorySource @default(CUSTOMER)
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerVehicle CustomerVehicle @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+
+  @@index([customerVehicleId, recordedAt])
+  @@index([customerVehicleId, mileage])
+  @@index([source])
+}
+
+model CustomerVehicleExpense {
+  id String @id @default(cuid())
+
+  customerVehicleId String
+  type              CustomerVehicleExpenseType
+  amount            Decimal @db.Decimal(18, 2)
+  currency          String  @default("ALL")
+  occurredAt        DateTime
+  mileage           Int?
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerVehicle CustomerVehicle @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+
+  @@index([customerVehicleId, occurredAt])
+  @@index([customerVehicleId, type])
 }
 
 model VehicleClaim {
