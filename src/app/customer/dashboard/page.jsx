@@ -10,8 +10,10 @@ import {
   Wrench,
 } from "lucide-react";
 
+import CustomerVehicleHealthOverview from "@/components/customer/CustomerVehicleHealthOverview";
 import { CUSTOMER_VEHICLE_MAINTENANCE_LABELS } from "@/config/customer-vehicle-maintenance";
 import { activeCustomerVehicleLinkWhere } from "@/lib/customer-access";
+import { getCustomerVehicleHealth } from "@/lib/customer-vehicle-health";
 import { getMostUrgentVehicleDueItem } from "@/lib/customer-vehicle-maintenance";
 import { requireCustomerContext } from "@/lib/customer-context";
 import { formatAppDate } from "@/lib/date-time";
@@ -69,10 +71,32 @@ export default async function CustomerDashboardPage() {
           take: 10,
           select: {
             id: true,
+            documentId: true,
             title: true,
             dueDate: true,
             dueMileage: true,
           },
+        },
+        documents: {
+          orderBy: [{ expiresAt: "asc" }, { createdAt: "desc" }],
+          take: 30,
+          select: {
+            id: true,
+            title: true,
+            expiresAt: true,
+          },
+        },
+        expenses: {
+          orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+          take: 100,
+          select: {
+            amount: true,
+            occurredAt: true,
+          },
+        },
+        links: {
+          where: { isActive: true },
+          select: { vehicleId: true },
         },
         _count: {
           select: {
@@ -82,6 +106,29 @@ export default async function CustomerDashboardPage() {
       },
     }),
   ]);
+
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+
+  const [primaryServiceCount, primaryExpenseSummary12Months] = primaryVehicle
+    ? await Promise.all([
+        primaryVehicle.links.length
+          ? db.serviceRecord.count({
+              where: {
+                vehicleId: { in: primaryVehicle.links.map((link) => link.vehicleId) },
+              },
+            })
+          : Promise.resolve(0),
+        db.customerVehicleExpense.aggregate({
+          where: {
+            customerVehicleId: primaryVehicle.id,
+            occurredAt: { gte: twelveMonthsAgo },
+          },
+          _sum: { amount: true },
+          _count: { id: true },
+        }),
+      ])
+    : [0, null];
 
   const latestMaintenance = primaryVehicle
     ? primaryVehicle.maintenanceHistory.filter((item, index, records) =>
@@ -100,6 +147,23 @@ export default async function CustomerDashboardPage() {
         ],
         primaryVehicle.mileage,
       )
+    : null;
+
+  const primaryVehicleHealth = primaryVehicle
+    ? getCustomerVehicleHealth({
+        vehicleId: primaryVehicle.id,
+        mileage: primaryVehicle.mileage,
+        latestMileageAt: primaryVehicle.mileageHistory[0]?.recordedAt ?? null,
+        maintenanceHistory: primaryVehicle.maintenanceHistory,
+        reminders: primaryVehicle.reminders,
+        documents: primaryVehicle.documents,
+        expenses: primaryVehicle.expenses,
+        expenseSummary12Months: {
+          total: primaryExpenseSummary12Months?._sum.amount || 0,
+          count: primaryExpenseSummary12Months?._count.id || 0,
+        },
+        serviceCount: primaryServiceCount,
+      })
     : null;
 
   const firstName =
@@ -225,6 +289,10 @@ export default async function CustomerDashboardPage() {
             />
           </div>
         </Link>
+      ) : null}
+
+      {primaryVehicleHealth ? (
+        <CustomerVehicleHealthOverview health={primaryVehicleHealth} compact />
       ) : null}
 
       {primaryVehicle && nextDueItem ? (
