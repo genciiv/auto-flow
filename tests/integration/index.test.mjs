@@ -14,6 +14,7 @@ import "./dashboard-localization.test.mjs";
 import "./financial-period-consistency.test.mjs";
 import "./customer-portal-isolation.test.mjs";
 import "./customer-vehicle-history.test.mjs";
+import "./customer-vehicle-maintenance-reminders.test.mjs";
 import "./staff-role-access.test.mjs";
 import "./critical-audit-coverage.test.mjs";
 import "./inventory-count-lifecycle.test.mjs";

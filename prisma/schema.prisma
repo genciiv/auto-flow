@@ -115,6 +115,13 @@ enum CustomerVehicleExpenseType {
   OTHER
 }
 
+enum CustomerVehicleReminderType {
+  INSURANCE
+  TECHNICAL_INSPECTION
+  ROAD_TAX
+  CUSTOM
+}
+
 enum ServiceLineType {
   LABOR
   PART
@@ -544,10 +551,12 @@ model CustomerVehicle {
 
   profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  claims         VehicleClaim[]
-  links          CustomerVehicleLink[]
-  mileageHistory CustomerVehicleMileage[]
-  expenses       CustomerVehicleExpense[]
+  claims             VehicleClaim[]
+  links              CustomerVehicleLink[]
+  mileageHistory     CustomerVehicleMileage[]
+  expenses           CustomerVehicleExpense[]
+  maintenanceHistory CustomerVehicleMaintenance[]
+  reminders          CustomerVehicleReminder[]
 
   @@unique([profileId, plate])
   @@index([profileId])
@@ -593,6 +602,55 @@ model CustomerVehicleExpense {
 
   @@index([customerVehicleId, occurredAt])
   @@index([customerVehicleId, type])
+}
+
+model CustomerVehicleMaintenance {
+  id String @id @default(cuid())
+
+  customerVehicleId String
+  type              MaintenanceType
+  title             String
+  performedAt       DateTime
+  mileage           Int?
+  intervalKm        Int?
+  nextMileage       Int?
+  intervalMonths    Int?
+  nextDate          DateTime?
+  source            VehicleHistorySource @default(CUSTOMER)
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerVehicle CustomerVehicle @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+
+  @@index([customerVehicleId, performedAt])
+  @@index([customerVehicleId, type, performedAt])
+  @@index([nextDate])
+  @@index([nextMileage])
+  @@index([source])
+}
+
+model CustomerVehicleReminder {
+  id String @id @default(cuid())
+
+  customerVehicleId String
+  type              CustomerVehicleReminderType
+  title             String
+  dueDate           DateTime?
+  dueMileage        Int?
+  isActive          Boolean @default(true)
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerVehicle CustomerVehicle @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+
+  @@index([customerVehicleId, isActive])
+  @@index([customerVehicleId, type, isActive])
+  @@index([dueDate])
+  @@index([dueMileage])
 }
 
 model VehicleClaim {
