@@ -37,7 +37,7 @@ export default async function Header() {
   const destination = getDashboardDestination(session?.user);
 
   return (
-    <header className="sticky top-0 z-[70] w-full border-b border-slate-200/70 bg-white/90 shadow-[0_1px_0_rgba(15,23,42,0.03)] backdrop-blur-2xl">
+    <header className="sticky top-0 z-[70] w-full border-b border-slate-200/70 bg-white/95 backdrop-blur-2xl">
       <div className="mx-auto flex h-[76px] w-full max-w-[1440px] items-center justify-between px-5 sm:px-6 lg:px-8">
         <Link
           href="/"
@@ -63,7 +63,7 @@ export default async function Header() {
 
         <nav
           aria-label="Navigimi kryesor"
-          className="hidden items-center gap-1 rounded-full border border-slate-200/80 bg-slate-50/80 p-1.5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] lg:flex"
+          className="hidden items-center gap-1 lg:flex"
         >
           <LandingNavigationLinks />
         </nav>
@@ -73,7 +73,7 @@ export default async function Header() {
             <div className="hidden items-center gap-2 lg:flex">
               <Link
                 href={destination.href}
-                className="inline-flex h-11 items-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-bold text-white shadow-lg shadow-slate-950/10 transition duration-200 hover:-translate-y-0.5 hover:bg-slate-800"
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-lg shadow-slate-950/10 transition duration-200 hover:-translate-y-0.5 hover:bg-slate-800"
               >
                 <LayoutDashboard size={17} />
                 {destination.label}
@@ -94,14 +94,14 @@ export default async function Header() {
             <div className="hidden items-center gap-2 lg:flex">
               <Link
                 href="/login"
-                className="inline-flex h-11 items-center rounded-full px-5 text-sm font-bold text-slate-700 transition duration-200 hover:bg-slate-100 hover:text-slate-950"
+                className="inline-flex h-11 items-center rounded-xl px-5 text-sm font-bold text-slate-700 transition duration-200 hover:bg-slate-100 hover:text-slate-950"
               >
                 Hyr
               </Link>
 
               <Link
                 href="/apply"
-                className="group inline-flex h-11 items-center gap-2 rounded-full bg-blue-600 px-5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition duration-200 hover:-translate-y-0.5 hover:bg-blue-700"
+                className="group inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition duration-200 hover:-translate-y-0.5 hover:bg-blue-700"
               >
                 Apliko tani
                 <ArrowRight
