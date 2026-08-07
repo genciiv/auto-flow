@@ -13,12 +13,19 @@
     },
     "src/app/api/cron/subscriptions/route.js": {
       "maxDuration": 30
+    },
+    "src/app/api/cron/customer-vehicle-reminders/route.js": {
+      "maxDuration": 30
     }
   },
   "crons": [
     {
       "path": "/api/cron/subscriptions",
       "schedule": "15 1 * * *"
+    },
+    {
+      "path": "/api/cron/customer-vehicle-reminders",
+      "schedule": "20 5 * * *"
     }
   ]
 }

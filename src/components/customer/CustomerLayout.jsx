@@ -9,6 +9,7 @@ export default function CustomerLayout({
   children,
   userName,
   userEmail,
+  notificationBell,
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -25,6 +26,7 @@ export default function CustomerLayout({
         <CustomerTopbar
           userName={userName}
           onOpenMenu={() => setSidebarOpen(true)}
+          notificationBell={notificationBell}
         />
 
         <main className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 sm:py-8">

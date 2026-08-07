@@ -122,6 +122,15 @@ enum CustomerVehicleReminderType {
   CUSTOM
 }
 
+enum CustomerVehicleDocumentType {
+  INSURANCE
+  TECHNICAL_INSPECTION
+  ROAD_TAX
+  REGISTRATION_CERTIFICATE
+  OWNERSHIP
+  OTHER
+}
+
 enum ServiceLineType {
   LABOR
   PART
@@ -557,6 +566,7 @@ model CustomerVehicle {
   expenses           CustomerVehicleExpense[]
   maintenanceHistory CustomerVehicleMaintenance[]
   reminders          CustomerVehicleReminder[]
+  documents          CustomerVehicleDocument[]
 
   @@unique([profileId, plate])
   @@index([profileId])
@@ -631,25 +641,54 @@ model CustomerVehicleMaintenance {
   @@index([source])
 }
 
+model CustomerVehicleDocument {
+  id String @id @default(cuid())
+
+  customerVehicleId String
+  type              CustomerVehicleDocumentType
+  title             String
+  fileName          String
+  storagePath       String @unique
+  mimeType          String
+  sizeBytes         Int
+  issuedAt          DateTime?
+  expiresAt         DateTime?
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerVehicle CustomerVehicle          @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+  reminder        CustomerVehicleReminder?
+
+  @@index([customerVehicleId, createdAt])
+  @@index([customerVehicleId, type])
+  @@index([expiresAt])
+}
+
 model CustomerVehicleReminder {
   id String @id @default(cuid())
 
   customerVehicleId String
+  documentId        String? @unique
   type              CustomerVehicleReminderType
   title             String
   dueDate           DateTime?
   dueMileage        Int?
+  remindDaysBefore  Int @default(30)
+  notificationSentAt DateTime?
   isActive          Boolean @default(true)
   notes             String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  customerVehicle CustomerVehicle @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+  customerVehicle CustomerVehicle          @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+  document        CustomerVehicleDocument? @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([customerVehicleId, isActive])
   @@index([customerVehicleId, type, isActive])
-  @@index([dueDate])
+  @@index([dueDate, isActive, notificationSentAt])
   @@index([dueMileage])
 }
 
