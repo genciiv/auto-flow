@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import CustomerLayout from "@/components/customer/CustomerLayout";
+import NotificationBell from "@/components/notifications/NotificationBell";
 import { requireCustomerContext } from "@/lib/customer-context";
 import { getMaintenanceStatus } from "@/services/maintenance-service";
 
@@ -17,6 +18,7 @@ export default async function CustomerPortalLayout({ children }) {
     <CustomerLayout
       userName={user.name}
       userEmail={user.email}
+      notificationBell={<NotificationBell />}
     >
       {children}
     </CustomerLayout>

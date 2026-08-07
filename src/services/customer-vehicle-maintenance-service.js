@@ -182,6 +182,7 @@ export async function createCustomerVehicleReminder({
           customerVehicleId: vehicleId,
           type,
           isActive: true,
+          documentId: null,
         },
         data: {
           isActive: false,

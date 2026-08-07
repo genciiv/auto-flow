@@ -20,6 +20,7 @@ import {
 import { updateCustomerVehicle } from "@/app/customer/vehicles/actions";
 import CustomerVehicleForm from "@/components/customer/CustomerVehicleForm";
 import CustomerVehicleHistoryForms from "@/components/customer/CustomerVehicleHistoryForms";
+import CustomerVehicleDocuments from "@/components/customer/CustomerVehicleDocuments";
 import CustomerVehicleMaintenanceForms from "@/components/customer/CustomerVehicleMaintenanceForms";
 import CustomerVehicleMaintenanceOverview from "@/components/customer/CustomerVehicleMaintenanceOverview";
 import DeleteCustomerVehicleButton from "@/components/customer/DeleteCustomerVehicleButton";
@@ -202,6 +203,10 @@ export default async function CustomerVehicleDetailsPage({ params }) {
         where: { isActive: true },
         orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
         take: 12,
+      },
+      documents: {
+        orderBy: [{ expiresAt: "asc" }, { createdAt: "desc" }],
+        take: 30,
       },
       links: {
         where: {
@@ -445,6 +450,11 @@ export default async function CustomerVehicleDetailsPage({ params }) {
         maintenanceRecords={vehicle.maintenanceHistory}
         reminders={vehicle.reminders}
         verifiedMaintenance={verifiedMaintenance}
+      />
+
+      <CustomerVehicleDocuments
+        vehicleId={vehicle.id}
+        documents={vehicle.documents}
       />
 
       <section id="historiku" className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">

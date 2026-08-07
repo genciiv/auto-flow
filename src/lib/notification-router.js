@@ -29,6 +29,9 @@ export function getNotificationUrl(notification) {
       return `/dashboard/subscriptions/${entityId}`;
 
     case "DOCUMENT":
+      if (entityId.startsWith("customer-vehicle:")) {
+        return `/customer/vehicles/${entityId.slice("customer-vehicle:".length)}#documents`;
+      }
       return `/dashboard/documents/${entityId}`;
 
     case "BUSINESS":
