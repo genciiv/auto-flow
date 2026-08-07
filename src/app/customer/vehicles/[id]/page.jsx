@@ -20,6 +20,7 @@ import {
 import { updateCustomerVehicle } from "@/app/customer/vehicles/actions";
 import CustomerVehicleForm from "@/components/customer/CustomerVehicleForm";
 import CustomerVehicleHistoryForms from "@/components/customer/CustomerVehicleHistoryForms";
+import CustomerVehicleHealthOverview from "@/components/customer/CustomerVehicleHealthOverview";
 import CustomerVehicleDocuments from "@/components/customer/CustomerVehicleDocuments";
 import CustomerVehicleMaintenanceForms from "@/components/customer/CustomerVehicleMaintenanceForms";
 import CustomerVehicleMaintenanceOverview from "@/components/customer/CustomerVehicleMaintenanceOverview";
@@ -28,6 +29,7 @@ import DeleteCustomerVehicleExpenseButton from "@/components/customer/DeleteCust
 import { CUSTOMER_VEHICLE_EXPENSE_LABELS } from "@/config/customer-vehicle-history";
 import { CUSTOMER_VEHICLE_MAINTENANCE_LABELS } from "@/config/customer-vehicle-maintenance";
 import { customerVehicleAccessWhere } from "@/lib/customer-access";
+import { getCustomerVehicleHealth } from "@/lib/customer-vehicle-health";
 import { requireCustomerContext } from "@/lib/customer-context";
 import { formatAppDate } from "@/lib/date-time";
 import { db } from "@/lib/db";
@@ -225,7 +227,10 @@ export default async function CustomerVehicleDetailsPage({ params }) {
 
   const linkedVehicleIds = [...new Set(vehicle.links.map((link) => link.vehicleId))];
 
-  const [services, verifiedMaintenance, expenseSummary] = await Promise.all([
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+
+  const [services, verifiedMaintenance, expenseSummary, expenseSummary12Months] = await Promise.all([
     linkedVehicleIds.length
       ? db.serviceRecord.findMany({
           where: {
@@ -291,6 +296,14 @@ export default async function CustomerVehicleDetailsPage({ params }) {
         id: true,
       },
     }),
+    db.customerVehicleExpense.aggregate({
+      where: {
+        customerVehicleId: vehicle.id,
+        occurredAt: { gte: twelveMonthsAgo },
+      },
+      _sum: { amount: true },
+      _count: { id: true },
+    }),
   ]);
 
   const vehicleTitle =
@@ -317,6 +330,20 @@ export default async function CustomerVehicleDetailsPage({ params }) {
     services,
     maintenanceHistory: vehicle.maintenanceHistory,
     verifiedMaintenance,
+  });
+  const health = getCustomerVehicleHealth({
+    vehicleId: vehicle.id,
+    mileage: vehicle.mileage,
+    latestMileageAt: vehicle.mileageHistory[0]?.recordedAt ?? null,
+    maintenanceHistory: vehicle.maintenanceHistory,
+    reminders: vehicle.reminders,
+    documents: vehicle.documents,
+    expenses: vehicle.expenses,
+    expenseSummary12Months: {
+      total: expenseSummary12Months._sum.amount || 0,
+      count: expenseSummary12Months._count.id,
+    },
+    serviceCount: services.length,
   });
 
   const details = [
@@ -406,6 +433,8 @@ export default async function CustomerVehicleDetailsPage({ params }) {
           </div>
         </div>
       </section>
+
+      <CustomerVehicleHealthOverview health={health} />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {details.map((item) => {
