@@ -100,11 +100,25 @@ export async function createCustomerVehicle(previousState, formData) {
       return getDuplicatePlateResult();
     }
 
-    await db.customerVehicle.create({
-      data: {
-        profileId,
-        ...data,
-      },
+    await db.$transaction(async (transaction) => {
+      const vehicle = await transaction.customerVehicle.create({
+        data: {
+          profileId,
+          ...data,
+        },
+      });
+
+      if (data.mileage !== null) {
+        await transaction.customerVehicleMileage.create({
+          data: {
+            customerVehicleId: vehicle.id,
+            mileage: data.mileage,
+            recordedAt: new Date(),
+            source: "CUSTOMER",
+            notes: "Kilometrazhi fillestar",
+          },
+        });
+      }
     });
 
     revalidateCustomerVehiclePages();
@@ -155,6 +169,7 @@ export async function updateCustomerVehicle(
 
       select: {
         id: true,
+        mileage: true,
       },
     });
 
@@ -176,7 +191,10 @@ export async function updateCustomerVehicle(
       };
     }
 
-    const data = validationResult.data;
+    const data = {
+      ...validationResult.data,
+      mileage: currentVehicle.mileage,
+    };
 
     const duplicateVehicle = await db.customerVehicle.findFirst({
       where: {

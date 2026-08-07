@@ -18,6 +18,21 @@ import CustomerBusinessSwitcher from "@/components/customer/CustomerBusinessSwit
 
 const navigationItems = [
   {
+    label: "Paneli kryesor",
+    href: "/customer/dashboard",
+    icon: Gauge,
+  },
+  {
+    label: "Automjetet e mia",
+    href: "/customer/vehicles",
+    icon: CarFront,
+  },
+  {
+    label: "Shërbimet e mia",
+    href: "/customer/services",
+    icon: Wrench,
+  },
+  {
     label: "Mesazhet",
     href: "/customer/messages",
     icon: MessagesSquare,

@@ -3,10 +3,8 @@
 import { Bell, Menu } from "lucide-react";
 
 export default function CustomerTopbar({ userName, onOpenMenu }) {
-  const firstName =
-    String(userName || "Klient")
-      .trim()
-      .split(" ")[0] || "Klient";
+  const displayName =
+    String(userName || "Klient AutoFlow").trim() || "Klient AutoFlow";
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
@@ -25,7 +23,7 @@ export default function CustomerTopbar({ userName, onOpenMenu }) {
             Portali i klientit
           </p>
           <p className="mt-1 text-sm font-bold text-slate-950">
-            Mirë se erdhe, {firstName}
+            {displayName}
           </p>
         </div>
 
