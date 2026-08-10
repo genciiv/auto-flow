@@ -2,6 +2,10 @@ const isProduction = process.env.NODE_ENV === "production";
 
 export const SECURITY_HEADERS = [
   {
+    key: "X-DNS-Prefetch-Control",
+    value: "off",
+  },
+  {
     key: "X-Content-Type-Options",
     value: "nosniff",
   },

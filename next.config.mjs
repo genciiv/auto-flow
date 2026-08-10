@@ -2,6 +2,7 @@ import { SECURITY_HEADERS } from "./src/lib/security-headers.mjs";
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
   async headers() {
     return [
       {

@@ -2,7 +2,11 @@ const URL_KEYS = new Set(["NEXT_PUBLIC_APP_URL", "APP_URL", "SUPABASE_URL"]);
 
 export const REQUIRED_RUNTIME_ENV = [
   "DATABASE_URL",
+  "DIRECT_URL",
   "AUTH_SECRET",
+  "AUTH_GOOGLE_ID",
+  "AUTH_GOOGLE_SECRET",
+  "CRON_SECRET",
   "NEXT_PUBLIC_APP_URL",
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
@@ -40,6 +44,15 @@ export function validateDeploymentEnvironment(env = process.env, { target = env.
 
   const authSecret = String(env.AUTH_SECRET || "");
   if (authSecret && authSecret.length < 32) errors.push("AUTH_SECRET duhet të ketë të paktën 32 karaktere.");
+
+  const cronSecret = String(env.CRON_SECRET || "");
+  if (cronSecret && cronSecret.length < 32) errors.push("CRON_SECRET duhet të ketë të paktën 32 karaktere.");
+
+  const googleId = String(env.AUTH_GOOGLE_ID || "").trim();
+  const googleSecret = String(env.AUTH_GOOGLE_SECRET || "").trim();
+  if (Boolean(googleId) !== Boolean(googleSecret)) {
+    errors.push("AUTH_GOOGLE_ID dhe AUTH_GOOGLE_SECRET duhet të konfigurohen së bashku.");
+  }
 
   if (env.PRISMA_LOG_QUERIES === "true" && productionLike) warnings.push("PRISMA_LOG_QUERIES=true duhet përdorur vetëm për diagnostikim të përkohshëm.");
   if (env.ENABLE_TEST_EMAIL_API === "true" && productionLike) errors.push("ENABLE_TEST_EMAIL_API duhet të jetë false në staging/production.");

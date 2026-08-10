@@ -36,3 +36,4 @@ import "./admin-billing-coherence.test.mjs";
 import "./admin-user-management.test.mjs";
 import "./admin-system-health.test.mjs";
 import "./admin-notification-center.test.mjs";
+import "./final-production-security-audit.test.mjs";
