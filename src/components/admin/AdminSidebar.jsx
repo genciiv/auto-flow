@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   BarChart3,
   Building2,
   ClipboardList,
@@ -89,6 +90,11 @@ const sidebarGroups = [
   {
     title: "SISTEMI",
     items: [
+      {
+        name: "System Health",
+        icon: Activity,
+        href: "/admin/system-health",
+      },
       {
         name: "Aktiviteti",
         icon: History,
