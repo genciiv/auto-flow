@@ -37,6 +37,6 @@ Para launch-it:
 9. Verifiko backup/restore procedure dhe rollback runbook.
 10. Mbaj `ENABLE_TEST_EMAIL_API=false` dhe `PRISMA_LOG_QUERIES=false` normalisht në production.
 
-## Remaining operational note
+## Upload hardening
 
-`serverActions.bodySizeLimit` është i lartë për upload-et. Audit-i jep warning që kjo vlerë të mbahet vetëm nëse upload-et reale e kërkojnë.
+Customer document upload lejon maksimum 10 MB. `serverActions.bodySizeLimit` është vendosur në 12 MB për të lejuar overhead-in e FormData pa mbajtur një kufi të panevojshëm 55 MB. Audit-i dështon nëse kufiri kalon 15 MB ose bie nën nevojën aktuale 10 MB.

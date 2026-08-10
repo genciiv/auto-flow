@@ -15,6 +15,15 @@ for (const [path, expected] of checks) {
   try {
     const response = await fetch(`${baseUrl}${path}`, { redirect: "manual", signal: controller.signal });
     if (response.status !== expected) throw new Error(`${path}: pritej ${expected}, u mor ${response.status}`);
+
+    if (response.headers.has("x-powered-by")) throw new Error(`${path}: X-Powered-By nuk duhet ekspozuar.`);
+    if (response.headers.get("x-content-type-options")?.toLowerCase() !== "nosniff") {
+      throw new Error(`${path}: X-Content-Type-Options duhet të jetë nosniff.`);
+    }
+    if (url.protocol === "https:" && !response.headers.get("strict-transport-security")) {
+      throw new Error(`${path}: Strict-Transport-Security mungon.`);
+    }
+
     if (path.startsWith("/api/health/")) {
       const payload = await response.json();
       if (payload?.data?.status !== "ok") throw new Error(`${path}: status jo-ok`);

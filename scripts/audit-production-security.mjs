@@ -121,8 +121,18 @@ requireText(ci, "npm run build", "CI: production build mungon.");
 requireText(packageJson, '"audit:production"', "package.json: audit:production mungon.");
 
 const serverActionLimitMatch = nextConfig.match(/bodySizeLimit:\s*"([^"]+)"/);
-if (serverActionLimitMatch) {
-  warnings.push(`Server Actions bodySizeLimit=${serverActionLimitMatch[1]}; mbaje vetëm nëse upload-et e biznesit e kërkojnë realisht.`);
+if (!serverActionLimitMatch) {
+  failures.push("next.config.mjs: serverActions.bodySizeLimit mungon.");
+} else {
+  const rawLimit = serverActionLimitMatch[1].toLowerCase();
+  const mbMatch = rawLimit.match(/^(\d+(?:\.\d+)?)mb$/);
+  if (!mbMatch) {
+    failures.push(`next.config.mjs: bodySizeLimit=${rawLimit} duhet të deklarohet në MB.`);
+  } else {
+    const limitMb = Number(mbMatch[1]);
+    if (limitMb < 10) failures.push("next.config.mjs: bodySizeLimit duhet të lejojë dokumentet deri në 10 MB.");
+    if (limitMb > 15) failures.push("next.config.mjs: bodySizeLimit mbi 15 MB është më i lartë se nevoja aktuale e upload-it.");
+  }
 }
 
 if (failures.length) {
