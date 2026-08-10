@@ -9,7 +9,7 @@ export default function AdminShell({ children, user, notificationSummary }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="af-admin-shell min-h-screen bg-slate-50">
       <AdminSidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -22,7 +22,7 @@ export default function AdminShell({ children, user, notificationSummary }) {
           onOpenMenu={() => setSidebarOpen(true)}
         />
 
-        <main className="px-4 py-5 sm:px-6 sm:py-8 lg:px-8">
+        <main className="px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
       </div>
