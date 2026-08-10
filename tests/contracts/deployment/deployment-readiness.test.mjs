@@ -5,7 +5,11 @@ import { validateDeploymentEnvironment } from "../../../src/lib/env-validation.m
 
 const valid = {
   DATABASE_URL: "postgresql://u:p@db.autoflow.al:5432/app",
+  DIRECT_URL: "postgresql://u:p@db.autoflow.al:5432/app",
   AUTH_SECRET: "a".repeat(40),
+  AUTH_GOOGLE_ID: "autoflow-production.apps.googleusercontent.com",
+  AUTH_GOOGLE_SECRET: "g".repeat(40),
+  CRON_SECRET: "c".repeat(40),
   NEXT_PUBLIC_APP_URL: "https://app.autoflow.al",
   SUPABASE_URL: "https://project.supabase.co",
   SUPABASE_SERVICE_ROLE_KEY: "service-role-value",

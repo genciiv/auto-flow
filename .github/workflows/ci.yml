@@ -40,6 +40,9 @@ jobs:
 
       AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
       NEXTAUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+      AUTH_GOOGLE_ID: ci-google-client-id
+      AUTH_GOOGLE_SECRET: ci-google-client-secret-ci-google-client-secret
+      CRON_SECRET: ci-cron-secret-ci-cron-secret-ci-cron-secret
 
       NEXT_PUBLIC_APP_URL: http://localhost:3000
 
