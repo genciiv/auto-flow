@@ -79,7 +79,8 @@ function inspectServerActions(relativePath, source) {
 
   const hasFrameworkRedirectFlow =
     /\bredirect\s*\(/.test(source) ||
-    /\bsignOut\s*\(\s*\{[\s\S]{0,200}\bredirectTo\s*:/.test(source);
+    /\bsignOut\s*\(\s*\{[\s\S]{0,200}\bredirectTo\s*:/.test(source) ||
+    /\bsignIn\s*\([\s\S]{0,300}\bredirectTo\s*:/.test(source);
 
   if (
     !hasStandardResultHelper &&

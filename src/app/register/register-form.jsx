@@ -1,6 +1,7 @@
 "use client";
 
 import ActionFeedback from "@/components/feedback/ActionFeedback";
+import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
@@ -104,7 +105,18 @@ export default function RegisterForm() {
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
 
   return (
-    <form action={formAction} className="mt-8 space-y-5">
+    <div className="mt-8">
+      <GoogleAuthButton label="Regjistrohu me Google" />
+
+      <div className="my-5 flex items-center gap-3" aria-hidden="true">
+        <span className="h-px flex-1 bg-slate-200" />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+          ose me email
+        </span>
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
+
+      <form action={formAction} className="space-y-5">
       <ActionFeedback state={state} />
       {state?.error ? (
         <div
@@ -253,6 +265,7 @@ export default function RegisterForm() {
           Hyr këtu
         </Link>
       </p>
-    </form>
+      </form>
+    </div>
   );
 }

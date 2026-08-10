@@ -1,5 +1,6 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 
 import { db } from "@/lib/db";
@@ -40,9 +41,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   pages: {
     signIn: "/login",
+    error: "/login",
   },
 
   providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+    }),
+
     Credentials({
       name: "Email dhe password",
 
@@ -208,6 +215,144 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== "google") {
+        return true;
+      }
+
+      const email =
+        typeof user?.email === "string" ? user.email.trim().toLowerCase() : "";
+
+      if (!email || profile?.email_verified !== true) {
+        return false;
+      }
+
+      let databaseUser = await db.user.findUnique({
+        where: { email },
+        include: {
+          businesses: {
+            where: {
+              isActive: true,
+              business: { isActive: true },
+            },
+            include: {
+              business: {
+                select: { id: true, name: true, isActive: true },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      });
+
+      if (databaseUser && (!databaseUser.isActive || databaseUser.globalRole !== "CUSTOMER")) {
+        return false;
+      }
+
+      if (!databaseUser) {
+        const fallbackName =
+          typeof user?.name === "string" && user.name.trim()
+            ? user.name.trim()
+            : email.split("@")[0];
+
+        try {
+          databaseUser = await db.user.create({
+            data: {
+              name: fallbackName,
+              email,
+              passwordHash: null,
+              globalRole: "CUSTOMER",
+              isActive: true,
+              emailVerified: new Date(),
+              lastLoginAt: new Date(),
+              customerProfile: { create: {} },
+            },
+            include: {
+              businesses: {
+                include: {
+                  business: {
+                    select: { id: true, name: true, isActive: true },
+                  },
+                },
+              },
+            },
+          });
+        } catch (error) {
+          if (error?.code !== "P2002") {
+            throw error;
+          }
+
+          databaseUser = await db.user.findUnique({
+            where: { email },
+            include: {
+              businesses: {
+                where: {
+                  isActive: true,
+                  business: { isActive: true },
+                },
+                include: {
+                  business: {
+                    select: { id: true, name: true, isActive: true },
+                  },
+                },
+                orderBy: { createdAt: "asc" },
+              },
+            },
+          });
+
+          if (!databaseUser || !databaseUser.isActive || databaseUser.globalRole !== "CUSTOMER") {
+            return false;
+          }
+        }
+      } else {
+        databaseUser = await db.user.update({
+          where: { id: databaseUser.id },
+          data: {
+            emailVerified: databaseUser.emailVerified ?? new Date(),
+            lastLoginAt: new Date(),
+            customerProfile: {
+              upsert: {
+                create: {},
+                update: {},
+              },
+            },
+          },
+          include: {
+            businesses: {
+              where: {
+                isActive: true,
+                business: { isActive: true },
+              },
+              include: {
+                business: {
+                  select: { id: true, name: true, isActive: true },
+                },
+              },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        });
+      }
+
+      await resetFailedLogins(databaseUser.id);
+
+      const memberships = mapMemberships(databaseUser.businesses);
+      const primaryMembership = memberships[0] ?? null;
+
+      user.id = databaseUser.id;
+      user.name = databaseUser.name;
+      user.email = databaseUser.email;
+      user.globalRole = databaseUser.globalRole;
+      user.sessionVersion = databaseUser.sessionVersion;
+      user.businessId = primaryMembership?.businessId ?? null;
+      user.businessName = primaryMembership?.businessName ?? null;
+      user.businessRole = primaryMembership?.role ?? null;
+      user.memberships = memberships;
+      user.loginPortal = "personal";
+
+      return true;
+    },
+
     async jwt({ token, user, trigger, session }) {
       /*
        * Ekzekutohet menjëherë pas login-it.
