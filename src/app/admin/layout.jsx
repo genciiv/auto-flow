@@ -4,7 +4,10 @@ import { getAdminNotificationSummary } from "@/services/admin/admin-notification
 
 export default async function AdminLayout({ children }) {
   const user = await requirePlatformAdmin();
-  const notificationSummary = await getAdminNotificationSummary({ limit: 12 });
+  const notificationSummary = await getAdminNotificationSummary({
+    limit: 12,
+    userId: user.id,
+  });
 
   return (
     <AdminShell user={user} notificationSummary={notificationSummary}>

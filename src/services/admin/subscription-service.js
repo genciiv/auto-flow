@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getPlatformSettings } from "@/services/admin/settings-service";
 
 const PAGE_SIZE = 10;
 
@@ -29,6 +30,63 @@ function normalizeBillingInterval(interval) {
   const validIntervals = ["all", "MONTHLY", "YEARLY"];
 
   return validIntervals.includes(interval) ? interval : "all";
+}
+
+export async function getEnabledSubscriptionPaymentMethods() {
+  const settings = await getPlatformSettings();
+  const methods = [];
+
+  if (settings.cashPaymentsEnabled) {
+    methods.push({ value: "CASH", label: "Cash" });
+  }
+
+  if (settings.bankPaymentsEnabled) {
+    methods.push({ value: "BANK_TRANSFER", label: "Transfertë bankare" });
+  }
+
+  if (settings.cardPaymentsEnabled) {
+    methods.push({ value: "CARD", label: "Kartë" });
+  }
+
+  methods.push({ value: "OTHER", label: "Tjetër" });
+
+  return methods;
+}
+
+async function assertEnabledPaymentMethod(method) {
+  const methods = await getEnabledSubscriptionPaymentMethods();
+
+  if (!methods.some((item) => item.value === method)) {
+    throw new Error(
+      "Kjo metodë pagese është çaktivizuar te konfigurimet e platformës.",
+    );
+  }
+}
+
+function normalizePaidAt(value) {
+  if (!value) {
+    return new Date();
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Data e pagesës nuk është e vlefshme.");
+  }
+
+  return date;
+}
+
+function assertPaidPrice(price) {
+  const numericPrice = Number(price);
+
+  if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
+    throw new Error(
+      "Një abonim me pagesë duhet të ketë një shumë më të madhe se zero.",
+    );
+  }
+
+  return numericPrice;
 }
 
 export async function getSubscriptions({
@@ -102,6 +160,7 @@ export async function getSubscriptions({
     activeCount,
     expiredCount,
     cancelledCount,
+    activeWithoutPaymentCount,
   ] = await Promise.all([
     db.subscription.findMany({
       where,
@@ -124,6 +183,20 @@ export async function getSubscriptions({
             monthlyPrice: true,
             yearlyPrice: true,
             isActive: true,
+          },
+        },
+        payments: {
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            method: true,
+            amount: true,
+            paidAt: true,
+            createdAt: true,
           },
         },
         _count: {
@@ -157,6 +230,16 @@ export async function getSubscriptions({
     db.subscription.count({
       where: {
         status: "ACTIVE",
+        plan: {
+          slug: {
+            not: "free-trial",
+          },
+        },
+        payments: {
+          some: {
+            status: "PAID",
+          },
+        },
       },
     }),
 
@@ -171,6 +254,22 @@ export async function getSubscriptions({
         status: "CANCELLED",
       },
     }),
+
+    db.subscription.count({
+      where: {
+        status: "ACTIVE",
+        plan: {
+          slug: {
+            not: "free-trial",
+          },
+        },
+        payments: {
+          none: {
+            status: "PAID",
+          },
+        },
+      },
+    }),
   ]);
 
   return {
@@ -181,6 +280,7 @@ export async function getSubscriptions({
       active: activeCount,
       expired: expiredCount,
       cancelled: cancelledCount,
+      activeWithoutPayment: activeWithoutPaymentCount,
     },
 
     filters: {
@@ -240,7 +340,7 @@ export async function getSubscriptionById(subscriptionId) {
 }
 
 export async function getSubscriptionFormData() {
-  const [businesses, plans] = await Promise.all([
+  const [businesses, plans, paymentMethods] = await Promise.all([
     db.business.findMany({
       where: {
         isActive: true,
@@ -291,11 +391,14 @@ export async function getSubscriptionFormData() {
         },
       ],
     }),
+
+    getEnabledSubscriptionPaymentMethods(),
   ]);
 
   return {
     businesses,
     plans,
+    paymentMethods,
   };
 }
 
@@ -306,7 +409,14 @@ export async function createPaidSubscription({
   price,
   periodStart,
   periodEnd,
+  paymentMethod,
+  paymentReference = null,
+  paidAt = null,
 }) {
+  await assertEnabledPaymentMethod(paymentMethod);
+  const paidPrice = assertPaidPrice(price);
+  const paymentDate = normalizePaidAt(paidAt);
+
   return db.$transaction(async (transaction) => {
     await transaction.subscription.updateMany({
       where: {
@@ -322,13 +432,13 @@ export async function createPaidSubscription({
       },
     });
 
-    return transaction.subscription.create({
+    const subscription = await transaction.subscription.create({
       data: {
         businessId,
         planId,
         status: "ACTIVE",
         billingInterval,
-        price,
+        price: paidPrice,
         trialStartsAt: null,
         trialEndsAt: null,
         currentPeriodStart: periodStart,
@@ -337,6 +447,24 @@ export async function createPaidSubscription({
         cancelAtPeriodEnd: false,
       },
     });
+
+    const payment = await transaction.payment.create({
+      data: {
+        businessId,
+        subscriptionId: subscription.id,
+        amount: paidPrice,
+        currency: "ALL",
+        status: "PAID",
+        method: paymentMethod,
+        reference: paymentReference || null,
+        description: "Pagesë për aktivizimin e abonimit",
+        paidAt: paymentDate,
+        periodStart,
+        periodEnd,
+      },
+    });
+
+    return { subscription, payment };
   });
 }
 
@@ -380,7 +508,14 @@ export async function renewSubscription({
   price,
   periodStart,
   periodEnd,
+  paymentMethod,
+  paymentReference = null,
+  paidAt = null,
 }) {
+  await assertEnabledPaymentMethod(paymentMethod);
+  const paidPrice = assertPaidPrice(price);
+  const paymentDate = normalizePaidAt(paidAt);
+
   const subscription = await db.subscription.findUnique({
     where: {
       id: subscriptionId,
@@ -391,20 +526,40 @@ export async function renewSubscription({
     throw new Error("Abonimi nuk u gjet.");
   }
 
-  return db.subscription.update({
-    where: {
-      id: subscriptionId,
-    },
-    data: {
-      status: "ACTIVE",
-      billingInterval,
-      price,
-      trialStartsAt: null,
-      trialEndsAt: null,
-      currentPeriodStart: periodStart,
-      currentPeriodEnd: periodEnd,
-      cancelledAt: null,
-      cancelAtPeriodEnd: false,
-    },
+  return db.$transaction(async (transaction) => {
+    const updatedSubscription = await transaction.subscription.update({
+      where: {
+        id: subscriptionId,
+      },
+      data: {
+        status: "ACTIVE",
+        billingInterval,
+        price: paidPrice,
+        trialStartsAt: null,
+        trialEndsAt: null,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        cancelledAt: null,
+        cancelAtPeriodEnd: false,
+      },
+    });
+
+    const payment = await transaction.payment.create({
+      data: {
+        businessId: subscription.businessId,
+        subscriptionId,
+        amount: paidPrice,
+        currency: "ALL",
+        status: "PAID",
+        method: paymentMethod,
+        reference: paymentReference || null,
+        description: "Pagesë për rinovimin e abonimit",
+        paidAt: paymentDate,
+        periodStart,
+        periodEnd,
+      },
+    });
+
+    return { subscription: updatedSubscription, payment };
   });
 }

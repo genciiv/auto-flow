@@ -18,6 +18,61 @@ function formatDate(date) {
   }).format(date);
 }
 
+function getSubscriptionSummary(subscription) {
+  if (!subscription) {
+    return {
+      label: "Pa abonim",
+      detail: "Nuk ka plan aktiv",
+      className: "bg-slate-100 text-slate-600",
+    };
+  }
+
+  const latestPayment = subscription.payments?.[0];
+
+  if (subscription.status === "TRIALING") {
+    return {
+      label: "Trial",
+      detail: subscription.plan?.name || "Free Trial",
+      className: "bg-blue-50 text-blue-700",
+    };
+  }
+
+  if (subscription.status === "ACTIVE") {
+    if (latestPayment?.status === "PAID") {
+      const methodLabels = {
+        CASH: "Cash",
+        BANK_TRANSFER: "Transfertë",
+        CARD: "Kartë",
+        OTHER: "Tjetër",
+      };
+
+      return {
+        label: "Paid",
+        detail: `${subscription.plan?.name || "Plan"} · ${methodLabels[latestPayment.method] || latestPayment.method}`,
+        className: "bg-emerald-50 text-emerald-700",
+      };
+    }
+
+    return {
+      label: "Aktiv pa pagesë",
+      detail: subscription.plan?.name || "Plan",
+      className: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  const labels = {
+    PAST_DUE: "Pagesë e vonuar",
+    CANCELLED: "Anuluar",
+    EXPIRED: "Skaduar",
+  };
+
+  return {
+    label: labels[subscription.status] || subscription.status,
+    detail: subscription.plan?.name || "Plan",
+    className: "bg-slate-100 text-slate-600",
+  };
+}
+
 function createPageUrl({ search, status, city, page }) {
   const params = new URLSearchParams();
 
@@ -159,7 +214,7 @@ export default async function BusinessesPage({ searchParams }) {
         {businesses.length > 0 ? (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
+              <table className="w-full min-w-[1260px]">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70 text-left">
                     <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -179,6 +234,10 @@ export default async function BusinessesPage({ searchParams }) {
                     </th>
 
                     <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Abonimi
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Statusi
                     </th>
 
@@ -195,6 +254,9 @@ export default async function BusinessesPage({ searchParams }) {
                 <tbody>
                   {businesses.map((business) => {
                     const owner = business.users[0]?.user;
+                    const subscription = business.subscriptions?.[0] || null;
+                    const subscriptionSummary =
+                      getSubscriptionSummary(subscription);
 
                     return (
                       <tr
@@ -250,6 +312,18 @@ export default async function BusinessesPage({ searchParams }) {
                           <p className="mt-1 text-xs text-slate-500">
                             {business._count.vehicles} automjete ·{" "}
                             {business._count.services} shërbime
+                          </p>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${subscriptionSummary.className}`}
+                          >
+                            {subscriptionSummary.label}
+                          </span>
+
+                          <p className="mt-1 max-w-[180px] text-xs text-slate-500">
+                            {subscriptionSummary.detail}
                           </p>
                         </td>
 

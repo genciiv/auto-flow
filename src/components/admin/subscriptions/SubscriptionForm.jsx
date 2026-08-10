@@ -2,7 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Save, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  CreditCard,
+  Loader2,
+  Save,
+  X,
+} from "lucide-react";
 
 import { createSubscriptionAction } from "@/app/admin/subscriptions/actions";
 
@@ -20,7 +27,11 @@ function getTodayValue() {
   return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 10);
 }
 
-export default function SubscriptionForm({ businesses = [], plans = [] }) {
+export default function SubscriptionForm({
+  businesses = [],
+  plans = [],
+  paymentMethods = [],
+}) {
   const router = useRouter();
 
   const [isPending, startTransition] = useTransition();
@@ -30,6 +41,9 @@ export default function SubscriptionForm({ businesses = [], plans = [] }) {
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [billingInterval, setBillingInterval] = useState("MONTHLY");
   const [customPrice, setCustomPrice] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState(
+    paymentMethods[0]?.value || "OTHER",
+  );
 
   const selectedBusiness = useMemo(
     () =>
@@ -70,7 +84,9 @@ export default function SubscriptionForm({ businesses = [], plans = [] }) {
 
         setMessage({
           type: "success",
-          text: result?.message || "Abonimi u aktivizua me sukses.",
+          text:
+            result?.message ||
+            "Pagesa u konfirmua dhe abonimi u aktivizua me sukses.",
         });
 
         router.refresh();
@@ -248,7 +264,7 @@ export default function SubscriptionForm({ businesses = [], plans = [] }) {
               <input
                 type="number"
                 name="price"
-                min="0"
+                min="0.01"
                 step="0.01"
                 value={customPrice}
                 onChange={(event) => setCustomPrice(event.target.value)}
@@ -273,15 +289,82 @@ export default function SubscriptionForm({ businesses = [], plans = [] }) {
         </div>
       </section>
 
+      <section className="rounded-[1.75rem] border border-emerald-200 bg-emerald-50/60 p-6">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm">
+            <CreditCard size={18} />
+          </div>
+
+          <div>
+            <h2 className="text-lg font-bold text-emerald-950">
+              Pagesa e abonimit
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-emerald-800">
+              Abonimi aktivizohet vetëm pasi kjo pagesë të regjistrohet si e
+              konfirmuar. Aktivizimi dhe pagesa ruhen në të njëjtin transaksion.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-5 lg:grid-cols-3">
+          <label>
+            <span className="text-sm font-semibold text-emerald-900">
+              Metoda e pagesës
+            </span>
+            <select
+              name="paymentMethod"
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value)}
+              className="mt-2 h-12 w-full rounded-2xl border border-emerald-200 bg-white px-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+            >
+              {paymentMethods.map((method) => (
+                <option key={method.value} value={method.value}>
+                  {method.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-emerald-900">
+              Data e pagesës
+            </span>
+            <input
+              type="date"
+              name="paidAt"
+              defaultValue={getTodayValue()}
+              className="mt-2 h-12 w-full rounded-2xl border border-emerald-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+            />
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-emerald-900">
+              Referenca {paymentMethod === "BANK_TRANSFER" ? "*" : ""}
+            </span>
+            <input
+              type="text"
+              name="paymentReference"
+              required={paymentMethod === "BANK_TRANSFER"}
+              placeholder={
+                paymentMethod === "BANK_TRANSFER"
+                  ? "P.sh. TRX-2026-0001"
+                  : "Opsionale"
+              }
+              className="mt-2 h-12 w-full rounded-2xl border border-emerald-200 bg-white px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+            />
+          </label>
+        </div>
+      </section>
+
       <section className="rounded-[1.75rem] border border-blue-100 bg-blue-50/70 p-6">
         <h2 className="text-sm font-bold text-blue-900">
           Çfarë ndodh pas aktivizimit?
         </h2>
 
         <p className="mt-2 text-sm leading-6 text-blue-800">
-          Trial-i ose abonimi i mëparshëm i biznesit do të shënohet si i
-          anuluar. Do të krijohet një abonim i ri aktiv me planin dhe periudhën
-          e zgjedhur. Pagesën do ta regjistrojmë veçmas te moduli Pagesat.
+          Trial-i ose abonimi i mëparshëm do të mbyllet. Sistemi krijon abonimin
+          e ri me status Aktiv dhe një pagesë PAID të lidhur me të. Kështu një
+          plan me pagesë nuk mund të rezultojë aktiv me 0 pagesa.
         </p>
       </section>
 
@@ -298,7 +381,12 @@ export default function SubscriptionForm({ businesses = [], plans = [] }) {
 
         <button
           type="submit"
-          disabled={isPending || !selectedBusinessId || !selectedPlanId}
+          disabled={
+            isPending ||
+            !selectedBusinessId ||
+            !selectedPlanId ||
+            paymentMethods.length === 0
+          }
           className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? (
@@ -309,7 +397,7 @@ export default function SubscriptionForm({ businesses = [], plans = [] }) {
           ) : (
             <>
               <Save size={17} />
-              Aktivizo abonimin
+              Konfirmo pagesën dhe aktivizo
             </>
           )}
         </button>

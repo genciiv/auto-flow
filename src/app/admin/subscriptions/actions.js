@@ -56,6 +56,20 @@ function parsePeriodStart(value) {
   return date;
 }
 
+function parsePaidAt(value) {
+  if (!value) {
+    return new Date();
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    throw createActionError("Data e pagesës nuk është e vlefshme.");
+  }
+
+  return date;
+}
+
 function addBillingPeriod(startDate, billingInterval) {
   const endDate = new Date(startDate);
 
@@ -131,6 +145,9 @@ export async function createSubscriptionAction(formData) {
     billingInterval,
     periodStart: periodStartInput,
     price: customPrice,
+    paymentMethod,
+    paymentReference,
+    paidAt: paidAtInput,
   } = validationResult.data;
 
   const [business, plan] = await Promise.all([
@@ -193,13 +210,24 @@ export async function createSubscriptionAction(formData) {
       ? customPrice
       : getDefaultPlanPrice(plan, billingInterval);
 
-  const subscription = await createPaidSubscription({
+  if (price <= 0) {
+    throw createActionError(
+      "Një abonim me pagesë duhet të ketë një shumë më të madhe se zero.",
+    );
+  }
+
+  const paidAt = parsePaidAt(paidAtInput);
+
+  const { subscription, payment } = await createPaidSubscription({
     businessId,
     planId,
     billingInterval,
     price,
     periodStart,
     periodEnd,
+    paymentMethod,
+    paymentReference,
+    paidAt,
   });
 
   await createPlatformAuditLog({
@@ -219,6 +247,11 @@ export async function createSubscriptionAction(formData) {
       status: subscription.status,
       billingInterval,
       price,
+      paymentId: payment.id,
+      paymentStatus: payment.status,
+      paymentMethod: payment.method,
+      paymentReference: payment.reference,
+      paidAt: serializeDate(payment.paidAt),
       currentPeriodStart: serializeDate(periodStart),
       currentPeriodEnd: serializeDate(periodEnd),
     },
@@ -229,7 +262,8 @@ export async function createSubscriptionAction(formData) {
   return {
     success: true,
     subscriptionId: subscription.id,
-    message: "Abonimi u aktivizua me sukses.",
+    paymentId: payment.id,
+    message: "Pagesa u konfirmua dhe abonimi u aktivizua me sukses.",
   };
 }
 
@@ -254,6 +288,9 @@ export async function renewSubscriptionAction(subscriptionId, formData) {
     billingInterval,
     periodStart: periodStartInput,
     price: customPrice,
+    paymentMethod,
+    paymentReference,
+    paidAt: paidAtInput,
   } = validationResult.data;
 
   const existingSubscription = await getSubscriptionById(
@@ -281,12 +318,23 @@ export async function renewSubscriptionAction(subscriptionId, formData) {
       ? customPrice
       : getDefaultPlanPrice(existingSubscription.plan, billingInterval);
 
-  const subscription = await renewSubscription({
+  if (price <= 0) {
+    throw createActionError(
+      "Një rinovim me pagesë duhet të ketë një shumë më të madhe se zero.",
+    );
+  }
+
+  const paidAt = parsePaidAt(paidAtInput);
+
+  const { subscription, payment } = await renewSubscription({
     subscriptionId: validatedSubscriptionId,
     billingInterval,
     price,
     periodStart,
     periodEnd,
+    paymentMethod,
+    paymentReference,
+    paidAt,
   });
 
   await createPlatformAuditLog({
@@ -316,6 +364,11 @@ export async function renewSubscriptionAction(subscriptionId, formData) {
       status: subscription.status,
       billingInterval,
       price,
+      paymentId: payment.id,
+      paymentStatus: payment.status,
+      paymentMethod: payment.method,
+      paymentReference: payment.reference,
+      paidAt: serializeDate(payment.paidAt),
 
       currentPeriodStart: serializeDate(periodStart),
 
@@ -328,7 +381,8 @@ export async function renewSubscriptionAction(subscriptionId, formData) {
   return {
     success: true,
     subscriptionId: subscription.id,
-    message: "Abonimi u rinovua me sukses.",
+    paymentId: payment.id,
+    message: "Pagesa u konfirmua dhe abonimi u rinovua me sukses.",
   };
 }
 
@@ -367,6 +421,16 @@ export async function updateSubscriptionStatusAction(subscriptionId, status) {
       status: existingSubscription.status,
       message: "Statusi i abonimit është tashmë i përditësuar.",
     };
+  }
+
+  if (
+    validatedStatus === "ACTIVE" &&
+    existingSubscription.plan?.slug !== "free-trial" &&
+    !existingSubscription.payments.some((payment) => payment.status === "PAID")
+  ) {
+    throw createActionError(
+      "Ky abonim nuk mund të aktivizohet pa një pagesë të konfirmuar. Regjistro pagesën fillimisht.",
+    );
   }
 
   const subscription = await updateSubscriptionStatus({
