@@ -1,4 +1,4 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import path from "node:path";
 
 const srcRoot = path.resolve("src");
@@ -88,13 +88,13 @@ function inspectServerActions(relativePath, source) {
     !hasFrameworkRedirectFlow
   ) {
     findings.push(
-      `${relativePath}: action-et nuk pÃ«rdorin rezultat standard, rezultat tÃ« kontrolluar ose redirect tÃ« framework-ut`,
+      `${relativePath}: action-et nuk përdorin rezultat standard, rezultat të kontrolluar ose redirect të framework-ut`,
     );
   }
 
   if (/throw\s+new\s+Error\s*\(/.test(source)) {
     findings.push(
-      `${relativePath}: pÃ«rmban throw new Error(); pÃ«rdor AppError/createActionError`,
+      `${relativePath}: përmban throw new Error(); përdor AppError/createActionError`,
     );
   }
 
@@ -110,7 +110,7 @@ function inspectServerActions(relativePath, source) {
 
   if (readsFormInput && !usesValidation) {
     findings.push(
-      `${relativePath}: lexon FormData pa validim tÃ« centralizuar`,
+      `${relativePath}: lexon FormData pa validim të centralizuar`,
     );
   }
 }
@@ -139,7 +139,7 @@ function inspectApiRoute(relativePath, source) {
     source.includes("apiFailure");
 
   if (!hasControlledResponse) {
-    findings.push(`${relativePath}: nuk pÃ«rdor pÃ«rgjigje API tÃ« kontrolluar`);
+    findings.push(`${relativePath}: nuk përdor përgjigje API të kontrolluar`);
   }
 }
 
@@ -151,7 +151,7 @@ if (!fs.existsSync(srcRoot)) {
 walk(srcRoot);
 
 if (findings.length > 0) {
-  console.error("Auditimi gjeti pika pÃ«r kontroll:\n");
+  console.error("Auditimi gjeti pika për kontroll:\n");
 
   for (const finding of findings) {
     console.error(`- ${finding}`);
@@ -175,7 +175,7 @@ const requiredUiFiles = [
 
 for (const requiredFile of requiredUiFiles) {
   if (!fs.existsSync(path.resolve(requiredFile))) {
-    console.error(`Mungon komponenti UI i detyrueshÃ«m: ${requiredFile}`);
+    console.error(`Mungon komponenti UI i detyrueshëm: ${requiredFile}`);
     process.exit(1);
   }
 }
@@ -191,9 +191,8 @@ function collectClientSource(directory) {
 }
 collectClientSource(srcRoot);
 if (clientSource.some((source) => source.includes("window.confirm("))) {
-  console.error("U gjet window.confirm; pÃ«rdor ConfirmProvider global.");
+  console.error("U gjet window.confirm; përdor ConfirmProvider global.");
   process.exit(1);
 }
 
-console.log("Error handling audit: OK â€” kontrata e actions dhe shtresa UI u verifikuan.");
-
+console.log("Error handling audit: OK — kontrata e actions dhe shtresa UI u verifikuan.");
