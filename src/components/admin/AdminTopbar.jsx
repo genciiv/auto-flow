@@ -13,17 +13,28 @@ export default function AdminTopbar({
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
-      <div className="flex h-16 items-center gap-2 px-4 sm:h-20 sm:gap-4 sm:px-6">
+      <div className="flex h-14 items-center gap-2 px-3 sm:h-20 sm:gap-4 sm:px-6">
         <button
           type="button"
           aria-label="Hap menunë"
           onClick={onOpenMenu}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 lg:hidden"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 lg:hidden"
         >
-          <Menu size={20} />
+          <Menu size={18} />
         </button>
 
-        <div className="min-w-0 flex-1 sm:max-w-xl">
+        <div className="min-w-0 flex-1 lg:hidden">
+          <p className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-blue-600">
+            AutoFlow
+          </p>
+          <p className="truncate text-sm font-bold text-slate-950">Platform Admin</p>
+        </div>
+
+        <div className="hidden min-w-0 flex-1 sm:max-w-xl lg:block">
+          <SearchCommand />
+        </div>
+
+        <div className="lg:hidden">
           <SearchCommand />
         </div>
 

@@ -20,7 +20,7 @@ function formatDate(date) {
 
 function StatCard({ title, value, description, icon: Icon }) {
   return (
-    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="af-admin-stat-card rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
           <Icon size={21} />
@@ -68,7 +68,7 @@ export default async function AdminPage() {
         </div>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
         <StatCard
           title="Totali i bizneseve"
           value={dashboard.totalBusinesses}
@@ -98,7 +98,7 @@ export default async function AdminPage() {
         />
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-3 sm:gap-5">
         <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">

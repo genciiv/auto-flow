@@ -75,7 +75,7 @@ export default function AdminProfileMenu({
             className="fixed inset-0 z-40 cursor-default"
           />
 
-          <div className="absolute right-0 z-50 mt-3 w-72 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/10">
+          <div className="absolute right-0 z-50 mt-3 w-[min(18rem,calc(100vw-1.5rem))] rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/10 sm:rounded-[1.5rem]">
             <div className="border-b border-slate-100 px-3 py-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
