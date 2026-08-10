@@ -1,7 +1,10 @@
 import Link from "next/link";
 import {
+  Banknote,
   Building2,
   Car,
+  Clock3,
+  CreditCard,
   ShieldCheck,
   UserRoundCheck,
   Users,
@@ -16,6 +19,44 @@ function formatDate(date) {
     month: "short",
     year: "numeric",
   }).format(date);
+}
+
+function formatPrice(value) {
+  return new Intl.NumberFormat("sq-AL", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+}
+
+function getSubscriptionLabel(subscription) {
+  if (!subscription) {
+    return { label: "Pa abonim", className: "bg-slate-100 text-slate-600" };
+  }
+
+  if (subscription.status === "TRIALING") {
+    return { label: "Trial", className: "bg-blue-50 text-blue-700" };
+  }
+
+  if (subscription.status === "ACTIVE") {
+    const hasPaidPayment = subscription.payments?.some(
+      (payment) => payment.status === "PAID",
+    );
+
+    return hasPaidPayment
+      ? { label: "Paid", className: "bg-emerald-50 text-emerald-700" }
+      : { label: "Aktiv pa pagesë", className: "bg-amber-50 text-amber-700" };
+  }
+
+  const labels = {
+    PAST_DUE: "Pagesë e vonuar",
+    CANCELLED: "Anuluar",
+    EXPIRED: "Skaduar",
+  };
+
+  return {
+    label: labels[subscription.status] || subscription.status,
+    className: "bg-slate-100 text-slate-600",
+  };
 }
 
 function StatCard({ title, value, description, icon: Icon }) {
@@ -72,15 +113,45 @@ export default async function AdminPage() {
         <StatCard
           title="Totali i bizneseve"
           value={dashboard.totalBusinesses}
-          description={`${dashboard.inactiveBusinesses} biznese joaktive`}
+          description={`${dashboard.inactiveBusinesses} account-e joaktive`}
           icon={Building2}
         />
 
         <StatCard
-          title="Biznese aktive"
-          value={dashboard.activeBusinesses}
-          description="Biznese me akses aktiv"
+          title="Abonime aktive"
+          value={dashboard.paidActiveSubscriptions}
+          description="Plane me pagesë të konfirmuar"
+          icon={CreditCard}
+        />
+
+        <StatCard
+          title="Trial aktive"
+          value={dashboard.trialingSubscriptions}
+          description="Biznese në periudhë prove"
+          icon={Clock3}
+        />
+
+        <StatCard
+          title="Pa akses me pagesë"
+          value={dashboard.businessesWithoutPaidAccess}
+          description="Pa abonim paid ose trial aktiv"
+          icon={ShieldCheck}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
+        <StatCard
+          title="Account-e aktive"
+          value={dashboard.accountActiveBusinesses}
+          description="Lejuar të përdorin platformën"
           icon={UserRoundCheck}
+        />
+
+        <StatCard
+          title="Të ardhura këtë muaj"
+          value={`${formatPrice(dashboard.currentMonthRevenue)} Lekë`}
+          description="Vetëm pagesa PAID"
+          icon={Banknote}
         />
 
         <StatCard
@@ -186,7 +257,7 @@ export default async function AdminPage() {
                   </th>
 
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Statusi
+                    Abonimi
                   </th>
 
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -247,15 +318,23 @@ export default async function AdminPage() {
                       </td>
 
                       <td className="px-6 py-5">
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            business.isActive
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-red-50 text-red-700"
-                          }`}
-                        >
-                          {business.isActive ? "Aktiv" : "Joaktiv"}
-                        </span>
+                        {(() => {
+                          const subscription = business.subscriptions?.[0];
+                          const status = getSubscriptionLabel(subscription);
+
+                          return (
+                            <div>
+                              <span
+                                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}
+                              >
+                                {status.label}
+                              </span>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {subscription?.plan?.name || "Nuk ka plan aktiv"}
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       <td className="px-6 py-5 text-sm text-slate-500">

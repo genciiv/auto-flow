@@ -31,3 +31,4 @@ import "./privacy-production-readiness.test.mjs";
 import "./customer-vehicle-health-insights.test.mjs";
 
 import "./social-auth-google.test.mjs";
+import "./admin-billing-coherence.test.mjs";

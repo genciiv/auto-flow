@@ -83,6 +83,10 @@ export default async function PaymentDetailsPage({ params }) {
 
   const status = getStatusConfig(payment.status);
   const owner = payment.business.users[0]?.user;
+  const paymentActionsData = {
+    id: payment.id,
+    status: payment.status,
+  };
 
   return (
     <div className="space-y-7">
@@ -256,7 +260,7 @@ export default async function PaymentDetailsPage({ params }) {
         </section>
       ) : null}
 
-      <PaymentActions payment={payment} />
+      <PaymentActions payment={paymentActionsData} />
 
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">

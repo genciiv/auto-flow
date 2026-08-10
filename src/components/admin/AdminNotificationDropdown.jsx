@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { markAdminNotificationReadAction } from "@/app/admin/actions/notifications";
+
 import {
   Bell,
   ChevronRight,
@@ -82,7 +85,10 @@ export default function AdminNotificationDropdown({
   notifications = [],
   counts = {},
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [optimisticReadIds, setOptimisticReadIds] = useState(() => new Set());
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -107,7 +113,37 @@ export default function AdminNotificationDropdown({
     };
   }, []);
 
-  const visibleCount = unreadCount > 99 ? "99+" : unreadCount;
+  const effectiveUnreadCount = notifications.reduce(
+    (total, notification) =>
+      total +
+      (notification.isRead || optimisticReadIds.has(notification.id) ? 0 : 1),
+    0,
+  );
+  const visibleCount = effectiveUnreadCount > 99 ? "99+" : effectiveUnreadCount;
+
+  function handleNotificationClick(notification) {
+    setOpen(false);
+
+    const wasUnread =
+      !notification.isRead && !optimisticReadIds.has(notification.id);
+
+    if (wasUnread) {
+      setOptimisticReadIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.add(notification.id);
+        return nextIds;
+      });
+    }
+
+    startTransition(async () => {
+      try {
+        await markAdminNotificationReadAction(notification.id);
+      } finally {
+        router.push(notification.href);
+        router.refresh();
+      }
+    });
+  }
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -120,7 +156,7 @@ export default function AdminNotificationDropdown({
       >
         <Bell size={18} />
 
-        {unreadCount > 0 ? (
+        {effectiveUnreadCount > 0 ? (
           <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {visibleCount}
           </span>
@@ -139,9 +175,9 @@ export default function AdminNotificationDropdown({
                 </p>
               </div>
 
-              {unreadCount > 0 ? (
+              {effectiveUnreadCount > 0 ? (
                 <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
-                  {unreadCount}
+                  {effectiveUnreadCount}
                 </span>
               ) : null}
             </div>
@@ -197,11 +233,12 @@ export default function AdminNotificationDropdown({
                 const Icon = getNotificationIcon(notification.kind);
 
                 return (
-                  <Link
+                  <button
                     key={notification.id}
-                    href={notification.href}
-                    onClick={() => setOpen(false)}
-                    className="group flex gap-3 rounded-2xl p-3 transition hover:bg-slate-50"
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => handleNotificationClick(notification)}
+                    className="group flex w-full gap-3 rounded-2xl p-3 text-left transition hover:bg-slate-50 disabled:cursor-wait"
                   >
                     <div
                       className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${getNotificationColors(
@@ -217,7 +254,9 @@ export default function AdminNotificationDropdown({
                           {notification.title}
                         </p>
 
-                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                        {!notification.isRead && !optimisticReadIds.has(notification.id) ? (
+                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                        ) : null}
                       </div>
 
                       <p className="mt-0.5 truncate text-xs font-semibold text-blue-600">
@@ -239,7 +278,7 @@ export default function AdminNotificationDropdown({
                         />
                       </div>
                     </div>
-                  </Link>
+                  </button>
                 );
               })}
             </div>

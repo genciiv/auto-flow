@@ -70,6 +70,28 @@ function getStatusConfig(status) {
   );
 }
 
+function getPaymentMethodLabel(method) {
+  const labels = {
+    CASH: "Cash",
+    BANK_TRANSFER: "Transfertë",
+    CARD: "Kartë",
+    OTHER: "Tjetër",
+  };
+
+  return labels[method] || method || "—";
+}
+
+function getPaymentStatusLabel(status) {
+  const labels = {
+    PAID: "Paguar",
+    PENDING: "Në pritje",
+    FAILED: "Dështuar",
+    REFUNDED: "Rimbursuar",
+  };
+
+  return labels[status] || status || "Pa pagesë";
+}
+
 function createPageUrl({ search, status, billingInterval, page }) {
   const params = new URLSearchParams();
 
@@ -168,7 +190,7 @@ export default async function SubscriptionsPage({ searchParams }) {
         <CountCard
           title="Abonime aktive"
           value={counts.active}
-          description="Plane me pagesë aktive"
+          description="Me pagesë PAID të lidhur"
           icon={CheckCircle2}
         />
 
@@ -186,6 +208,18 @@ export default async function SubscriptionsPage({ searchParams }) {
           icon={XCircle}
         />
       </div>
+
+      {counts.activeWithoutPayment > 0 ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <p className="text-sm font-bold text-amber-900">
+            {counts.activeWithoutPayment} abonim(e) aktiv(e) pa pagesë PAID
+          </p>
+          <p className="mt-1 text-sm text-amber-800">
+            Këto janë të dhëna të vjetra. Një abonim i ri ose rinovim tani
+            aktivizohet vetëm bashkë me një pagesë të konfirmuar.
+          </p>
+        </div>
+      ) : null}
 
       <form
         method="GET"
@@ -295,6 +329,7 @@ export default async function SubscriptionsPage({ searchParams }) {
                 <tbody>
                   {subscriptions.map((subscription) => {
                     const status = getStatusConfig(subscription.status);
+                    const latestPayment = subscription.payments?.[0] || null;
 
                     const remainingDays = getRemainingDays(
                       subscription.currentPeriodEnd,
@@ -378,12 +413,22 @@ export default async function SubscriptionsPage({ searchParams }) {
                         </td>
 
                         <td className="px-6 py-5">
-                          <p className="text-sm font-semibold text-slate-800">
-                            {subscription._count.payments}
+                          <p
+                            className={`text-sm font-semibold ${
+                              latestPayment?.status === "PAID"
+                                ? "text-emerald-700"
+                                : latestPayment
+                                  ? "text-amber-700"
+                                  : "text-red-600"
+                            }`}
+                          >
+                            {getPaymentStatusLabel(latestPayment?.status)}
                           </p>
 
                           <p className="mt-1 text-xs text-slate-500">
-                            pagesa të regjistruara
+                            {latestPayment
+                              ? `${getPaymentMethodLabel(latestPayment.method)} · ${subscription._count.payments} pagesa`
+                              : "0 pagesa të regjistruara"}
                           </p>
                         </td>
 

@@ -420,12 +420,42 @@ export async function refundPayment(paymentId) {
     throw new Error("Vetëm një pagesë e përfunduar mund të rimbursohet.");
   }
 
-  return db.payment.update({
-    where: {
-      id: paymentId,
-    },
-    data: {
-      status: "REFUNDED",
-    },
+  return db.$transaction(async (transaction) => {
+    const refundedPayment = await transaction.payment.update({
+      where: {
+        id: paymentId,
+      },
+      data: {
+        status: "REFUNDED",
+      },
+    });
+
+    if (payment.subscriptionId) {
+      const remainingPaidPayments = await transaction.payment.count({
+        where: {
+          subscriptionId: payment.subscriptionId,
+          status: "PAID",
+        },
+      });
+
+      if (remainingPaidPayments === 0) {
+        await transaction.subscription.updateMany({
+          where: {
+            id: payment.subscriptionId,
+            status: "ACTIVE",
+            plan: {
+              slug: {
+                not: "free-trial",
+              },
+            },
+          },
+          data: {
+            status: "PAST_DUE",
+          },
+        });
+      }
+    }
+
+    return refundedPayment;
   });
 }

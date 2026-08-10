@@ -9,7 +9,10 @@ import {
 } from "lucide-react";
 
 import SubscriptionActions from "@/components/admin/subscriptions/SubscriptionActions";
-import { getSubscriptionById } from "@/services/admin/subscription-service";
+import {
+  getEnabledSubscriptionPaymentMethods,
+  getSubscriptionById,
+} from "@/services/admin/subscription-service";
 
 function formatDate(date) {
   if (!date) {
@@ -45,13 +48,25 @@ function getStatusLabel(status) {
 export default async function SubscriptionDetailsPage({ params }) {
   const resolvedParams = await params;
 
-  const subscription = await getSubscriptionById(resolvedParams.subscriptionId);
+  const [subscription, paymentMethods] = await Promise.all([
+    getSubscriptionById(resolvedParams.subscriptionId),
+    getEnabledSubscriptionPaymentMethods(),
+  ]);
 
   if (!subscription) {
     notFound();
   }
 
   const owner = subscription.business.users[0]?.user;
+  const subscriptionActionsData = {
+    id: subscription.id,
+    status: subscription.status,
+    billingInterval: subscription.billingInterval,
+    plan: {
+      monthlyPrice: Number(subscription.plan.monthlyPrice || 0),
+      yearlyPrice: Number(subscription.plan.yearlyPrice || 0),
+    },
+  };
 
   return (
     <div className="space-y-7">
@@ -188,7 +203,10 @@ export default async function SubscriptionDetailsPage({ params }) {
         </div>
       </section>
 
-      <SubscriptionActions subscription={subscription} />
+      <SubscriptionActions
+        subscription={subscriptionActionsData}
+        paymentMethods={paymentMethods}
+      />
 
       <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-6 py-5">

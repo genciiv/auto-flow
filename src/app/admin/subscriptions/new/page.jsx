@@ -5,7 +5,7 @@ import SubscriptionForm from "@/components/admin/subscriptions/SubscriptionForm"
 import { getSubscriptionFormData } from "@/services/admin/subscription-service";
 
 export default async function NewSubscriptionPage() {
-  const { businesses, plans } = await getSubscriptionFormData();
+  const { businesses, plans, paymentMethods } = await getSubscriptionFormData();
 
   return (
     <div className="space-y-7">
@@ -29,7 +29,7 @@ export default async function NewSubscriptionPage() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-slate-500">
-              Zgjidh biznesin, planin dhe periudhën e faturimit për të
+              Zgjidh biznesin, planin dhe pagesën e konfirmuar për të
               aktivizuar një abonim me pagesë.
             </p>
           </div>
@@ -77,7 +77,11 @@ export default async function NewSubscriptionPage() {
           </Link>
         </section>
       ) : (
-        <SubscriptionForm businesses={businesses} plans={plans} />
+        <SubscriptionForm
+          businesses={businesses}
+          plans={plans}
+          paymentMethods={paymentMethods}
+        />
       )}
     </div>
   );

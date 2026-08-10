@@ -22,7 +22,7 @@ function getTodayValue() {
   return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 10);
 }
 
-export default function SubscriptionActions({ subscription }) {
+export default function SubscriptionActions({ subscription, paymentMethods = [] }) {
   const router = useRouter();
 
   const [isPending, startTransition] = useTransition();
@@ -31,6 +31,9 @@ export default function SubscriptionActions({ subscription }) {
   const [status, setStatus] = useState(subscription.status);
   const [billingInterval, setBillingInterval] = useState(
     subscription.billingInterval,
+  );
+  const [paymentMethod, setPaymentMethod] = useState(
+    paymentMethods[0]?.value || "OTHER",
   );
 
   function runAction(action) {
@@ -143,7 +146,8 @@ export default function SubscriptionActions({ subscription }) {
           <h2 className="text-lg font-bold text-slate-950">Rinovo abonimin</h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            Vendos periudhën dhe çmimin e rinovimit.
+            Rinovimi kërkon një pagesë të konfirmuar dhe krijon automatikisht
+            historikun e pagesës.
           </p>
         </div>
 
@@ -187,7 +191,7 @@ export default function SubscriptionActions({ subscription }) {
               <input
                 type="number"
                 name="price"
-                min="0"
+                min="0.01"
                 step="0.01"
                 placeholder={
                   billingInterval === "YEARLY"
@@ -203,10 +207,60 @@ export default function SubscriptionActions({ subscription }) {
             </div>
           </label>
 
+          <label>
+            <span className="text-sm font-semibold text-slate-700">
+              Metoda e pagesës
+            </span>
+
+            <select
+              name="paymentMethod"
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value)}
+              className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+            >
+              {paymentMethods.map((method) => (
+                <option key={method.value} value={method.value}>
+                  {method.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-slate-700">
+              Data e pagesës
+            </span>
+
+            <input
+              type="date"
+              name="paidAt"
+              defaultValue={getTodayValue()}
+              className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-950 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+            />
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-slate-700">
+              Referenca {paymentMethod === "BANK_TRANSFER" ? "*" : ""}
+            </span>
+
+            <input
+              type="text"
+              name="paymentReference"
+              required={paymentMethod === "BANK_TRANSFER"}
+              placeholder={
+                paymentMethod === "BANK_TRANSFER"
+                  ? "P.sh. TRX-2026-0001"
+                  : "Opsionale"
+              }
+              className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+            />
+          </label>
+
           <div className="lg:col-span-3 flex justify-end">
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || paymentMethods.length === 0}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? (

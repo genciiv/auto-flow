@@ -133,6 +133,34 @@ export async function getBusinesses({
             },
           },
         },
+        subscriptions: {
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            currentPeriodEnd: true,
+            plan: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
+            payments: {
+              orderBy: {
+                createdAt: "desc",
+              },
+              take: 1,
+              select: {
+                status: true,
+                method: true,
+                paidAt: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             users: true,

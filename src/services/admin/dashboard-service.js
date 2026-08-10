@@ -1,15 +1,27 @@
 import { db } from "@/lib/db";
 
+function getMonthStart() {
+  const now = new Date();
+
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+}
+
 export async function getPlatformDashboardData() {
+  const monthStart = getMonthStart();
+
   const [
     totalBusinesses,
-    activeBusinesses,
+    accountActiveBusinesses,
     totalBusinessUsers,
     platformAdmins,
     totalCustomers,
     totalVehicles,
     totalServices,
     recentBusinesses,
+    paidActiveSubscriptions,
+    trialingSubscriptions,
+    businessesWithAccess,
+    currentMonthRevenue,
   ] = await Promise.all([
     db.business.count(),
 
@@ -60,6 +72,33 @@ export async function getPlatformDashboardData() {
             },
           },
         },
+        subscriptions: {
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            currentPeriodEnd: true,
+            plan: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
+            payments: {
+              orderBy: {
+                createdAt: "desc",
+              },
+              take: 1,
+              select: {
+                status: true,
+                method: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             customers: true,
@@ -69,12 +108,82 @@ export async function getPlatformDashboardData() {
         },
       },
     }),
+
+    db.subscription.count({
+      where: {
+        status: "ACTIVE",
+        plan: {
+          slug: {
+            not: "free-trial",
+          },
+        },
+        payments: {
+          some: {
+            status: "PAID",
+          },
+        },
+      },
+    }),
+
+    db.subscription.count({
+      where: {
+        status: "TRIALING",
+      },
+    }),
+
+    db.subscription.findMany({
+      where: {
+        OR: [
+          {
+            status: "TRIALING",
+          },
+          {
+            status: "ACTIVE",
+            plan: {
+              slug: {
+                not: "free-trial",
+              },
+            },
+            payments: {
+              some: {
+                status: "PAID",
+              },
+            },
+          },
+        ],
+      },
+      distinct: ["businessId"],
+      select: {
+        businessId: true,
+      },
+    }),
+
+    db.payment.aggregate({
+      where: {
+        status: "PAID",
+        paidAt: {
+          gte: monthStart,
+        },
+      },
+      _sum: {
+        amount: true,
+      },
+    }),
   ]);
+
+  const paidOrTrialBusinessCount = businessesWithAccess.length;
 
   return {
     totalBusinesses,
-    activeBusinesses,
-    inactiveBusinesses: totalBusinesses - activeBusinesses,
+    accountActiveBusinesses,
+    inactiveBusinesses: totalBusinesses - accountActiveBusinesses,
+    paidActiveSubscriptions,
+    trialingSubscriptions,
+    businessesWithoutPaidAccess: Math.max(
+      0,
+      totalBusinesses - paidOrTrialBusinessCount,
+    ),
+    currentMonthRevenue: Number(currentMonthRevenue._sum.amount || 0),
     totalBusinessUsers,
     platformAdmins,
     totalCustomers,

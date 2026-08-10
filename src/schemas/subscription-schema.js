@@ -12,8 +12,21 @@ export const SUBSCRIPTION_STATUSES = [
   "EXPIRED",
 ];
 
+export const SUBSCRIPTION_PAYMENT_METHODS = [
+  "CASH",
+  "BANK_TRANSFER",
+  "CARD",
+  "OTHER",
+];
+
 function normalizeUppercaseString(value) {
   return normalizeTrimmedString(value).toUpperCase();
+}
+
+function normalizeOptionalString(value) {
+  const normalizedValue = normalizeTrimmedString(value);
+
+  return normalizedValue || null;
 }
 
 function normalizeOptionalPrice(value) {
@@ -60,6 +73,13 @@ const billingIntervalSchema = z.preprocess(
   }),
 );
 
+const paymentMethodSchema = z.preprocess(
+  normalizeUppercaseString,
+  z.enum(SUBSCRIPTION_PAYMENT_METHODS, {
+    message: "Metoda e pagesës nuk është e vlefshme.",
+  }),
+);
+
 const optionalPriceSchema = z.preprocess(
   normalizeOptionalPrice,
   z
@@ -96,6 +116,32 @@ const optionalPeriodStartSchema = z.preprocess(
     .nullable(),
 );
 
+const optionalPaidAtSchema = z.preprocess(
+  normalizeOptionalDate,
+  z
+    .string()
+    .refine(
+      (value) => {
+        if (value === null) {
+          return true;
+        }
+
+        const date = new Date(`${value}T00:00:00`);
+
+        return !Number.isNaN(date.getTime());
+      },
+      {
+        message: "Data e pagesës nuk është e vlefshme.",
+      },
+    )
+    .nullable(),
+);
+
+const optionalPaymentReferenceSchema = z.preprocess(
+  normalizeOptionalString,
+  z.string().nullable(),
+);
+
 const subscriptionStatusSchema = z.preprocess(
   normalizeUppercaseString,
   z.enum(SUBSCRIPTION_STATUSES, {
@@ -103,19 +149,41 @@ const subscriptionStatusSchema = z.preprocess(
   }),
 );
 
-export const createSubscriptionSchema = z.object({
-  businessId: businessIdSchema,
-  planId: planIdSchema,
-  billingInterval: billingIntervalSchema,
-  periodStart: optionalPeriodStartSchema,
-  price: optionalPriceSchema,
-});
+function withPaymentValidation(schema) {
+  return schema.superRefine((data, context) => {
+    if (data.paymentMethod === "BANK_TRANSFER" && !data.paymentReference) {
+      context.addIssue({
+        code: "custom",
+        path: ["paymentReference"],
+        message: "Vendos referencën e transfertës bankare.",
+      });
+    }
+  });
+}
 
-export const renewSubscriptionSchema = z.object({
-  billingInterval: billingIntervalSchema,
-  periodStart: optionalPeriodStartSchema,
-  price: optionalPriceSchema,
-});
+export const createSubscriptionSchema = withPaymentValidation(
+  z.object({
+    businessId: businessIdSchema,
+    planId: planIdSchema,
+    billingInterval: billingIntervalSchema,
+    periodStart: optionalPeriodStartSchema,
+    price: optionalPriceSchema,
+    paymentMethod: paymentMethodSchema,
+    paymentReference: optionalPaymentReferenceSchema,
+    paidAt: optionalPaidAtSchema,
+  }),
+);
+
+export const renewSubscriptionSchema = withPaymentValidation(
+  z.object({
+    billingInterval: billingIntervalSchema,
+    periodStart: optionalPeriodStartSchema,
+    price: optionalPriceSchema,
+    paymentMethod: paymentMethodSchema,
+    paymentReference: optionalPaymentReferenceSchema,
+    paidAt: optionalPaidAtSchema,
+  }),
+);
 
 export const subscriptionIdObjectSchema = z.object({
   subscriptionId: subscriptionIdSchema,

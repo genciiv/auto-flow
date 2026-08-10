@@ -151,8 +151,9 @@ export default function PaymentActions({ payment }) {
         <h2 className="text-lg font-bold text-red-900">Rimburso pagesën</h2>
 
         <p className="mt-2 text-sm leading-6 text-red-700">
-          Ky veprim e shënon pagesën si të rimbursuar. Abonimi nuk çaktivizohet
-          automatikisht; statusin e abonimit mund ta menaxhosh veçmas.
+          Ky veprim e shënon pagesën si të rimbursuar. Nëse abonimi nuk ka
+          pagesë tjetër të konfirmuar, ai kalon automatikisht në pagesë të
+          vonuar.
         </p>
 
         <button

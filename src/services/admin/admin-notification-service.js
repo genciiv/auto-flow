@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 
 const DEFAULT_LIMIT = 12;
+const ADMIN_READ_MARKER_TITLE = "__ADMIN_NOTIFICATION_READ__";
 
 function normalizeLimit(value) {
   const parsedValue = Number.parseInt(value, 10);
@@ -27,6 +28,7 @@ function getDaysRemaining(date) {
 
 export async function getAdminNotificationSummary({
   limit = DEFAULT_LIMIT,
+  userId = null,
 } = {}) {
   const take = normalizeLimit(limit);
   const now = new Date();
@@ -255,11 +257,44 @@ export async function getAdminNotificationSummary({
     );
   });
 
-  const visibleNotifications = notifications.slice(0, take);
+  let readNotificationIds = new Set();
+
+  if (userId && notifications.length > 0) {
+    const readMarkers = await db.notification.findMany({
+      where: {
+        userId,
+        businessId: null,
+        title: ADMIN_READ_MARKER_TITLE,
+        entityType: "SYSTEM",
+        isRead: true,
+        entityId: {
+          in: notifications.map((notification) => notification.id),
+        },
+      },
+      select: {
+        entityId: true,
+      },
+    });
+
+    readNotificationIds = new Set(
+      readMarkers.map((marker) => marker.entityId).filter(Boolean),
+    );
+  }
+
+  const notificationsWithReadState = notifications.map((notification) => ({
+    ...notification,
+    isRead: readNotificationIds.has(notification.id),
+  }));
+
+  const visibleNotifications = notificationsWithReadState.slice(0, take);
+  const unreadCount = notificationsWithReadState.reduce(
+    (total, notification) => total + (notification.isRead ? 0 : 1),
+    0,
+  );
 
   return {
     notifications: visibleNotifications,
-    unreadCount: notifications.length,
+    unreadCount,
     counts: {
       applications: pendingApplications.length,
       planRequests: pendingPlanRequests.length,
@@ -268,4 +303,44 @@ export async function getAdminNotificationSummary({
       expiredSubscriptions: expiredSubscriptions.length,
     },
   };
+}
+
+
+export async function markAdminNotificationRead({ userId, notificationId }) {
+  if (!userId || !notificationId) {
+    throw new Error("User-i dhe njoftimi janë të detyrueshëm.");
+  }
+
+  const existingMarker = await db.notification.findFirst({
+    where: {
+      userId,
+      businessId: null,
+      title: ADMIN_READ_MARKER_TITLE,
+      entityType: "SYSTEM",
+      entityId: notificationId,
+      isRead: true,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingMarker) {
+    return existingMarker;
+  }
+
+  return db.notification.create({
+    data: {
+      userId,
+      title: ADMIN_READ_MARKER_TITLE,
+      message: "Admin notification acknowledged.",
+      type: "INFO",
+      entityType: "SYSTEM",
+      entityId: notificationId,
+      isRead: true,
+    },
+    select: {
+      id: true,
+    },
+  });
 }
