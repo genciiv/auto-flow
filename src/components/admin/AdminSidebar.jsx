@@ -14,6 +14,7 @@ import {
   Settings,
   ShieldCheck,
   WalletCards,
+  UsersRound,
   X,
 } from "lucide-react";
 
@@ -32,6 +33,11 @@ const sidebarGroups = [
         name: "Bizneset",
         icon: Building2,
         href: "/admin/businesses",
+      },
+      {
+        name: "Përdoruesit",
+        icon: UsersRound,
+        href: "/admin/users",
       },
       {
         name: "Aplikimet",
