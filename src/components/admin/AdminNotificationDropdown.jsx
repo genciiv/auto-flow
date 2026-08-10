@@ -284,22 +284,13 @@ export default function AdminNotificationDropdown({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/70 p-3">
+          <div className="border-t border-slate-100 bg-slate-50/70 p-3">
             <Link
-              href="/admin/applications"
+              href="/admin/notifications"
               onClick={() => setOpen(false)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-blue-600 hover:text-white hover:ring-blue-600"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-blue-600 hover:text-white hover:ring-blue-600"
             >
-              Aplikimet
-              <ChevronRight size={15} />
-            </Link>
-
-            <Link
-              href="/admin/subscriptions"
-              onClick={() => setOpen(false)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-blue-600 hover:text-white hover:ring-blue-600"
-            >
-              Abonimet
+              Shiko të gjitha njoftimet
               <ChevronRight size={15} />
             </Link>
           </div>

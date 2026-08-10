@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Bell,
   BarChart3,
   Building2,
   ClipboardList,
@@ -94,6 +95,11 @@ const sidebarGroups = [
         name: "System Health",
         icon: Activity,
         href: "/admin/system-health",
+      },
+      {
+        name: "Njoftimet",
+        icon: Bell,
+        href: "/admin/notifications",
       },
       {
         name: "Aktiviteti",
