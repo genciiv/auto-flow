@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  Activity,
   ArrowLeft,
   Building2,
   CalendarDays,
@@ -72,6 +73,7 @@ export default async function AdminUserDetailsPage({ params }) {
               <InfoRow label="Email i verifikuar"><span className={user.emailVerified ? "text-emerald-700" : "text-amber-700"}>{user.emailVerified ? formatDateTime(user.emailVerified) : "Jo"}</span></InfoRow>
               <InfoRow label="Hyrja e fundit"><span className="inline-flex items-center gap-2"><Clock3 size={15} className="text-slate-400" />{formatDateTime(user.lastLoginAt)}</span></InfoRow>
               <InfoRow label="Tentativa të dështuara">{user.failedLoginAttempts}</InfoRow>
+              <InfoRow label="Tentativa e fundit e dështuar">{formatDateTime(user.lastFailedLoginAt)}</InfoRow>
               <InfoRow label="Bllokuar deri">{formatDateTime(user.lockedUntil)}</InfoRow>
               <InfoRow label="Session version">{user.sessionVersion}</InfoRow>
             </div>
@@ -98,11 +100,45 @@ export default async function AdminUserDetailsPage({ params }) {
         </div>
 
         <div className="space-y-5">
-          <UserAdminActions user={{ id: user.id, isActive: user.isActive, globalRole: user.globalRole, failedLoginAttempts: user.failedLoginAttempts, isLocked }} currentAdminId={admin.id} />
+          <UserAdminActions
+            user={{
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              phone: user.phone,
+              isActive: user.isActive,
+              globalRole: user.globalRole,
+              emailVerified: Boolean(user.emailVerified),
+              failedLoginAttempts: user.failedLoginAttempts,
+              isLocked,
+              hasPassword: user.hasPassword,
+              canDelete: user.canDelete,
+              deleteBlockers: user.deleteBlockers,
+            }}
+            currentAdminId={admin.id}
+            memberships={user.businesses.map((membership) => ({
+              id: membership.id,
+              role: membership.role,
+              isActive: membership.isActive && membership.business.isActive,
+              businessName: membership.business.name,
+            }))}
+          />
           <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2"><ShieldCheck size={18} className="text-slate-400" /><h2 className="font-bold text-slate-950">Gjurmueshmëria</h2></div>
             <div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Audit logs</p><p className="mt-1 text-xl font-bold text-slate-900">{user._count.auditLogs}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Njoftime</p><p className="mt-1 text-xl font-bold text-slate-900">{user._count.notifications}</p></div></div>
             <Link href={`/admin/activity-logs?search=${encodeURIComponent(user.email)}`} className="mt-4 inline-flex text-sm font-semibold text-blue-600 hover:text-blue-700">Shiko aktivitetin →</Link>
+          </section>
+          <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2"><Activity size={18} className="text-slate-400" /><h2 className="font-bold text-slate-950">Aktiviteti i sigurisë</h2></div>
+            <p className="mt-1 text-xs text-slate-500">Hyrje të dështuara dhe veprime administrative të fundit mbi llogarinë.</p>
+            <div className="mt-4 space-y-3">
+              {user.recentSecurityEvents.length ? user.recentSecurityEvents.map((event) => (
+                <div key={event.id} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                  <div className="flex items-start justify-between gap-3"><p className="text-sm font-semibold text-slate-800">{event.title}</p><span className="shrink-0 text-[11px] text-slate-400">{formatDateTime(event.createdAt)}</span></div>
+                  {event.description ? <p className="mt-1 text-xs text-slate-500">{event.description}</p> : null}
+                </div>
+              )) : <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Nuk ka evente sigurie të regjistruara.</p>}
+            </div>
           </section>
         </div>
       </div>

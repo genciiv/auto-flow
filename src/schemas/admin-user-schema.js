@@ -28,3 +28,48 @@ export const adminUserGlobalRoleSchema = adminUserIdSchema.extend({
     message: "Roli global nuk është i vlefshëm.",
   }),
 });
+
+export const adminUserProfileSchema = adminUserIdSchema.extend({
+  name: z.preprocess(
+    normalizeTrimmedString,
+    z.string().min(2, { message: "Emri duhet të ketë të paktën 2 karaktere." }).max(120),
+  ),
+  phone: z.preprocess(
+    (value) => {
+      const normalized = normalizeTrimmedString(value);
+      return normalized === "" ? null : normalized;
+    },
+    z.string().max(40, { message: "Telefoni është shumë i gjatë." }).nullable(),
+  ),
+});
+
+export const adminUserVerificationSchema = adminUserIdSchema.extend({
+  verified: z.preprocess(
+    normalizeBoolean,
+    z.boolean({ message: "Statusi i verifikimit nuk është i vlefshëm." }),
+  ),
+});
+
+export const adminBusinessMembershipSchema = adminUserIdSchema.extend({
+  membershipId: z.preprocess(
+    normalizeTrimmedString,
+    z.string().min(1, { message: "Anëtarësia mungon." }),
+  ),
+  role: z.enum(["OWNER", "MANAGER", "MECHANIC", "RECEPTIONIST", "WAREHOUSE", "ACCOUNTANT"], {
+    message: "Roli në biznes nuk është i vlefshëm.",
+  }),
+});
+
+export const adminBusinessMembershipRemoveSchema = adminUserIdSchema.extend({
+  membershipId: z.preprocess(
+    normalizeTrimmedString,
+    z.string().min(1, { message: "Anëtarësia mungon." }),
+  ),
+});
+
+export const adminDeleteUserSchema = adminUserIdSchema.extend({
+  confirmEmail: z.preprocess(
+    normalizeTrimmedString,
+    z.string().email({ message: "Shkruaj email-in e saktë të përdoruesit." }),
+  ),
+});
