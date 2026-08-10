@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
 import { createActionError } from "@/lib/errors";
-import { markAdminNotificationRead } from "@/services/admin/admin-notification-service";
+import {
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+} from "@/services/admin/admin-notification-service";
 
 function normalizeNotificationId(value) {
   const notificationId = String(value || "").trim();
@@ -26,6 +29,20 @@ export async function markAdminNotificationReadAction(notificationId) {
   });
 
   revalidatePath("/admin", "layout");
+  revalidatePath("/admin/notifications");
+
+  return { success: true };
+}
+
+export async function markAllAdminNotificationsReadAction() {
+  const admin = await requirePlatformAdmin();
+
+  await markAllAdminNotificationsRead({
+    userId: admin.id,
+  });
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/admin/notifications");
 
   return { success: true };
 }

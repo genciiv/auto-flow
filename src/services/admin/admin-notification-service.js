@@ -2,15 +2,22 @@ import { db } from "@/lib/db";
 
 const DEFAULT_LIMIT = 12;
 const ADMIN_READ_MARKER_TITLE = "__ADMIN_NOTIFICATION_READ__";
+const ADMIN_HISTORY_PREFIX = "__ADMIN_HISTORY__:";
+const ADMIN_HISTORY_ENTITY_PREFIX = "admin-history:";
 
-function normalizeLimit(value) {
+function normalizeLimit(value, fallback = DEFAULT_LIMIT, maximum = 100) {
   const parsedValue = Number.parseInt(value, 10);
 
   if (!Number.isInteger(parsedValue) || parsedValue < 1) {
-    return DEFAULT_LIMIT;
+    return fallback;
   }
 
-  return Math.min(parsedValue, 30);
+  return Math.min(parsedValue, maximum);
+}
+
+function normalizePage(value) {
+  const parsedValue = Number.parseInt(value, 10);
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : 1;
 }
 
 function getDaysRemaining(date) {
@@ -20,17 +27,123 @@ function getDaysRemaining(date) {
 
   const currentDate = new Date();
   const targetDate = new Date(date);
-
   const difference = targetDate.getTime() - currentDate.getTime();
 
   return Math.ceil(difference / 86_400_000);
+}
+
+function historyEntityId(sourceId) {
+  return `${ADMIN_HISTORY_ENTITY_PREFIX}${sourceId}`;
+}
+
+function sourceIdFromHistory(record) {
+  const entityId = String(record.entityId || "");
+
+  return entityId.startsWith(ADMIN_HISTORY_ENTITY_PREFIX)
+    ? entityId.slice(ADMIN_HISTORY_ENTITY_PREFIX.length)
+    : entityId;
+}
+
+function historyType(kind) {
+  if (kind === "PAYMENT_PENDING" || kind === "TRIAL_EXPIRING") {
+    return "WARNING";
+  }
+
+  if (kind === "SUBSCRIPTION_EXPIRED") {
+    return "ERROR";
+  }
+
+  return "INFO";
+}
+
+function parseHistoryRecord(record) {
+  let payload = {};
+
+  try {
+    payload = JSON.parse(record.message || "{}");
+  } catch {
+    payload = { message: record.message || "" };
+  }
+
+  const sourceId = sourceIdFromHistory(record);
+
+  return {
+    id: record.id,
+    sourceId,
+    kind: payload.kind || "SYSTEM",
+    title: String(record.title || "").replace(ADMIN_HISTORY_PREFIX, ""),
+    subtitle: payload.subtitle || "",
+    message: payload.message || "",
+    href: payload.href || "/admin/notifications",
+    createdAt: record.createdAt,
+    isRead: false,
+  };
+}
+
+export async function syncAdminNotificationHistory({ userId, notifications }) {
+  if (!userId || !Array.isArray(notifications) || notifications.length === 0) {
+    return;
+  }
+
+  const sourceIds = notifications.map((notification) => notification.id);
+  const entityIds = sourceIds.map(historyEntityId);
+
+  const existing = await db.notification.findMany({
+    where: {
+      userId,
+      businessId: null,
+      entityType: "SYSTEM",
+      entityId: {
+        in: entityIds,
+      },
+      title: {
+        startsWith: ADMIN_HISTORY_PREFIX,
+      },
+    },
+    select: {
+      entityId: true,
+    },
+  });
+
+  const existingEntityIds = new Set(
+    existing.map((notification) => notification.entityId).filter(Boolean),
+  );
+
+  const missingNotifications = notifications.filter(
+    (notification) =>
+      !existingEntityIds.has(historyEntityId(notification.id)),
+  );
+
+  if (missingNotifications.length === 0) {
+    return;
+  }
+
+  await db.notification.createMany({
+    data: missingNotifications.map((notification) => ({
+      userId,
+      businessId: null,
+      title: `${ADMIN_HISTORY_PREFIX}${notification.title}`,
+      message: JSON.stringify({
+        sourceId: notification.id,
+        kind: notification.kind,
+        subtitle: notification.subtitle || "",
+        message: notification.message,
+        href: notification.href,
+      }),
+      type: historyType(notification.kind),
+      entityType: "SYSTEM",
+      entityId: historyEntityId(notification.id),
+      isRead: false,
+      createdAt: new Date(notification.createdAt),
+    })),
+  });
 }
 
 export async function getAdminNotificationSummary({
   limit = DEFAULT_LIMIT,
   userId = null,
 } = {}) {
-  const take = normalizeLimit(limit);
+  const take = normalizeLimit(limit, DEFAULT_LIMIT, 30);
   const now = new Date();
 
   const trialWarningEnd = new Date(now);
@@ -257,6 +370,13 @@ export async function getAdminNotificationSummary({
     );
   });
 
+  if (userId && notifications.length > 0) {
+    await syncAdminNotificationHistory({
+      userId,
+      notifications,
+    });
+  }
+
   let readNotificationIds = new Set();
 
   if (userId && notifications.length > 0) {
@@ -305,6 +425,137 @@ export async function getAdminNotificationSummary({
   };
 }
 
+export async function getAdminNotificationCenter({
+  userId,
+  search = "",
+  status = "all",
+  kind = "all",
+  page = 1,
+  limit = 20,
+} = {}) {
+  if (!userId) {
+    throw new Error("User-i është i detyrueshëm.");
+  }
+
+  await getAdminNotificationSummary({
+    userId,
+    limit: 30,
+  });
+
+  const records = await db.notification.findMany({
+    where: {
+      userId,
+      businessId: null,
+      entityType: "SYSTEM",
+      title: {
+        startsWith: ADMIN_HISTORY_PREFIX,
+      },
+    },
+    select: {
+      id: true,
+      title: true,
+      message: true,
+      entityId: true,
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  const history = records.map(parseHistoryRecord);
+  const sourceIds = history.map((notification) => notification.sourceId);
+
+  let readIds = new Set();
+
+  if (sourceIds.length > 0) {
+    const readMarkers = await db.notification.findMany({
+      where: {
+        userId,
+        businessId: null,
+        title: ADMIN_READ_MARKER_TITLE,
+        entityType: "SYSTEM",
+        isRead: true,
+        entityId: {
+          in: sourceIds,
+        },
+      },
+      select: {
+        entityId: true,
+      },
+    });
+
+    readIds = new Set(readMarkers.map((marker) => marker.entityId).filter(Boolean));
+  }
+
+  const withReadState = history.map((notification) => ({
+    ...notification,
+    isRead: readIds.has(notification.sourceId),
+  }));
+
+  const normalizedSearch = String(search || "").trim().toLocaleLowerCase("sq-AL");
+  const normalizedStatus = ["read", "unread"].includes(status) ? status : "all";
+  const normalizedKind = String(kind || "all");
+  const filtered = withReadState.filter((notification) => {
+    if (
+      normalizedStatus === "read" &&
+      !notification.isRead
+    ) {
+      return false;
+    }
+
+    if (
+      normalizedStatus === "unread" &&
+      notification.isRead
+    ) {
+      return false;
+    }
+
+    if (
+      normalizedKind !== "all" &&
+      notification.kind !== normalizedKind
+    ) {
+      return false;
+    }
+
+    if (normalizedSearch) {
+      const searchable = [
+        notification.title,
+        notification.subtitle,
+        notification.message,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("sq-AL");
+
+      if (!searchable.includes(normalizedSearch)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const currentPage = normalizePage(page);
+  const pageSize = normalizeLimit(limit, 20, 50);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const start = (safePage - 1) * pageSize;
+
+  return {
+    notifications: filtered.slice(start, start + pageSize),
+    totalCount: withReadState.length,
+    unreadCount: withReadState.reduce(
+      (total, notification) => total + (notification.isRead ? 0 : 1),
+      0,
+    ),
+    pagination: {
+      page: safePage,
+      limit: pageSize,
+      total: filtered.length,
+      totalPages,
+    },
+  };
+}
 
 export async function markAdminNotificationRead({ userId, notificationId }) {
   if (!userId || !notificationId) {
@@ -342,5 +593,71 @@ export async function markAdminNotificationRead({ userId, notificationId }) {
     select: {
       id: true,
     },
+  });
+}
+
+export async function markAllAdminNotificationsRead({ userId }) {
+  if (!userId) {
+    throw new Error("User-i është i detyrueshëm.");
+  }
+
+  const historyRecords = await db.notification.findMany({
+    where: {
+      userId,
+      businessId: null,
+      entityType: "SYSTEM",
+      title: {
+        startsWith: ADMIN_HISTORY_PREFIX,
+      },
+    },
+    select: {
+      entityId: true,
+    },
+  });
+
+  const sourceIds = historyRecords
+    .map(sourceIdFromHistory)
+    .filter(Boolean);
+
+  if (sourceIds.length === 0) {
+    return { count: 0 };
+  }
+
+  const existingMarkers = await db.notification.findMany({
+    where: {
+      userId,
+      businessId: null,
+      title: ADMIN_READ_MARKER_TITLE,
+      entityType: "SYSTEM",
+      isRead: true,
+      entityId: {
+        in: sourceIds,
+      },
+    },
+    select: {
+      entityId: true,
+    },
+  });
+
+  const existingIds = new Set(
+    existingMarkers.map((marker) => marker.entityId).filter(Boolean),
+  );
+
+  const missingIds = sourceIds.filter((sourceId) => !existingIds.has(sourceId));
+
+  if (missingIds.length === 0) {
+    return { count: 0 };
+  }
+
+  return db.notification.createMany({
+    data: missingIds.map((sourceId) => ({
+      userId,
+      title: ADMIN_READ_MARKER_TITLE,
+      message: "Admin notification acknowledged.",
+      type: "INFO",
+      entityType: "SYSTEM",
+      entityId: sourceId,
+      isRead: true,
+    })),
   });
 }
