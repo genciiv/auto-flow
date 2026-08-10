@@ -141,8 +141,7 @@ export default async function RegisterPage() {
                 </h2>
 
                 <p className="mt-3 text-sm leading-6 text-slate-500">
-                  Regjistrohu falas për të përdorur portalin e klientit dhe
-                  AutoFlow.
+                  Regjistrohu falas me Google ose me email për të përdorur portalin e klientit.
                 </p>
               </div>
 

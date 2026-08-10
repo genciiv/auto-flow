@@ -29,3 +29,5 @@ import "./invoice-payment-hardening.test.mjs";
 import "./subscription-plan-lifecycle.test.mjs";
 import "./privacy-production-readiness.test.mjs";
 import "./customer-vehicle-health-insights.test.mjs";
+
+import "./social-auth-google.test.mjs";

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import ActionFeedback from "@/components/feedback/ActionFeedback";
+import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
 
 import { loginAction } from "./actions";
 
@@ -85,7 +86,21 @@ export default function LoginForm({ callbackUrl = "" }) {
         })}
       </div>
 
-      <form action={formAction} className="mt-6 space-y-5">
+      {portalType === "personal" ? (
+        <div className="mt-6">
+          <GoogleAuthButton label="Vazhdo me Google" />
+
+          <div className="my-5 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              ose me email
+            </span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+        </div>
+      ) : null}
+
+      <form action={formAction} className={portalType === "personal" ? "space-y-5" : "mt-6 space-y-5"}>
         <input type="hidden" name="portalType" value={portalType} />
         <input type="hidden" name="callbackUrl" value={callbackUrl} />
 

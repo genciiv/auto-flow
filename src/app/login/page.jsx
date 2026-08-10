@@ -44,6 +44,7 @@ export default async function LoginPage({ searchParams }) {
   const params = await searchParams;
 
   const passwordChanged = params?.passwordChanged === "1";
+  const socialAuthError = params?.error;
 
   const session = await auth();
 
@@ -158,9 +159,20 @@ export default async function LoginPage({ searchParams }) {
                 </h2>
 
                 <p className="mt-3 text-sm leading-6 text-slate-500">
-                  Përdor email-in dhe password-in e llogarisë AutoFlow.
+                  Hyr me Google ose përdor email-in dhe password-in e llogarisë AutoFlow.
                 </p>
               </div>
+
+              {socialAuthError ? (
+                <div
+                  role="alert"
+                  className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+                >
+                  {socialAuthError === "AccessDenied"
+                    ? "Kjo llogari Google nuk mund të përdoret për hyrje personale në AutoFlow. Përdor një llogari klienti ose hyr me kredencialet e biznesit."
+                    : "Hyrja me Google nuk u përfundua. Provo përsëri."}
+                </div>
+              ) : null}
 
               {passwordChanged ? (
                 <div
