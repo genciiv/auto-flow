@@ -521,11 +521,9 @@ async function main() {
   console.log("");
   console.log("Platform Admin:");
   console.log(`Email: ${platformAdminResult.user.email}`);
-  console.log(`Password: ${platformAdminResult.password}`);
   console.log("");
   console.log("Business Owner:");
   console.log(`Email: ${ownerResult.user.email}`);
-  console.log(`Password: ${ownerResult.password}`);
   console.log("");
   console.log(`Business: ${business.name}`);
   console.log(`Business ID: ${business.id}`);
