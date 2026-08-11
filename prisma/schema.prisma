@@ -635,7 +635,7 @@ model CustomerVehicleMaintenance {
   customerVehicle CustomerVehicle @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
 
   @@index([customerVehicleId, performedAt])
-  @@index([customerVehicleId, type, performedAt])
+  @@index([customerVehicleId, type, performedAt], map: "CustomerVehicleMaintenance_customerVehicleId_type_performedAt_i")
   @@index([nextDate])
   @@index([nextMileage])
   @@index([source])
