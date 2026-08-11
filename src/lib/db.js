@@ -8,8 +8,13 @@ if (!process.env.DATABASE_URL) {
 const globalForPrisma = globalThis;
 
 function createPrismaClient() {
+  const connectionString = process.env.DATABASE_URL.replace(
+    /([?&])sslmode=require(?=&|$)/,
+    "$1sslmode=verify-full",
+  );
+
   const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
+    connectionString,
   });
 
   return new PrismaClient({
