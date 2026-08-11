@@ -9,7 +9,7 @@ test("eksporti i privatësisë është tenant-scoped, i autorizuar dhe auditohet
     read("src/app/api/dashboard/privacy/export/route.js"),
     read("src/services/business-data-export-service.js"),
   ]);
-  assert.match(route, /requireBusinessPermission\(PERMISSIONS\.SETTINGS_UPDATE\)/);
+  assert.match(route, /requireBusinessApiPermission\(PERMISSIONS\.SETTINGS_UPDATE\)/);
   assert.match(route, /createAuditLog/);
   assert.match(route, /cache-control["']:\s*["']no-store, private/);
   assert.match(service, /where:\s*\{\s*businessId\s*\}/);
