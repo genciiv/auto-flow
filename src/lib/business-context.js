@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { createForbiddenError } from "@/lib/errors";
+import {
+  createForbiddenError,
+  createUnauthenticatedError,
+} from "@/lib/errors";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
@@ -135,6 +138,98 @@ export async function requireBusinessPermission(permission) {
   return context;
 }
 
+export async function requireBusinessApiContext() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw createUnauthenticatedError("Duhet të identifikohesh.");
+  }
+
+  const userId = session.user.id;
+  const activeBusinessId = session.user.businessId;
+
+  if (!activeBusinessId) {
+    throw createForbiddenError("Nuk ke akses në një biznes aktiv.");
+  }
+
+  const membership = await db.businessUser.findFirst({
+    where: {
+      userId,
+      businessId: activeBusinessId,
+      isActive: true,
+      business: {
+        isActive: true,
+      },
+    },
+    select: {
+      id: true,
+      role: true,
+      businessId: true,
+      business: {
+        select: {
+          id: true,
+          name: true,
+          nipt: true,
+          city: true,
+          address: true,
+          phone: true,
+          email: true,
+          website: true,
+          logo: true,
+          workingHours: true,
+          currency: true,
+          vat: true,
+          timezone: true,
+          isActive: true,
+        },
+      },
+    },
+  });
+
+  if (!membership?.business) {
+    throw createForbiddenError("Nuk ke akses në këtë biznes.");
+  }
+
+  if (session.user.globalRole !== "PLATFORM_ADMIN") {
+    const maintenance = await getMaintenanceStatus();
+
+    if (maintenance.maintenanceMode) {
+      throw createForbiddenError(
+        "Platforma është përkohësisht në mirëmbajtje.",
+      );
+    }
+
+    const subscriptionAccess = await getBusinessSubscriptionAccess(
+      membership.businessId,
+    );
+
+    if (!subscriptionAccess.hasAccess) {
+      throw createForbiddenError(
+        "Biznesi nuk ka një abonim aktiv për këtë veprim.",
+      );
+    }
+  }
+
+  return {
+    session,
+    user: session.user,
+    userId,
+    businessId: membership.businessId,
+    businessRole: membership.role,
+    membershipId: membership.id,
+    business: membership.business,
+  };
+}
+
+export async function requireBusinessApiPermission(permission) {
+  const context = await requireBusinessApiContext();
+
+  if (!hasPermission(context.businessRole, permission)) {
+    throw createForbiddenError("Nuk ke leje për këtë veprim.");
+  }
+
+  return context;
+}
 export async function requireAnyBusinessPermission(permissions = []) {
   const context = await requireBusinessContext();
 

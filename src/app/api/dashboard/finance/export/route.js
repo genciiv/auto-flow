@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 
 import { apiError } from "@/lib/api-response";
-import { requireBusinessPermission } from "@/lib/business-context";
+import { requireBusinessApiPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { parseFinancePeriod } from "@/lib/finance-period";
 import {
@@ -30,7 +30,7 @@ export async function GET(request) {
   const requestId = getRequestId(request);
 
   try {
-    const context = await requireBusinessPermission(
+    const context = await requireBusinessApiPermission(
       PERMISSIONS.FINANCE_EXPORT,
     );
 

@@ -1,5 +1,5 @@
 import { apiError } from "@/lib/api-response";
-import { requireBusinessPermission } from "@/lib/business-context";
+import { requireBusinessApiPermission } from "@/lib/business-context";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getRequestId } from "@/lib/request-context";
 import { buildBusinessDataExport } from "@/services/business-data-export-service";
@@ -16,7 +16,7 @@ function safeFilePart(value) {
 export async function GET(request) {
   const requestId = getRequestId(request);
   try {
-    const context = await requireBusinessPermission(PERMISSIONS.SETTINGS_UPDATE);
+    const context = await requireBusinessApiPermission(PERMISSIONS.SETTINGS_UPDATE);
     const generatedAt = new Date();
     const payload = await buildBusinessDataExport(context.businessId, { generatedAt });
 
