@@ -8,6 +8,7 @@ import {
   SUBSCRIPTION_PLAN_CATALOG,
   TRIAL_CONFIGURATION,
 } from "../src/config/subscription-plans.js";
+import { toMoney } from "../src/lib/money.js";
 
 const { loadEnvConfig } = nextEnv;
 
@@ -40,8 +41,8 @@ async function configurePlans() {
       update: {
         name: plan.name,
         description: plan.description,
-        monthlyPrice: plan.monthlyPrice,
-        yearlyPrice: plan.yearlyPrice,
+        monthlyPrice: toMoney(plan.monthlyPrice),
+        yearlyPrice: toMoney(plan.yearlyPrice),
         maxUsers: plan.maxUsers,
         maxCustomers: plan.maxCustomers,
         maxVehicles: plan.maxVehicles,
@@ -52,6 +53,8 @@ async function configurePlans() {
       },
       create: {
         ...plan,
+        monthlyPrice: toMoney(plan.monthlyPrice),
+        yearlyPrice: toMoney(plan.yearlyPrice),
         features: [...plan.features],
       },
     });

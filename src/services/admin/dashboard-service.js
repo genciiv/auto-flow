@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { moneyToNumber } from "@/lib/money";
 
 function getMonthStart() {
   const now = new Date();
@@ -183,7 +184,7 @@ export async function getPlatformDashboardData() {
       0,
       totalBusinesses - paidOrTrialBusinessCount,
     ),
-    currentMonthRevenue: Number(currentMonthRevenue._sum.amount || 0),
+    currentMonthRevenue: moneyToNumber(currentMonthRevenue._sum.amount),
     totalBusinessUsers,
     platformAdmins,
     totalCustomers,

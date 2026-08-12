@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { toMoney } from "@/lib/money";
 
 const PAGE_SIZE = 10;
 
@@ -180,8 +181,8 @@ export async function createPlan({
       name,
       slug,
       description,
-      monthlyPrice,
-      yearlyPrice,
+      monthlyPrice: toMoney(monthlyPrice),
+      yearlyPrice: toMoney(yearlyPrice),
       maxUsers,
       maxCustomers,
       maxVehicles,
@@ -216,8 +217,8 @@ export async function updatePlan({
       name,
       slug,
       description,
-      monthlyPrice,
-      yearlyPrice,
+      monthlyPrice: toMoney(monthlyPrice),
+      yearlyPrice: toMoney(yearlyPrice),
       maxUsers,
       maxCustomers,
       maxVehicles,
