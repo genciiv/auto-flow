@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
+import { moneyToString } from "@/lib/money";
 import {
   getFirstValidationMessage,
   validateFormData,
@@ -32,8 +33,8 @@ function getPlanAuditValues(plan) {
     name: plan.name,
     slug: plan.slug,
     description: plan.description,
-    monthlyPrice: plan.monthlyPrice,
-    yearlyPrice: plan.yearlyPrice,
+    monthlyPrice: moneyToString(plan.monthlyPrice),
+    yearlyPrice: moneyToString(plan.yearlyPrice),
     maxUsers: plan.maxUsers,
     maxCustomers: plan.maxCustomers,
     maxVehicles: plan.maxVehicles,

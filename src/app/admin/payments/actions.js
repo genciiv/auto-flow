@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requirePlatformAdmin } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
+import { moneyToString, toMoney } from "@/lib/money";
 import {
   getFirstValidationMessage,
   validateFormData,
@@ -137,9 +138,9 @@ function validatePaymentId(paymentId) {
 }
 
 function getDefaultSubscriptionAmount(subscription) {
-  const amount = Number(subscription.price);
+  const amount = toMoney(subscription.price);
 
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (amount.lte(0)) {
     throw createActionError("Shuma e pagesës nuk është e vlefshme.");
   }
 
@@ -215,8 +216,8 @@ export async function createPaymentAction(formData) {
 
   const amount =
     customAmount !== null
-      ? customAmount
-      : getDefaultSubscriptionAmount(subscription);
+    ? toMoney(customAmount)
+    : getDefaultSubscriptionAmount(subscription);
 
   const parsedPaidAt = parsePaidAt(paidAtInput);
 
@@ -266,7 +267,7 @@ export async function createPaymentAction(formData) {
       subscriptionId: subscription.id,
       planId: subscription.plan.id,
       planName: subscription.plan.name,
-      amount: payment.amount,
+      amount: moneyToString(payment.amount),
       currency: payment.currency,
       status: payment.status,
       method: payment.method,

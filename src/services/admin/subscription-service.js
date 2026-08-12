@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { moneyToNumber, toMoney } from "@/lib/money";
 import { getPlatformSettings } from "@/services/admin/settings-service";
 
 const PAGE_SIZE = 10;
@@ -78,15 +79,15 @@ function normalizePaidAt(value) {
 }
 
 function assertPaidPrice(price) {
-  const numericPrice = Number(price);
+  const normalizedPrice = toMoney(price);
 
-  if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
+  if (normalizedPrice.lte(0)) {
     throw new Error(
       "Një abonim me pagesë duhet të ketë një shumë më të madhe se zero.",
     );
   }
 
-  return numericPrice;
+  return normalizedPrice;
 }
 
 export async function getSubscriptions({
@@ -397,7 +398,11 @@ export async function getSubscriptionFormData() {
 
   return {
     businesses,
-    plans,
+    plans: plans.map((plan) => ({
+      ...plan,
+      monthlyPrice: moneyToNumber(plan.monthlyPrice),
+      yearlyPrice: moneyToNumber(plan.yearlyPrice),
+    })),
     paymentMethods,
   };
 }

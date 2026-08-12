@@ -1220,8 +1220,8 @@ model Plan {
   slug        String  @unique
   description String?
 
-  monthlyPrice Float @default(0)
-  yearlyPrice  Float @default(0)
+  monthlyPrice Decimal @default(0) @db.Decimal(18, 2)
+  yearlyPrice  Decimal @default(0) @db.Decimal(18, 2)
 
   maxUsers     Int?
   maxCustomers Int?
@@ -1253,7 +1253,7 @@ model Subscription {
   status          SubscriptionStatus @default(TRIALING)
   billingInterval BillingInterval    @default(MONTHLY)
 
-  price Float @default(0)
+  price Decimal @default(0) @db.Decimal(18, 2)
 
   trialStartsAt DateTime?
   trialEndsAt   DateTime?
@@ -1291,7 +1291,7 @@ model SubscriptionPlanRequest {
 
   status          SubscriptionPlanRequestStatus @default(PENDING)
   billingInterval BillingInterval               @default(MONTHLY)
-  requestedPrice  Float
+  requestedPrice  Decimal @db.Decimal(18, 2)
   currentPlanName String?
   notes           String?
   rejectionReason String?
@@ -1320,7 +1320,7 @@ model Payment {
   businessId     String
   subscriptionId String?
 
-  amount   Float
+  amount   Decimal @db.Decimal(18, 2)
   currency String @default("ALL")
 
   status PaymentStatus @default(PENDING)

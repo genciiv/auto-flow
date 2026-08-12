@@ -11,6 +11,7 @@ import {
 } from "@/lib/action-result";
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { toMoney } from "@/lib/money";
 import { EMAIL_CONFIG, sendEmail } from "@/lib/email";
 import { ERROR_CODES, logServerError } from "@/lib/errors";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -134,7 +135,7 @@ export async function requestSubscriptionPlanAction(previousState, formData) {
         businessId,
         requestedPlanId: requestedPlan.id,
         requestedById: user.id,
-        requestedPrice: Number(requestedPlan.monthlyPrice || 0),
+        requestedPrice: toMoney(requestedPlan.monthlyPrice),
         billingInterval: "MONTHLY",
         currentPlanName,
       },

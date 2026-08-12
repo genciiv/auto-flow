@@ -4,6 +4,7 @@ import { ArrowLeft, PencilLine } from "lucide-react";
 
 import PlanForm from "@/components/admin/plans/PlanForm";
 import { getPlanById } from "@/services/admin/plan-service";
+import { moneyToNumber } from "@/lib/money";
 
 export default async function EditPlanPage({ params }) {
   const resolvedParams = await params;
@@ -12,6 +13,12 @@ export default async function EditPlanPage({ params }) {
   if (!plan) {
     notFound();
   }
+
+  const serializedPlan = {
+    ...plan,
+    monthlyPrice: moneyToNumber(plan.monthlyPrice),
+    yearlyPrice: moneyToNumber(plan.yearlyPrice),
+  };
 
   return (
     <div className="space-y-7">
@@ -59,7 +66,7 @@ export default async function EditPlanPage({ params }) {
         </div>
       ) : null}
 
-      <PlanForm plan={plan} />
+      <PlanForm plan={serializedPlan} />
     </div>
   );
 }

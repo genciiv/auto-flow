@@ -53,3 +53,42 @@ test("database seed është i mbrojtur nga ekzekutimi aksidental në production"
   assert.doesNotMatch(seed, /Admin123!/);
   assert.doesNotMatch(seed, /Owner123!/);
 });
+
+test("platform billing perdor Decimal(18,2) dhe money helpers ne kufijte e aplikacionit", async () => {
+  const [
+    schema,
+    migration,
+    planService,
+    subscriptionService,
+    paymentService,
+    paymentActions,
+    subscriptionActions,
+  ] = await Promise.all([
+    read("prisma/schema.prisma"),
+    read("prisma/migrations/20260812102100_platform_billing_decimal/migration.sql"),
+    read("src/services/admin/plan-service.js"),
+    read("src/services/admin/subscription-service.js"),
+    read("src/services/admin/payment-service.js"),
+    read("src/app/admin/payments/actions.js"),
+    read("src/app/dashboard/settings/subscription/actions.js"),
+  ]);
+
+  assert.ok(schema.includes("monthlyPrice Decimal @default(0) @db.Decimal(18, 2)"));
+  assert.ok(schema.includes("yearlyPrice  Decimal @default(0) @db.Decimal(18, 2)"));
+  assert.ok(schema.includes("price Decimal @default(0) @db.Decimal(18, 2)"));
+  const requestedPriceLine = schema.split(/\r?\n/).find((line) => line.includes("requestedPrice"));
+  assert.ok(requestedPriceLine?.includes("Decimal") && requestedPriceLine.includes("@db.Decimal(18, 2)"));
+  assert.ok(schema.includes("amount   Decimal @db.Decimal(18, 2)"));
+
+  for (const column of ["monthlyPrice", "yearlyPrice", "price", "requestedPrice", "amount"]) {
+    assert.ok(migration.includes(`ALTER COLUMN "${column}" SET DATA TYPE DECIMAL(18,2)`));
+  }
+
+  assert.ok(planService.includes("monthlyPrice: toMoney(monthlyPrice)"));
+  assert.ok(planService.includes("yearlyPrice: toMoney(yearlyPrice)"));
+  assert.ok(subscriptionService.includes("const normalizedPrice = toMoney(price)"));
+  assert.ok(paymentService.includes("amount: toMoney(amount)"));
+  assert.ok(paymentService.includes("price: moneyToNumber(subscription.price)"));
+  assert.ok(paymentActions.includes("toMoney(customAmount)"));
+  assert.ok(subscriptionActions.includes("requestedPrice: toMoney(requestedPlan.monthlyPrice)"));
+});

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { addMoney, moneyToNumber } from "@/lib/money";
 
 function normalizeDate(value, fallback) {
   if (!value) {
@@ -62,7 +63,7 @@ function createDailyRevenueSeries({ startDate, endDate, payments }) {
 
     totalsByDate.set(
       key,
-      (totalsByDate.get(key) || 0) + Number(payment.amount || 0),
+      addMoney(totalsByDate.get(key) || 0, payment.amount),
     );
   }
 
@@ -74,7 +75,7 @@ function createDailyRevenueSeries({ startDate, endDate, payments }) {
 
     series.push({
       date: key,
-      revenue: totalsByDate.get(key) || 0,
+      revenue: moneyToNumber(totalsByDate.get(key)),
     });
 
     currentDate.setDate(currentDate.getDate() + 1);
@@ -274,7 +275,7 @@ export async function getReports({ startDate, endDate } = {}) {
     },
 
     summary: {
-      revenue: Number(totalRevenueResult._sum.amount || 0),
+      revenue: moneyToNumber(totalRevenueResult._sum.amount),
       paidPayments: paidPaymentsCount,
       pendingPayments: pendingPaymentsCount,
       activeSubscriptions: activeSubscriptionsCount,
@@ -289,7 +290,7 @@ export async function getReports({ startDate, endDate } = {}) {
     revenueByMethod: revenueByMethod.map((item) => ({
       method: item.method,
       count: item._count._all,
-      revenue: Number(item._sum.amount || 0),
+      revenue: moneyToNumber(item._sum.amount),
     })),
 
     subscriptionsByPlan: subscriptionsByPlan.map((item) => {

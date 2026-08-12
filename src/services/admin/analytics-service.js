@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { addMoney, moneyToNumber } from "@/lib/money";
 
 function getMonthStart(date = new Date()) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -266,15 +267,15 @@ export async function getAnalytics() {
 
     monthlyRevenue.set(
       key,
-      (monthlyRevenue.get(key) || 0) + Number(payment.amount || 0),
+      addMoney(monthlyRevenue.get(key) || 0, payment.amount),
     );
   }
 
-  const currentRevenue = Number(currentMonthRevenue._sum.amount || 0);
+  const currentRevenue = moneyToNumber(currentMonthRevenue._sum.amount);
 
-  const previousRevenue = Number(previousMonthRevenue._sum.amount || 0);
+  const previousRevenue = moneyToNumber(previousMonthRevenue._sum.amount);
 
-  const totalRevenue = Number(allPaidPayments._sum.amount || 0);
+  const totalRevenue = moneyToNumber(allPaidPayments._sum.amount);
 
   const trialConversionRate =
     totalSubscriptions > 0 ? (paidSubscriptions / totalSubscriptions) * 100 : 0;
@@ -312,7 +313,7 @@ export async function getAnalytics() {
       month: month.key,
       label: month.label,
       businesses: monthlyBusinesses.get(month.key) || 0,
-      revenue: monthlyRevenue.get(month.key) || 0,
+      revenue: moneyToNumber(monthlyRevenue.get(month.key)),
     })),
 
     planPerformance: subscriptionsByPlan.map((item) => {
@@ -324,7 +325,7 @@ export async function getAnalytics() {
         planSlug: plan?.slug || "unknown",
         isActive: Boolean(plan?.isActive),
         subscriptions: item._count._all,
-        contractedValue: Number(item._sum.price || 0),
+        contractedValue: moneyToNumber(item._sum.price),
       };
     }),
   };

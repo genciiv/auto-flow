@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import SubscriptionActions from "@/components/admin/subscriptions/SubscriptionActions";
+import { moneyToNumber } from "@/lib/money";
 import {
   getEnabledSubscriptionPaymentMethods,
   getSubscriptionById,
@@ -63,8 +64,8 @@ export default async function SubscriptionDetailsPage({ params }) {
     status: subscription.status,
     billingInterval: subscription.billingInterval,
     plan: {
-      monthlyPrice: Number(subscription.plan.monthlyPrice || 0),
-      yearlyPrice: Number(subscription.plan.yearlyPrice || 0),
+      monthlyPrice: moneyToNumber(subscription.plan.monthlyPrice),
+      yearlyPrice: moneyToNumber(subscription.plan.yearlyPrice),
     },
   };
 

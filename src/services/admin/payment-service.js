@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { moneyToNumber, toMoney } from "@/lib/money";
 
 import { getPlatformSettings } from "@/services/admin/settings-service";
 
@@ -192,7 +193,7 @@ export async function getPayments({
     },
 
     totals: {
-      revenue: Number(paidRevenue._sum.amount || 0),
+      revenue: moneyToNumber(paidRevenue._sum.amount),
     },
 
     filters: {
@@ -343,7 +344,15 @@ export async function getPaymentFormData() {
   });
 
   return {
-    subscriptions,
+    subscriptions: subscriptions.map((subscription) => ({
+      ...subscription,
+      price: moneyToNumber(subscription.price),
+      plan: {
+        ...subscription.plan,
+        monthlyPrice: moneyToNumber(subscription.plan.monthlyPrice),
+        yearlyPrice: moneyToNumber(subscription.plan.yearlyPrice),
+      },
+    })),
     paymentMethods,
   };
 }
@@ -365,7 +374,7 @@ export async function createPayment({
     data: {
       businessId,
       subscriptionId: subscriptionId || null,
-      amount,
+      amount: toMoney(amount),
       currency,
       status,
       method,
