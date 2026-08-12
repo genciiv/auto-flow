@@ -38,3 +38,12 @@ test("mekaniku ridrejtohet te workspace dhe shërbimet filtrohen sipas caktimit"
   assert.match(serviceDetails, /businessRole === "MECHANIC"[\s\S]*assignedUserId: userId/);
   assert.match(operations, /context\.businessRole === "MECHANIC"[\s\S]*assignedUserId: context\.userId/);
 });
+
+test("ndryshimi i rolit te stafit ruan zgjedhjen gjate server action", async () => {
+  const component = await readFile("src/components/staff/StaffManager.jsx", "utf8");
+
+  assert.match(component, /useState/);
+  assert.match(component, /value=\{selectedRole\}/);
+  assert.match(component, /onChange=\{\(event\) => setSelectedRole\(event\.target\.value\)\}/);
+  assert.doesNotMatch(component, /defaultValue=\{member\.role\}/);
+});
