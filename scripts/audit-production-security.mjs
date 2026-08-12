@@ -49,6 +49,7 @@ requireText(nextConfig, "poweredByHeader: false", "next.config.mjs: X-Powered-By
 requireText(nextConfig, "SECURITY_HEADERS", "next.config.mjs: security headers nuk janë aplikuar globalisht.");
 
 for (const header of [
+  "Content-Security-Policy",
   "X-Content-Type-Options",
   "X-Frame-Options",
   "Referrer-Policy",

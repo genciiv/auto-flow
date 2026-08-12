@@ -52,6 +52,12 @@ test("debug dhe test-email endpoints janë të mbyllura në production", async (
 test("security headers përmbajnë mbrojtjet kryesore", async () => {
   const headers = await source("src/lib/security-headers.mjs");
   const required = [
+    "Content-Security-Policy",
+    "default-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
     "X-Content-Type-Options",
     "X-Frame-Options",
     "Referrer-Policy",

@@ -37,6 +37,7 @@ requireIncludes(
 );
 
 for (const header of [
+  "Content-Security-Policy",
   "X-Content-Type-Options",
   "X-Frame-Options",
   "Referrer-Policy",
