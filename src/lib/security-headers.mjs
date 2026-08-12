@@ -1,6 +1,24 @@
 const isProduction = process.env.NODE_ENV === "production";
 
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'" + (isProduction ? "" : " 'unsafe-eval'"),
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' blob: data: https://abjxeaxqieythvaomavm.supabase.co",
+  "font-src 'self' data:",
+  "connect-src 'self'" + (isProduction ? "" : " ws: wss:"),
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  ...(isProduction ? ["upgrade-insecure-requests"] : []),
+].join("; ");
+
 export const SECURITY_HEADERS = [
+  {
+    key: "Content-Security-Policy",
+    value: CONTENT_SECURITY_POLICY,
+  },
   {
     key: "X-DNS-Prefetch-Control",
     value: "off",
