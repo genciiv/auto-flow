@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   Clock3,
   LoaderCircle,
@@ -51,6 +51,41 @@ function ActionForm({ action, children }) {
     <form action={formAction} className="space-y-2">
       <Feedback state={state} />
       {children(pending)}
+    </form>
+  );
+}
+
+function StaffRoleForm({ member }) {
+  const [selectedRole, setSelectedRole] = useState(member.role);
+  const [state, formAction, pending] = useActionState(
+    updateStaffRoleAction,
+    initialState,
+  );
+
+  return (
+    <form action={formAction} className="space-y-2">
+      <Feedback state={state} />
+      <div className="flex min-w-[210px] items-center gap-2">
+        <input type="hidden" name="membershipId" value={member.id} />
+        <select
+          name="role"
+          value={selectedRole}
+          onChange={(event) => setSelectedRole(event.target.value)}
+          className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+        >
+          {STAFF_ROLES.map((role) => (
+            <option key={role} value={role}>
+              {STAFF_ROLE_LABELS[role]}
+            </option>
+          ))}
+        </select>
+        <button
+          disabled={pending}
+          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+        >
+          Ruaj
+        </button>
+      </div>
     </form>
   );
 }
@@ -206,34 +241,7 @@ export default function StaffManager({
 
                     <td className="px-6 py-5">
                       {canManageRoles && member.role !== "OWNER" ? (
-                        <ActionForm action={updateStaffRoleAction}>
-                          {(pending) => (
-                            <div className="flex min-w-[210px] items-center gap-2">
-                              <input
-                                type="hidden"
-                                name="membershipId"
-                                value={member.id}
-                              />
-                              <select
-                                name="role"
-                                defaultValue={member.role}
-                                className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                              >
-                                {STAFF_ROLES.map((role) => (
-                                  <option key={role} value={role}>
-                                    {STAFF_ROLE_LABELS[role]}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                disabled={pending}
-                                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                              >
-                                Ruaj
-                              </button>
-                            </div>
-                          )}
-                        </ActionForm>
+                        <StaffRoleForm member={member} />
                       ) : (
                         <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
                           <ShieldCheck size={16} className="text-blue-600" />
