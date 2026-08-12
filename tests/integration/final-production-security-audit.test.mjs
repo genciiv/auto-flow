@@ -41,3 +41,15 @@ test("production hardening fsheh framework header dhe fut audit-in në CI gate",
   assert.match(packageJson, /"audit:production"/);
   assert.match(packageJson, /npm run audit:production/);
 });
+
+test("database seed është i mbrojtur nga ekzekutimi aksidental në production", async () => {
+  const seed = await read("prisma/seed.js");
+
+  assert.match(seed, /APP_ENV === "production"/);
+  assert.match(seed, /NODE_ENV === "production"/);
+  assert.match(seed, /ALLOW_DATABASE_SEED/);
+  assert.match(seed, /SEED_ADMIN_PASSWORD/);
+  assert.match(seed, /SEED_OWNER_PASSWORD/);
+  assert.doesNotMatch(seed, /Admin123!/);
+  assert.doesNotMatch(seed, /Owner123!/);
+});
