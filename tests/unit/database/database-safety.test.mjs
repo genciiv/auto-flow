@@ -31,6 +31,26 @@ test("operacionet remote bllokohen pa flag dhe konfirmim", () => {
   );
 });
 
+test("DIRECT_URL ka prioritet ndaj DATABASE_URL per target-in default", () => {
+  const previousDirectUrl = process.env.DIRECT_URL;
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+
+  try {
+    process.env.DATABASE_URL = "postgresql://user:secret@pooler.example.com:5432/autoflow";
+    process.env.DIRECT_URL = "postgresql://user:secret@direct.example.com:5432/autoflow";
+
+    const target = parseDatabaseTarget();
+
+    assert.equal(target.host, "direct.example.com");
+    assert.equal(target.safeLabel, "direct.example.com/autoflow");
+  } finally {
+    if (previousDirectUrl === undefined) delete process.env.DIRECT_URL;
+    else process.env.DIRECT_URL = previousDirectUrl;
+
+    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDatabaseUrl;
+  }
+});
 test("reset commands bllokohen", () => {
   assert.throws(() => assertNotProductionReset("prisma migrate reset"), /ndaluara/);
   assert.throws(() => assertNotProductionReset("prisma db push --force-reset"), /ndaluara/);

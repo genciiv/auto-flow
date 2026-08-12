@@ -6,7 +6,7 @@ const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "host.docker.internal"]);
 
-export function parseDatabaseTarget(databaseUrl = process.env.DATABASE_URL) {
+export function parseDatabaseTarget(databaseUrl = process.env.DIRECT_URL || process.env.DATABASE_URL) {
   if (!databaseUrl) {
     throw new Error("DATABASE_URL mungon.");
   }
@@ -44,7 +44,7 @@ export function parseDatabaseTarget(databaseUrl = process.env.DATABASE_URL) {
 }
 
 export function requireDatabaseConfirmation({
-  databaseUrl = process.env.DATABASE_URL,
+  databaseUrl = process.env.DIRECT_URL || process.env.DATABASE_URL,
   confirmation = process.env.DB_OPERATION_CONFIRM,
   allowRemote = process.env.ALLOW_REMOTE_DB_OPERATIONS === "true",
 } = {}) {

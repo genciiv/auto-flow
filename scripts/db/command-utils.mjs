@@ -5,7 +5,7 @@ export function runCommand(command, args, options = {}) {
     cwd: process.cwd(),
     env: process.env,
     encoding: "utf8",
-    shell: process.platform === "win32",
+    shell: options.shell ?? process.platform === "win32",
     stdio: options.capture ? "pipe" : "inherit",
   });
 
