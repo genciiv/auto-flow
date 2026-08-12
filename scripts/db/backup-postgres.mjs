@@ -18,7 +18,7 @@ runCommand("pg_dump", [
   "--no-acl",
   `--file=${output}`,
   process.env.DIRECT_URL || process.env.DATABASE_URL,
-]);
+], { shell: false });
 console.log(`Backup u krijua: ${output}`);
 console.log(
   "Ruaje jashtë makinës së aplikacionit dhe testo restore-in në një databazë të veçantë.",
