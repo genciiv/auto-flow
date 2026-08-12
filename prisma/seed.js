@@ -2,6 +2,24 @@ const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const bcrypt = require("bcryptjs");
 
+if (process.env.APP_ENV === "production" || process.env.NODE_ENV === "production") {
+  throw new Error("Database seed is disabled in production.");
+}
+
+if (process.env.ALLOW_DATABASE_SEED !== "true") {
+  throw new Error("Database seed requires ALLOW_DATABASE_SEED=true.");
+}
+
+function requireSeedPassword(name) {
+  const value = String(process.env[name] || "");
+
+  if (value.length < 12) {
+    throw new Error(`${name} must contain at least 12 characters.`);
+  }
+
+  return value;
+}
+
 if (!process.env.DATABASE_URL) {
   throw new Error(
     "DATABASE_URL mungon. Kontrollo file-in .env ose .env.local.",
@@ -17,7 +35,7 @@ const db = new PrismaClient({
 });
 
 async function createOrUpdatePlatformAdmin() {
-  const adminPassword = "Admin123!";
+  const adminPassword = requireSeedPassword("SEED_ADMIN_PASSWORD");
   const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
 
   const platformAdmin = await db.user.upsert({
@@ -80,7 +98,7 @@ async function createOrUpdateBusiness() {
 }
 
 async function createOrUpdateOwner(businessId) {
-  const ownerPassword = "Owner123!";
+  const ownerPassword = requireSeedPassword("SEED_OWNER_PASSWORD");
   const hashedPassword = await bcrypt.hash(ownerPassword, 12);
 
   const owner = await db.user.upsert({
