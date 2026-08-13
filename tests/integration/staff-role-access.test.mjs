@@ -175,3 +175,27 @@ test("financieri përdor workspace-in e ri dhe jo dashboard-in ekzekutiv", async
   assert.match(workspace, /ACCOUNTANT: \["Workspace i financës"/);
   assert.match(workspace, /businessRole === "ACCOUNTANT"/);
 });
+
+test("menaxhimi i shpenzimeve kërkon FINANCE_MANAGE në server dhe UI", async () => {
+  const actions = await readFile("src/app/dashboard/finance/actions.js", "utf8");
+  const page = await readFile("src/app/dashboard/finance/expenses/page.jsx", "utf8");
+  const rowActions = await readFile("src/components/finance/ExpenseRowActions.jsx", "utf8");
+
+  const updateAction = actions.slice(actions.indexOf("export async function updateExpenseAction"), actions.indexOf("export async function deleteExpenseAction"));
+  const deleteAction = actions.slice(actions.indexOf("export async function deleteExpenseAction"), actions.indexOf("export async function createInventoryCountAction"));
+
+  for (const source of [updateAction, deleteAction]) {
+    assert.match(source, /requireBusinessActionPermission\([\s\S]*PERMISSIONS\.FINANCE_MANAGE/);
+    assert.match(source, /businessId: context\.businessId/);
+    assert.match(source, /entityType: "BusinessExpense"/);
+  }
+
+  assert.match(updateAction, /action: "UPDATE"/);
+  assert.match(deleteAction, /action: "DELETE"/);
+  assert.match(page, /canManageFinance \? <th[\s\S]*Veprime/);
+  assert.match(page, /canManageFinance \? <td[\s\S]*ExpenseRowActions/);
+  assert.match(rowActions, /useConfirm\(\)/);
+  assert.match(rowActions, /deleteExpenseAction\(expense\.id\)/);
+  assert.equal(hasPermission("ACCOUNTANT", PERMISSIONS.FINANCE_MANAGE), true);
+  assert.equal(hasPermission("RECEPTIONIST", PERMISSIONS.FINANCE_MANAGE), false);
+});
