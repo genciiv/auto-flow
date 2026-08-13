@@ -117,6 +117,7 @@ function NotificationIcon({ notification }) {
 export default function NotificationDropdown({
   unreadCount = 0,
   notifications = [],
+  canManageVehicleClaims = false,
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -276,16 +277,18 @@ export default function NotificationDropdown({
             </div>
           )}
 
-          <div className="border-t border-slate-100 bg-slate-50/70 p-3">
-            <Link
-              href="/dashboard/vehicle-claims"
-              onClick={() => setOpen(false)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-blue-600 hover:text-white hover:ring-blue-600"
-            >
-              Lidhjet
-              <ChevronRight size={15} />
-            </Link>
-          </div>
+          {canManageVehicleClaims ? (
+            <div className="border-t border-slate-100 bg-slate-50/70 p-3">
+              <Link
+                href="/dashboard/vehicle-claims"
+                onClick={() => setOpen(false)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-blue-600 hover:text-white hover:ring-blue-600"
+              >
+                Lidhjet
+                <ChevronRight size={15} />
+              </Link>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
