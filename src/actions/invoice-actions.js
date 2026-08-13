@@ -271,6 +271,12 @@ export async function createInvoice(formData) {
       status,
     } = validationResult.data;
 
+    if (status === "PAID") {
+      await requireBusinessActionPermission(
+        PERMISSIONS.INVOICES_MARK_PAID,
+      );
+    }
+
     let customerId = selectedCustomerId;
     let vehicleId = selectedVehicleId;
     let total;
@@ -481,6 +487,12 @@ export async function updateInvoice(invoiceId, formData) {
       total: validatedManualTotal,
       status,
     } = validationResult.data;
+
+    if (status === "PAID") {
+      await requireBusinessActionPermission(
+        PERMISSIONS.INVOICES_MARK_PAID,
+      );
+    }
 
     const existingInvoice = await db.invoice.findFirst({
       where: {

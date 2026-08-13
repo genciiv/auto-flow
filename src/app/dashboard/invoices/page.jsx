@@ -151,7 +151,7 @@ export default async function InvoicesPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 sm:flex"><ShieldCheck size={16} /> Të dhëna të verifikuara</div>
-              {canCreateInvoice ? <CreateInvoiceModal customers={clientCustomers} vehicles={clientVehicles} services={clientServices} /> : null}
+              {canCreateInvoice ? <CreateInvoiceModal customers={clientCustomers} vehicles={clientVehicles} services={clientServices} canMarkPaid={canMarkInvoicePaid} /> : null}
             </div>
           </div>
         </header>
