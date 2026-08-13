@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { History } from "lucide-react";
+
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CreatePartModal from "@/components/inventory/CreatePartModal";
 import InventoryStats from "@/components/inventory/InventoryStats";
@@ -124,11 +127,21 @@ export default async function InventoryPage() {
             </p>
           </div>
 
-          {canCreatePart ? (
-            <CreatePartModal
-              canManageStock={canManageStock}
-            />
-          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/dashboard/inventory/movements"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            >
+              <History size={17} />
+              Lëvizjet e stokut
+            </Link>
+
+            {canCreatePart ? (
+              <CreatePartModal
+                canManageStock={canManageStock}
+              />
+            ) : null}
+          </div>
         </div>
 
         <InventoryStats stats={stats} />

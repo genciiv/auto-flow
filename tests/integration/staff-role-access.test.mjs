@@ -111,3 +111,12 @@ test("faqja e stafit ridrejton rolet pa leje ne vend te ekranit bosh", async () 
   assert.match(page, /requireBusinessPermission[\s\S]*requireBusinessFeature/);
   assert.doesNotMatch(page, /return null/);
 });
+
+test("inventari ekspozon navigimin drejt historikut te levizjeve", async () => {
+  const inventoryPage = await readFile("src/app/dashboard/inventory/page.jsx", "utf8");
+  const movementsPage = await readFile("src/app/dashboard/inventory/movements/page.jsx", "utf8");
+
+  assert.match(inventoryPage, /href="\/dashboard\/inventory\/movements"/);
+  assert.match(inventoryPage, /Lëvizjet e stokut/);
+  assert.match(movementsPage, /requireBusinessPermission\(PERMISSIONS\.INVENTORY_VIEW\)/);
+});
