@@ -147,3 +147,21 @@ test("shënimi i faturës si e paguar kërkon lejen financiare të dedikuar", as
   assert.equal(hasPermission("RECEPTIONIST", PERMISSIONS.INVOICES_MARK_PAID), false);
   assert.equal(hasPermission("ACCOUNTANT", PERMISSIONS.INVOICES_MARK_PAID), true);
 });
+
+test("formularët e faturës nuk anashkalojnë lejen për statusin PAID", async () => {
+  const actions = await readFile("src/actions/invoice-actions.js", "utf8");
+  const page = await readFile("src/app/dashboard/invoices/page.jsx", "utf8");
+  const table = await readFile("src/components/invoices/InvoicesTable.jsx", "utf8");
+  const createModal = await readFile("src/components/invoices/CreateInvoiceModal.jsx", "utf8");
+  const editModal = await readFile("src/components/invoices/EditInvoiceModal.jsx", "utf8");
+
+  const createAction = actions.slice(actions.indexOf("export async function createInvoice"), actions.indexOf("export async function updateInvoice"));
+  const updateAction = actions.slice(actions.indexOf("export async function updateInvoice"), actions.indexOf("export async function updateInvoiceStatus"));
+
+  assert.match(createAction, /status === "PAID"[\s\S]*PERMISSIONS\.INVOICES_MARK_PAID/);
+  assert.match(updateAction, /status === "PAID"[\s\S]*PERMISSIONS\.INVOICES_MARK_PAID/);
+  assert.match(page, /CreateInvoiceModal[\s\S]*canMarkPaid=\{canMarkInvoicePaid\}/);
+  assert.match(table, /EditInvoiceModal[\s\S]*canMarkPaid=\{canMarkPaid\}/);
+  assert.match(createModal, /canMarkPaid \? <option value="PAID">/);
+  assert.match(editModal, /canMarkPaid \|\| invoice\.status === "PAID"/);
+});

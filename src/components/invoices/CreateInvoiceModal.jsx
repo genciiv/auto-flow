@@ -18,6 +18,7 @@ export default function CreateInvoiceModal({
   customers = [],
   vehicles = [],
   services = [],
+  canMarkPaid = false,
 }) {
   const router = useRouter();
 
@@ -397,7 +398,7 @@ export default function CreateInvoiceModal({
                 >
                   <option value="DRAFT">Draft</option>
                   <option value="UNPAID">Pa paguar</option>
-                  <option value="PAID">Paguar</option>
+                  {canMarkPaid ? <option value="PAID">Paguar</option> : null}
                   <option value="OVERDUE">Vonuar</option>
                 </select>
               </div>

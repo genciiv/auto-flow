@@ -428,6 +428,7 @@ export default function InvoicesTable({
           customers={customers}
           vehicles={vehicles}
           services={services}
+          canMarkPaid={canMarkPaid}
           onClose={handleCloseEdit}
         />
       )}

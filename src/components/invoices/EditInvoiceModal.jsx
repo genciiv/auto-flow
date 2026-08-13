@@ -36,6 +36,7 @@ export default function EditInvoiceModal({
   customers = [],
   vehicles = [],
   services = [],
+  canMarkPaid = false,
   onClose,
 }) {
   const router = useRouter();
@@ -400,7 +401,9 @@ export default function EditInvoiceModal({
                 >
                   <option value="DRAFT">Draft</option>
                   <option value="UNPAID">E papaguar</option>
-                  <option value="PAID">E paguar</option>
+                  {canMarkPaid || invoice.status === "PAID" ? (
+                    <option value="PAID">E paguar</option>
+                  ) : null}
                   <option value="OVERDUE">E vonuar</option>
                 </select>
               </div>
