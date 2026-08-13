@@ -4,6 +4,7 @@ import { ArrowRight, Calendar, ClipboardList, Coins, Package, ReceiptText, Users
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 const ROLE_COPY = {
   OWNER: ["Workspace i pronarit", "Pamja e plotë e biznesit dhe ekipit."],
@@ -25,6 +26,7 @@ const ACTIONS = {
 
 export default async function WorkspacePage() {
   const { businessId, businessRole, userId } = await requireBusinessContext();
+  const canViewAudit = hasPermission(businessRole, PERMISSIONS.AUDIT_VIEW);
   const serviceWhere = { businessId, ...(businessRole === "MECHANIC" ? { assignedUserId: userId } : {}) };
   const [activeServices, readyServices, todayAppointments, lowStock, unpaidInvoices, recentActivity] = await Promise.all([
     db.serviceRecord.count({ where: { ...serviceWhere, status: { in: ["PENDING", "IN_PROGRESS", "WAITING_FOR_PARTS"] } } }),
@@ -32,7 +34,7 @@ export default async function WorkspacePage() {
     db.appointment.count({ where: { businessId, date: { gte: new Date(new Date().setHours(0,0,0,0)), lte: new Date(new Date().setHours(23,59,59,999)) } } }),
     db.part.count({ where: { businessId, stock: { lte: 5 } } }),
     db.invoice.count({ where: { businessId, status: { in: ["UNPAID", "OVERDUE"] } } }),
-    db.auditLog.findMany({ where: { businessId }, orderBy: { createdAt: "desc" }, take: 8, include: { user: { select: { name:true } } } }),
+    canViewAudit ? db.auditLog.findMany({ where: { businessId }, orderBy: { createdAt: "desc" }, take: 8, include: { user: { select: { name:true } } } }) : Promise.resolve([]),
   ]);
   const [title, description] = ROLE_COPY[businessRole] || ["Workspace", "Puna jote e përditshme në AutoFlow."];
   const stats = businessRole === "WAREHOUSE"
@@ -45,6 +47,6 @@ export default async function WorkspacePage() {
     <section className="overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-9"><div className="relative"><div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-blue-500/15 blur-3xl"/><div className="relative"><p className="text-sm font-bold text-blue-300">Roli: {businessRole}</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{description}</p></div></div></section>
     <div className="grid gap-4 md:grid-cols-3">{stats.map(([label,value,Icon])=><div key={label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><Icon className="text-blue-600" size={22}/><p className="mt-4 text-sm text-slate-500">{label}</p><p className="mt-1 text-3xl font-bold text-slate-950">{value}</p></div>)}</div>
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{(ACTIONS[businessRole]||[]).map(([label,href,Icon])=><Link key={label} href={href} className="group rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"><Icon className="text-blue-600" size={22}/><div className="mt-4 flex items-center justify-between"><strong>{label}</strong><ArrowRight className="transition group-hover:translate-x-1" size={17}/></div></Link>)}</div>
-    {businessRole !== "MECHANIC" ? <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-lg font-bold">Aktiviteti i fundit i ekipit</h2><div className="mt-4 divide-y divide-slate-100">{recentActivity.length?recentActivity.map(item=><div key={item.id} className="py-3"><p className="text-sm font-semibold text-slate-900">{item.title}</p><p className="mt-1 text-xs text-slate-500">{item.user?.name||"Sistemi"} · {new Intl.DateTimeFormat("sq-AL", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Tirane" }).format(new Date(item.createdAt))}</p></div>):<p className="py-4 text-sm text-slate-500">Nuk ka aktivitet.</p>}</div></section>:null}
+    {canViewAudit ? <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-lg font-bold">Aktiviteti i fundit i ekipit</h2><div className="mt-4 divide-y divide-slate-100">{recentActivity.length?recentActivity.map(item=><div key={item.id} className="py-3"><p className="text-sm font-semibold text-slate-900">{item.title}</p><p className="mt-1 text-xs text-slate-500">{item.user?.name||"Sistemi"} · {new Intl.DateTimeFormat("sq-AL", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Tirane" }).format(new Date(item.createdAt))}</p></div>):<p className="py-4 text-sm text-slate-500">Nuk ka aktivitet.</p>}</div></section>:null}
   </div></DashboardLayout>;
 }
