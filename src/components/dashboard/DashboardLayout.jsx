@@ -39,6 +39,7 @@ export default async function DashboardLayout({
     (await getDashboardNotifications(
       user.businessId,
       user.id,
+      user.businessRole,
     ));
 
   const serializedUser = serializeDashboardUser(user);

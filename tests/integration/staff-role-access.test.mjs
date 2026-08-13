@@ -84,3 +84,22 @@ test("global search respekton permissions dhe kontraten e API", async () => {
   assert.equal(component.includes("data?.data?.results"), true);
   assert.equal(component.includes("data.results"), false);
 });
+
+test("njoftimet filtrojne vehicle claims dhe kategorite sipas rolit", async () => {
+  const service = await readFile("src/services/dashboard-notification-service.js", "utf8");
+  const layout = await readFile("src/components/dashboard/DashboardLayout.jsx", "utf8");
+  const topbar = await readFile("src/components/dashboard/Topbar.jsx", "utf8");
+  const dropdown = await readFile("src/components/dashboard/NotificationDropdown.jsx", "utf8");
+
+  assert.equal(service.includes("PERMISSIONS.VEHICLES_UPDATE"), true);
+  assert.equal(service.includes("canManageVehicleClaims"), true);
+  assert.equal(service.includes("Promise.resolve(0)"), true);
+  assert.equal(service.includes("Promise.resolve([])"), true);
+  assert.equal(service.includes("PAYMENT: PERMISSIONS.INVOICES_VIEW"), true);
+  assert.equal(service.includes("SUBSCRIPTION: PERMISSIONS.BILLING_MANAGE"), true);
+  assert.equal(service.includes("allowedBusinessNotifications"), true);
+  assert.equal(service.includes("allowedUserNotifications"), true);
+  assert.equal(layout.includes("user.businessRole"), true);
+  assert.equal(topbar.includes("canManageVehicleClaims={canManageVehicleClaims}"), true);
+  assert.equal(dropdown.includes("canManageVehicleClaims ? ("), true);
+});

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 
 function getCustomerName(claim) {
   return (
@@ -21,7 +22,25 @@ function getVehicleTitle(vehicle) {
   );
 }
 
-export async function getDashboardNotifications(businessId, userId = null) {
+function canViewNotificationForRole(notification, businessRole) {
+  const permissionByEntityType = {
+    APPOINTMENT: PERMISSIONS.APPOINTMENTS_VIEW,
+    CHAT: PERMISSIONS.MESSAGES_VIEW,
+    CUSTOMER: PERMISSIONS.CUSTOMERS_VIEW,
+    DOCUMENT: PERMISSIONS.VEHICLES_VIEW,
+    INVOICE: PERMISSIONS.INVOICES_VIEW,
+    PAYMENT: PERMISSIONS.INVOICES_VIEW,
+    SERVICE: PERMISSIONS.SERVICES_VIEW,
+    SUBSCRIPTION: PERMISSIONS.BILLING_MANAGE,
+    SYSTEM: PERMISSIONS.INVENTORY_VIEW,
+    VEHICLE: PERMISSIONS.VEHICLES_VIEW,
+  };
+
+  const permission = permissionByEntityType[notification.entityType];
+  return permission ? hasPermission(businessRole, permission) : false;
+}
+
+export async function getDashboardNotifications(businessId, userId = null, businessRole = null) {
   if (!businessId) {
     return {
       unreadCount: 0,
@@ -29,6 +48,11 @@ export async function getDashboardNotifications(businessId, userId = null) {
       notifications: [],
     };
   }
+
+  const canManageVehicleClaims = hasPermission(
+    businessRole,
+    PERMISSIONS.VEHICLES_UPDATE,
+  );
 
   const [
     vehicleClaimPendingCount,
@@ -39,14 +63,17 @@ export async function getDashboardNotifications(businessId, userId = null) {
     userNotifications,
   ] = await Promise.all([
 
-    db.vehicleClaim.count({
-      where: {
-        status: "PENDING",
-        vehicle: { businessId },
-      },
-    }),
+    canManageVehicleClaims
+      ? db.vehicleClaim.count({
+          where: {
+            status: "PENDING",
+            vehicle: { businessId },
+          },
+        })
+      : Promise.resolve(0),
 
-    db.vehicleClaim.findMany({
+    canManageVehicleClaims
+      ? db.vehicleClaim.findMany({
       where: {
         status: "PENDING",
         vehicle: { businessId },
@@ -82,8 +109,9 @@ export async function getDashboardNotifications(businessId, userId = null) {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
+          take: 8,
+        })
+      : Promise.resolve([]),
 
     db.notification.count({
       where: {
@@ -186,10 +214,18 @@ export async function getDashboardNotifications(businessId, userId = null) {
     };
   }
 
-  const systemNotifications = businessNotifications.map((notification) =>
+  const allowedBusinessNotifications = businessNotifications.filter((notification) =>
+    canViewNotificationForRole(notification, businessRole),
+  );
+
+  const allowedUserNotifications = userNotifications.filter((notification) =>
+    canViewNotificationForRole(notification, businessRole),
+  );
+
+  const systemNotifications = allowedBusinessNotifications.map((notification) =>
     mapSystemNotification(notification, "business"),
   );
-  const personalNotifications = userNotifications.map((notification) =>
+  const personalNotifications = allowedUserNotifications.map((notification) =>
     mapSystemNotification(notification, "user"),
   );
 
@@ -208,8 +244,8 @@ export async function getDashboardNotifications(businessId, userId = null) {
   return {
     unreadCount:
       vehicleClaimPendingCount +
-      businessNotificationUnreadCount +
-      userNotificationUnreadCount,
+      allowedBusinessNotifications.filter((notification) => !notification.isRead).length +
+      allowedUserNotifications.filter((notification) => !notification.isRead).length,
     vehicleClaimPendingCount,
     notifications,
   };
