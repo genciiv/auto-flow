@@ -2,7 +2,10 @@ import { Clock3, ShieldCheck, UserCheck, Users } from "lucide-react";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StaffManager from "@/components/staff/StaffManager";
-import { requireBusinessFeature } from "@/lib/business-context";
+import {
+  requireBusinessFeature,
+  requireBusinessPermission,
+} from "@/lib/business-context";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { PLAN_FEATURES } from "@/services/plan-access-service";
 import { getStaffManagementData } from "@/services/staff-service";
@@ -10,11 +13,8 @@ import { getStaffManagementData } from "@/services/staff-service";
 export const dynamic = "force-dynamic";
 
 export default async function StaffPage() {
+  await requireBusinessPermission(PERMISSIONS.STAFF_VIEW);
   const context = await requireBusinessFeature(PLAN_FEATURES.STAFF);
-
-  if (!hasPermission(context.businessRole, PERMISSIONS.STAFF_VIEW)) {
-    return null;
-  }
 
   const data = await getStaffManagementData(context.businessId);
   const activeMembers = data.members.filter((member) => member.isActive).length;

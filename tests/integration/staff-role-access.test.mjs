@@ -103,3 +103,11 @@ test("njoftimet filtrojne vehicle claims dhe kategorite sipas rolit", async () =
   assert.equal(topbar.includes("canManageVehicleClaims={canManageVehicleClaims}"), true);
   assert.equal(dropdown.includes("canManageVehicleClaims ? ("), true);
 });
+
+test("faqja e stafit ridrejton rolet pa leje ne vend te ekranit bosh", async () => {
+  const page = await readFile("src/app/dashboard/staff/page.jsx", "utf8");
+
+  assert.match(page, /requireBusinessPermission\(PERMISSIONS\.STAFF_VIEW\)/);
+  assert.match(page, /requireBusinessPermission[\s\S]*requireBusinessFeature/);
+  assert.doesNotMatch(page, /return null/);
+});
