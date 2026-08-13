@@ -3,6 +3,7 @@ import { apiError, apiFailure, apiSuccess } from "@/lib/api-response";
 import { db } from "@/lib/db";
 import { ERROR_CODES, logServerError } from "@/lib/errors";
 import { getRequestId } from "@/lib/request-context";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { getFirstValidationMessage, validateObject } from "@/lib/validation";
 import { globalSearchSchema } from "@/schemas/api-schema";
 import { consumeRateLimit, getClientIpFromHeaders, RATE_LIMIT_POLICIES, rateLimitHeaders } from "@/lib/rate-limit";
@@ -65,8 +66,15 @@ export async function GET(request) {
       return apiSuccess({ data: { results: [] }, requestId });
     }
 
+    const canViewCustomers = hasPermission(businessRole, PERMISSIONS.CUSTOMERS_VIEW);
+    const canViewVehicles = hasPermission(businessRole, PERMISSIONS.VEHICLES_VIEW);
+    const canViewInvoices = hasPermission(businessRole, PERMISSIONS.INVOICES_VIEW);
+    const canViewServices = hasPermission(businessRole, PERMISSIONS.SERVICES_VIEW);
+    const canViewInventory = hasPermission(businessRole, PERMISSIONS.INVENTORY_VIEW);
+
     const [customers, vehicles, invoices, services, parts] = await Promise.all([
-      db.customer.findMany({
+      canViewCustomers
+        ? db.customer.findMany({
         where: {
           businessId,
 
@@ -145,9 +153,11 @@ export async function GET(request) {
         },
 
         take: 5,
-      }),
+          })
+        : Promise.resolve([]),
 
-      db.vehicle.findMany({
+      canViewVehicles
+        ? db.vehicle.findMany({
         where: {
           businessId,
 
@@ -200,9 +210,11 @@ export async function GET(request) {
         },
 
         take: 5,
-      }),
+          })
+        : Promise.resolve([]),
 
-      db.invoice.findMany({
+      canViewInvoices
+        ? db.invoice.findMany({
         where: {
           businessId,
 
@@ -279,11 +291,14 @@ export async function GET(request) {
         },
 
         take: 5,
-      }),
+          })
+        : Promise.resolve([]),
 
-      db.serviceRecord.findMany({
+      canViewServices
+        ? db.serviceRecord.findMany({
         where: {
           businessId,
+          ...(businessRole === "MECHANIC" ? { assignedUserId: session.user.id } : {}),
 
           OR: [
             {
@@ -364,9 +379,11 @@ export async function GET(request) {
         },
 
         take: 5,
-      }),
+          })
+        : Promise.resolve([]),
 
-      db.part.findMany({
+      canViewInventory
+        ? db.part.findMany({
         where: {
           businessId,
 
@@ -403,7 +420,8 @@ export async function GET(request) {
         },
 
         take: 5,
-      }),
+          })
+        : Promise.resolve([]),
     ]);
 
     const results = [
