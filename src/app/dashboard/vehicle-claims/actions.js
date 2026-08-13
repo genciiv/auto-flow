@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
+import { PERMISSIONS } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { getFirstValidationMessage, validateObject } from "@/lib/validation";
 import {
@@ -53,7 +54,7 @@ export async function approveVehicleClaim(
   formData = null,
 ) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessPermission(PERMISSIONS.VEHICLES_UPDATE);
 
     const validationResult = validateObject(approveBusinessVehicleClaimSchema, {
       claimId,
@@ -163,7 +164,7 @@ export async function approveVehicleClaim(
 
 export async function rejectVehicleClaim(claimId, formData) {
   try {
-    const { businessId } = await requireBusinessContext();
+    const { businessId } = await requireBusinessPermission(PERMISSIONS.VEHICLES_UPDATE);
 
     const validationResult = validateObject(rejectBusinessVehicleClaimSchema, {
       claimId,

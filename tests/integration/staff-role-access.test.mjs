@@ -47,3 +47,19 @@ test("ndryshimi i rolit te stafit ruan zgjedhjen gjate server action", async () 
   assert.match(component, /onChange=\{\(event\) => setSelectedRole\(event\.target\.value\)\}/);
   assert.doesNotMatch(component, /defaultValue=\{member\.role\}/);
 });
+
+test("menaxhimi i vehicle claims kerkon vehicles update ne cdo shtrese", async () => {
+  assert.equal(hasPermission("OWNER", PERMISSIONS.VEHICLES_UPDATE), true);
+  assert.equal(hasPermission("MANAGER", PERMISSIONS.VEHICLES_UPDATE), true);
+  assert.equal(hasPermission("RECEPTIONIST", PERMISSIONS.VEHICLES_UPDATE), true);
+  assert.equal(hasPermission("MECHANIC", PERMISSIONS.VEHICLES_UPDATE), false);
+
+  const sidebar = await readFile("src/components/dashboard/Sidebar.jsx", "utf8");
+  const page = await readFile("src/app/dashboard/vehicle-claims/page.jsx", "utf8");
+  const actions = await readFile("src/app/dashboard/vehicle-claims/actions.js", "utf8");
+
+  assert.match(sidebar, /href: "\/dashboard\/vehicle-claims"[\s\S]*permission: PERMISSIONS\.VEHICLES_UPDATE/);
+  assert.match(page, /requireBusinessPermission\(PERMISSIONS\.VEHICLES_UPDATE\)/);
+  assert.equal(actions.match(/requireBusinessPermission\(PERMISSIONS\.VEHICLES_UPDATE\)/g)?.length, 2);
+  assert.doesNotMatch(actions, /requireBusinessContext/);
+});
