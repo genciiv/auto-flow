@@ -23,6 +23,7 @@ const requiredTextSchema = z
 const optionalTextSchema = z
   .string()
   .trim()
+  .optional()
   .transform((value) => value || null);
 
 const positiveAmountSchema = z.coerce
