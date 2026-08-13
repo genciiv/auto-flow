@@ -124,6 +124,7 @@ export default function InvoicesTable({
   services = [],
   canUpdate = false,
   canDelete = false,
+  canMarkPaid = false,
 }) {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
@@ -407,6 +408,7 @@ export default function InvoicesTable({
                             onEdit={canUpdate ? handleEdit : undefined}
                             canUpdate={canUpdate}
                             canDelete={canDelete}
+                            canMarkPaid={canMarkPaid}
                           />
                         </td>
                       </tr>
