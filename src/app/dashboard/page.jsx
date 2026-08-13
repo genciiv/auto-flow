@@ -235,7 +235,7 @@ export default async function DashboardPage() {
     PERMISSIONS.DASHBOARD_VIEW,
   );
 
-  if (!["OWNER", "MANAGER", "ACCOUNTANT"].includes(businessRole)) {
+  if (!["OWNER", "MANAGER"].includes(businessRole)) {
     redirect("/dashboard/workspace");
   }
 
