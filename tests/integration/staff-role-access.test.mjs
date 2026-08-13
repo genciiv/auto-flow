@@ -120,3 +120,15 @@ test("inventari ekspozon navigimin drejt historikut te levizjeve", async () => {
   assert.match(inventoryPage, /Lëvizjet e stokut/);
   assert.match(movementsPage, /requireBusinessPermission\(PERMISSIONS\.INVENTORY_VIEW\)/);
 });
+
+test("workspace kufizon audit activity me AUDIT_VIEW", async () => {
+  const workspace = await readFile("src/app/dashboard/workspace/page.jsx", "utf8");
+
+  assert.match(workspace, /hasPermission\(businessRole, PERMISSIONS\.AUDIT_VIEW\)/);
+  assert.match(workspace, /canViewAudit \? db\.auditLog\.findMany/);
+  assert.match(workspace, /: Promise\.resolve\(\[\]\)/);
+  assert.match(workspace, /\{canViewAudit \? <section/);
+  assert.doesNotMatch(workspace, /businessRole !== "MECHANIC"/);
+  assert.equal(hasPermission("RECEPTIONIST", PERMISSIONS.AUDIT_VIEW), false);
+  assert.equal(hasPermission("MANAGER", PERMISSIONS.AUDIT_VIEW), true);
+});
