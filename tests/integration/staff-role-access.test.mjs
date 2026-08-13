@@ -165,3 +165,13 @@ test("formularët e faturës nuk anashkalojnë lejen për statusin PAID", async 
   assert.match(createModal, /canMarkPaid \? <option value="PAID">/);
   assert.match(editModal, /canMarkPaid \|\| invoice\.status === "PAID"/);
 });
+
+test("financieri përdor workspace-in e ri dhe jo dashboard-in ekzekutiv", async () => {
+  const dashboard = await readFile("src/app/dashboard/page.jsx", "utf8");
+  const workspace = await readFile("src/app/dashboard/workspace/page.jsx", "utf8");
+
+  assert.match(dashboard, /!\["OWNER", "MANAGER"\]\.includes\(businessRole\)[\s\S]*redirect\("\/dashboard\/workspace"\)/);
+  assert.doesNotMatch(dashboard, /\["OWNER", "MANAGER", "ACCOUNTANT"\]/);
+  assert.match(workspace, /ACCOUNTANT: \["Workspace i financës"/);
+  assert.match(workspace, /businessRole === "ACCOUNTANT"/);
+});
