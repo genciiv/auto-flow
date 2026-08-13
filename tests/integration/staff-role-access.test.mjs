@@ -63,3 +63,10 @@ test("menaxhimi i vehicle claims kerkon vehicles update ne cdo shtrese", async (
   assert.equal(actions.match(/requireBusinessPermission\(PERMISSIONS\.VEHICLES_UPDATE\)/g)?.length, 2);
   assert.doesNotMatch(actions, /requireBusinessContext/);
 });
+
+test("sidebar ndan workspace e mekanikut nga paneli i roleve te tjera", async () => {
+  const sidebar = await readFile("src/components/dashboard/Sidebar.jsx", "utf8");
+
+  assert.match(sidebar, /name: "Hapësira ime"[\s\S]*?roles: \["MECHANIC"\]/);
+  assert.match(sidebar, /name: "Paneli kryesor"[\s\S]*?roles: \["OWNER", "MANAGER", "RECEPTIONIST", "WAREHOUSE", "ACCOUNTANT"\]/);
+});

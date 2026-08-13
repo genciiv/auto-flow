@@ -37,12 +37,14 @@ const sidebarGroups = [
         icon: LayoutDashboard,
         href: "/dashboard/workspace",
         permission: PERMISSIONS.DASHBOARD_VIEW,
+        roles: ["MECHANIC"],
       },
       {
         name: "Paneli kryesor",
         icon: Home,
         href: "/dashboard",
         permission: PERMISSIONS.DASHBOARD_VIEW,
+        roles: ["OWNER", "MANAGER", "RECEPTIONIST", "WAREHOUSE", "ACCOUNTANT"],
       },
       {
         name: "Klientët",
