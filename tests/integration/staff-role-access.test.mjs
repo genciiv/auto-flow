@@ -132,3 +132,18 @@ test("workspace kufizon audit activity me AUDIT_VIEW", async () => {
   assert.equal(hasPermission("RECEPTIONIST", PERMISSIONS.AUDIT_VIEW), false);
   assert.equal(hasPermission("MANAGER", PERMISSIONS.AUDIT_VIEW), true);
 });
+
+test("shënimi i faturës si e paguar kërkon lejen financiare të dedikuar", async () => {
+  const actions = await readFile("src/actions/invoice-actions.js", "utf8");
+  const page = await readFile("src/app/dashboard/invoices/page.jsx", "utf8");
+  const table = await readFile("src/components/invoices/InvoicesTable.jsx", "utf8");
+  const rowActions = await readFile("src/components/invoices/InvoiceRowActions.jsx", "utf8");
+
+  assert.match(actions, /normalizedStatus === "PAID"[\s\S]*PERMISSIONS\.INVOICES_MARK_PAID[\s\S]*PERMISSIONS\.INVOICES_UPDATE/);
+  assert.doesNotMatch(actions, /requireAnyBusinessActionPermission/);
+  assert.match(page, /hasPermission\([\s\S]*PERMISSIONS\.INVOICES_MARK_PAID[\s\S]*canMarkPaid=\{canMarkInvoicePaid\}/);
+  assert.match(table, /canMarkPaid=\{canMarkPaid\}/);
+  assert.match(rowActions, /option\.value !== "PAID" \|\| canMarkPaid/);
+  assert.equal(hasPermission("RECEPTIONIST", PERMISSIONS.INVOICES_MARK_PAID), false);
+  assert.equal(hasPermission("ACCOUNTANT", PERMISSIONS.INVOICES_MARK_PAID), true);
+});

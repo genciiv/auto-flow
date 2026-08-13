@@ -119,6 +119,10 @@ export default async function InvoicesPage() {
     businessRole,
     PERMISSIONS.INVOICES_DELETE,
   );
+  const canMarkInvoicePaid = hasPermission(
+    businessRole,
+    PERMISSIONS.INVOICES_MARK_PAID,
+  );
 
   const stats = {
     totalInvoices,
@@ -161,6 +165,7 @@ export default async function InvoicesPage() {
           services={clientServices}
           canUpdate={canUpdateInvoice}
           canDelete={canDeleteInvoice}
+          canMarkPaid={canMarkInvoicePaid}
         />
       </div>
     </DashboardLayout>

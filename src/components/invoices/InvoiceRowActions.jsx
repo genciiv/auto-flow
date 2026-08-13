@@ -47,6 +47,7 @@ export default function InvoiceRowActions({
   onEdit,
   canUpdate = false,
   canDelete = false,
+  canMarkPaid = false,
 }) {
   const router = useRouter();
   const { confirm } = useConfirm();
@@ -192,7 +193,9 @@ export default function InvoiceRowActions({
               Ndrysho statusin
             </p>
 
-            {statusOptions.map((option) => {
+            {statusOptions
+              .filter((option) => option.value !== "PAID" || canMarkPaid)
+              .map((option) => {
               const Icon = option.icon;
               const isActive = invoice.status === option.value;
 

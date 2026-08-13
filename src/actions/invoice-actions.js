@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  requireAnyBusinessActionPermission,
   requireBusinessActionPermission,
 } from "@/lib/business-context";
 import { db } from "@/lib/db";
@@ -738,13 +737,6 @@ export async function updateInvoice(invoiceId, formData) {
 
 export async function updateInvoiceStatus(invoiceId, status) {
   try {
-    const context = await requireAnyBusinessActionPermission([
-      PERMISSIONS.INVOICES_UPDATE,
-      PERMISSIONS.INVOICES_MARK_PAID,
-    ]);
-
-    const { businessId } = context;
-
     const validationResult = validateObject(updateInvoiceStatusSchema, {
       invoiceId,
       status,
@@ -763,6 +755,14 @@ export async function updateInvoiceStatus(invoiceId, status) {
 
     const { invoiceId: validatedInvoiceId, status: normalizedStatus } =
       validationResult.data;
+
+    const requiredPermission =
+      normalizedStatus === "PAID"
+        ? PERMISSIONS.INVOICES_MARK_PAID
+        : PERMISSIONS.INVOICES_UPDATE;
+
+    const context = await requireBusinessActionPermission(requiredPermission);
+    const { businessId } = context;
 
     const invoice = await db.invoice.findFirst({
       where: {

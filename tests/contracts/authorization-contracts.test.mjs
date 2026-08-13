@@ -22,7 +22,11 @@ test("invoice actions kanë permission checks për çdo veprim kritik", () => {
 
 test("invoice actions marrin business context nga autorizimi server-side", () => {
   assert.match(invoiceSource, /requireBusinessActionPermission/);
-  assert.match(invoiceSource, /requireAnyBusinessActionPermission/);
+  assert.match(
+    invoiceSource,
+    /normalizedStatus === "PAID"[\s\S]*PERMISSIONS\.INVOICES_MARK_PAID[\s\S]*PERMISSIONS\.INVOICES_UPDATE[\s\S]*requireBusinessActionPermission\(requiredPermission\)/,
+  );
+  assert.doesNotMatch(invoiceSource, /requireAnyBusinessActionPermission/);
   assert.match(invoiceSource, /const \{ businessId \} = context/);
   assert.doesNotMatch(invoiceSource, /formData\.get\(["']businessId["']\)/);
 });
