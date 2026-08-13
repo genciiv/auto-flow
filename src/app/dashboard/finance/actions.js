@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
-import { createActionError } from "@/lib/errors";
+import { createActionError, getErrorMessage } from "@/lib/errors";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getFirstValidationMessage,
@@ -66,6 +66,14 @@ const createExpenseSchema = z.object({
   notes: optionalTextSchema,
 });
 
+const updateExpenseSchema = createExpenseSchema.extend({
+  expenseId: requiredTextSchema,
+});
+
+const expenseIdSchema = z.object({
+  expenseId: requiredTextSchema,
+});
+
 const createInventoryCountSchema = z.object({
   name: optionalTextSchema,
   periodType: z
@@ -102,6 +110,43 @@ function revalidateFinancePages() {
   revalidatePath("/dashboard/finance/expenses");
 }
 
+async function resolveExpenseCategory(context, submittedCategoryId, newCategory) {
+  if (newCategory) {
+    const category = await db.expenseCategory.upsert({
+      where: {
+        businessId_name: {
+          businessId: context.businessId,
+          name: newCategory,
+        },
+      },
+      update: { isActive: true },
+      create: {
+        businessId: context.businessId,
+        name: newCategory,
+      },
+    });
+
+    return category.id;
+  }
+
+  if (!submittedCategoryId) return null;
+
+  const category = await db.expenseCategory.findFirst({
+    where: {
+      id: submittedCategoryId,
+      businessId: context.businessId,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  if (!category) {
+    throw createActionError("Kategoria e zgjedhur nuk është e vlefshme.");
+  }
+
+  return category.id;
+}
+
 function revalidateInventoryCountPage(inventoryCountId) {
   revalidatePath(`/dashboard/finance/inventory-counts/${inventoryCountId}`);
 }
@@ -132,27 +177,11 @@ export async function createExpenseAction(formData) {
     notes,
   } = validationResult.data;
 
-  let categoryId = submittedCategoryId;
-
-  if (newCategory) {
-    const category = await db.expenseCategory.upsert({
-      where: {
-        businessId_name: {
-          businessId: context.businessId,
-          name: newCategory,
-        },
-      },
-      update: {
-        isActive: true,
-      },
-      create: {
-        businessId: context.businessId,
-        name: newCategory,
-      },
-    });
-
-    categoryId = category.id;
-  }
+  const categoryId = await resolveExpenseCategory(
+    context,
+    submittedCategoryId,
+    newCategory,
+  );
 
   const expense = await db.businessExpense.create({
     data: {
@@ -186,6 +215,151 @@ export async function createExpenseAction(formData) {
   revalidateFinancePages();
 
   redirect("/dashboard/finance/expenses?created=1");
+}
+
+export async function updateExpenseAction(formData) {
+  try {
+    const context = await requireBusinessActionPermission(
+      PERMISSIONS.FINANCE_MANAGE,
+    );
+
+    const validationResult = validateFormData(updateExpenseSchema, formData);
+
+    if (!validationResult.success) {
+      return {
+        success: false,
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Shpenzimi nuk mund të përditësohej.",
+        ),
+      };
+    }
+
+    const {
+      expenseId,
+      description,
+      amount,
+      expenseDate,
+      categoryId: submittedCategoryId,
+      newCategory,
+      supplier,
+      documentNumber,
+      paymentMethod,
+      notes,
+    } = validationResult.data;
+
+    const existingExpense = await db.businessExpense.findFirst({
+      where: { id: expenseId, businessId: context.businessId },
+    });
+
+    if (!existingExpense) {
+      return { success: false, message: "Shpenzimi nuk u gjet." };
+    }
+
+    const categoryId = await resolveExpenseCategory(
+      context,
+      submittedCategoryId,
+      newCategory,
+    );
+
+    const expense = await db.businessExpense.update({
+      where: { id: existingExpense.id },
+      data: {
+        categoryId,
+        description,
+        supplier,
+        documentNumber,
+        amount,
+        paymentMethod,
+        expenseDate,
+        notes,
+      },
+    });
+
+    await createAuditLog({
+      businessId: context.businessId,
+      userId: context.userId,
+      action: "UPDATE",
+      entityType: "BusinessExpense",
+      entityId: expense.id,
+      title: "U përditësua shpenzimi",
+      description: expense.description,
+      oldValues: existingExpense,
+      newValues: expense,
+    });
+
+    revalidateFinancePages();
+
+    return {
+      success: true,
+      message: "Shpenzimi u përditësua me sukses.",
+    };
+  } catch (error) {
+    console.error("Gabim gjatë përditësimit të shpenzimit:", error);
+    return {
+      success: false,
+      message: getErrorMessage(error, "Shpenzimi nuk mund të përditësohej."),
+    };
+  }
+}
+
+export async function deleteExpenseAction(expenseId) {
+  try {
+    const context = await requireBusinessActionPermission(
+      PERMISSIONS.FINANCE_MANAGE,
+    );
+
+    const validationResult = validateObject(expenseIdSchema, { expenseId });
+
+    if (!validationResult.success) {
+      return {
+        success: false,
+        message: getFirstValidationMessage(
+          validationResult.error,
+          "Shpenzimi nuk u identifikua.",
+        ),
+      };
+    }
+
+    const expense = await db.businessExpense.findFirst({
+      where: {
+        id: validationResult.data.expenseId,
+        businessId: context.businessId,
+      },
+    });
+
+    if (!expense) {
+      return { success: false, message: "Shpenzimi nuk u gjet." };
+    }
+
+    await db.businessExpense.delete({
+      where: { id: expense.id },
+    });
+
+    await createAuditLog({
+      businessId: context.businessId,
+      userId: context.userId,
+      action: "DELETE",
+      entityType: "BusinessExpense",
+      entityId: expense.id,
+      title: "U fshi shpenzimi",
+      description: expense.description,
+      oldValues: expense,
+    });
+
+    revalidateFinancePages();
+
+    return {
+      success: true,
+      message: "Shpenzimi u fshi me sukses.",
+    };
+  } catch (error) {
+    console.error("Gabim gjatë fshirjes së shpenzimit:", error);
+    return {
+      success: false,
+      message: getErrorMessage(error, "Shpenzimi nuk mund të fshihej."),
+    };
+  }
 }
 
 export async function createInventoryCountAction(formData) {

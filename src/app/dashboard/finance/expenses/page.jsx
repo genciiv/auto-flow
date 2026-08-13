@@ -1,6 +1,7 @@
 import { CalendarDays, CreditCard, FileText, Plus, ReceiptText, Store, Tags } from "lucide-react";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import ExpenseRowActions from "@/components/finance/ExpenseRowActions";
 import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { money } from "@/lib/finance-period";
@@ -52,12 +53,34 @@ export default async function ExpensesPage() {
   const monthlyTotal = expenses
     .filter((expense) => {
       const date = new Date(expense.expenseDate);
-      return (
+  return (
         date.getFullYear() === thisMonth.getFullYear() &&
         date.getMonth() === thisMonth.getMonth()
       );
     })
     .reduce((sum, expense) => sum + Number(expense.amount), 0);
+
+  const actionCategories = categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+  }));
+  const actionExpenses = Object.fromEntries(
+    expenses.map((expense) => [
+      expense.id,
+      {
+        id: expense.id,
+        categoryId: expense.categoryId,
+        description: expense.description,
+        supplier: expense.supplier,
+        documentNumber: expense.documentNumber,
+        amount: Number(expense.amount),
+        paymentMethod: expense.paymentMethod,
+        expenseDate: new Date(expense.expenseDate).toISOString().slice(0, 10),
+        notes: expense.notes,
+      },
+    ]),
+  );
+
 
   return (
     <DashboardLayout>
@@ -116,7 +139,7 @@ export default async function ExpensesPage() {
           {expenses.length === 0 ? (
             <div className="px-6 py-16 text-center"><ReceiptText className="mx-auto h-10 w-10 text-slate-300" /><h3 className="mt-4 font-bold text-slate-900">Nuk ka ende shpenzime</h3><p className="mt-2 text-sm text-slate-500">Shpenzimet e regjistruara do të shfaqen këtu.</p></div>
           ) : (
-            <div className="overflow-x-auto"><table className="w-full min-w-[820px] text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-6 py-4">Data</th><th className="px-4 py-4">Përshkrimi</th><th className="px-4 py-4">Kategoria</th><th className="px-4 py-4">Furnitori</th><th className="px-4 py-4">Mënyra</th><th className="px-6 py-4 text-right">Shuma</th></tr></thead><tbody className="divide-y divide-slate-100">{expenses.map((expense) => <tr key={expense.id} className="transition hover:bg-slate-50/80"><td className="px-6 py-4 font-semibold text-slate-700">{new Date(expense.expenseDate).toLocaleDateString("sq-AL")}</td><td className="px-4 py-4"><p className="font-bold text-slate-900">{expense.description}</p>{expense.documentNumber ? <p className="mt-1 text-xs text-slate-400">Dok. {expense.documentNumber}</p> : null}</td><td className="px-4 py-4"><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{expense.category?.name || "Pa kategori"}</span></td><td className="px-4 py-4 text-slate-600">{expense.supplier || "—"}</td><td className="px-4 py-4 text-slate-600">{paymentLabels[expense.paymentMethod] || expense.paymentMethod}</td><td className="px-6 py-4 text-right font-black text-slate-950">{money(expense.amount, business.currency)}</td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[820px] text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-6 py-4">Data</th><th className="px-4 py-4">Përshkrimi</th><th className="px-4 py-4">Kategoria</th><th className="px-4 py-4">Furnitori</th><th className="px-4 py-4">Mënyra</th><th className="px-6 py-4 text-right">Shuma</th>{canManageFinance ? <th className="px-6 py-4 text-right">Veprime</th> : null}</tr></thead><tbody className="divide-y divide-slate-100">{expenses.map((expense) => <tr key={expense.id} className="transition hover:bg-slate-50/80"><td className="px-6 py-4 font-semibold text-slate-700">{new Date(expense.expenseDate).toLocaleDateString("sq-AL")}</td><td className="px-4 py-4"><p className="font-bold text-slate-900">{expense.description}</p>{expense.documentNumber ? <p className="mt-1 text-xs text-slate-400">Dok. {expense.documentNumber}</p> : null}</td><td className="px-4 py-4"><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{expense.category?.name || "Pa kategori"}</span></td><td className="px-4 py-4 text-slate-600">{expense.supplier || "—"}</td><td className="px-4 py-4 text-slate-600">{paymentLabels[expense.paymentMethod] || expense.paymentMethod}</td><td className="px-6 py-4 text-right font-black text-slate-950">{money(expense.amount, business.currency)}</td>{canManageFinance ? <td className="px-6 py-4"><ExpenseRowActions expense={actionExpenses[expense.id]} categories={actionCategories} /></td> : null}</tr>)}</tbody></table></div>
           )}
         </section>
       </div>
