@@ -5,7 +5,7 @@ const options = [
   "Njoftime për njoftimet operative",
 ];
 
-export default function SettingsNotifications() {
+export default function SettingsNotifications({ canUpdate = false }) {
   return (
     <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-xl font-bold text-slate-950">Njoftimet</h2>
@@ -22,7 +22,7 @@ export default function SettingsNotifications() {
             <span className="text-sm font-semibold text-slate-700">
               {option}
             </span>
-            <input type="checkbox" defaultChecked className="h-5 w-5" />
+            <input type="checkbox" defaultChecked disabled={!canUpdate} className="h-5 w-5 disabled:cursor-not-allowed disabled:opacity-60" />
           </label>
         ))}
       </div>
