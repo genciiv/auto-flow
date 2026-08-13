@@ -133,7 +133,9 @@ export default function SearchCommand() {
           throw new Error(data?.message || "Kërkimi nuk mund të përfundohej.");
         }
 
-        setResults(Array.isArray(data.results) ? data.results : []);
+        const results = data?.data?.results;
+
+    setResults(Array.isArray(results) ? results : []);
       } catch (searchError) {
         if (searchError.name === "AbortError") {
           return;

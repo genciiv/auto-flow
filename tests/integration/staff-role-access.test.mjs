@@ -70,3 +70,17 @@ test("sidebar ndan workspace e mekanikut nga paneli i roleve te tjera", async ()
   assert.match(sidebar, /name: "Hapësira ime"[\s\S]*?roles: \["MECHANIC"\]/);
   assert.match(sidebar, /name: "Paneli kryesor"[\s\S]*?roles: \["OWNER", "MANAGER", "RECEPTIONIST", "WAREHOUSE", "ACCOUNTANT"\]/);
 });
+
+test("global search respekton permissions dhe kontraten e API", async () => {
+  const route = await readFile("src/app/api/search/route.js", "utf8");
+  const component = await readFile("src/components/dashboard/SearchCommand.jsx", "utf8");
+
+  for (const permission of ["CUSTOMERS_VIEW", "VEHICLES_VIEW", "INVOICES_VIEW", "SERVICES_VIEW", "INVENTORY_VIEW"]) {
+    assert.equal(route.includes(`hasPermission(businessRole, PERMISSIONS.${permission})`), true, permission);
+  }
+
+  assert.equal(route.includes('businessRole === "MECHANIC" ? { assignedUserId: session.user.id } : {}'), true);
+  assert.equal(route.includes("Promise.resolve([])"), true);
+  assert.equal(component.includes("data?.data?.results"), true);
+  assert.equal(component.includes("data.results"), false);
+});
