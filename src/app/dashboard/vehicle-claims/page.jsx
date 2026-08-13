@@ -14,7 +14,8 @@ import {
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VehicleClaimActions from "@/components/dashboard/VehicleClaimActions";
 import { db } from "@/lib/db";
-import { requireBusinessContext } from "@/lib/business-context";
+import { requireBusinessPermission } from "@/lib/business-context";
+import { PERMISSIONS } from "@/lib/permissions";
 
 import { approveVehicleClaim, rejectVehicleClaim } from "./actions";
 
@@ -58,7 +59,7 @@ function getStatusConfig(status) {
 }
 
 export default async function VehicleClaimsPage({ searchParams }) {
-  const { businessId } = await requireBusinessContext();
+  const { businessId } = await requireBusinessPermission(PERMISSIONS.VEHICLES_UPDATE);
   const resolvedSearchParams = await searchParams;
 
   const requestedStatus = String(

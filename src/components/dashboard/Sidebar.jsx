@@ -96,7 +96,7 @@ const sidebarGroups = [
         name: "Kërkesat për lidhje",
         icon: Link2,
         href: "/dashboard/vehicle-claims",
-        permission: PERMISSIONS.VEHICLES_VIEW,
+        permission: PERMISSIONS.VEHICLES_UPDATE,
         badgeKey: "vehicleClaimPendingCount",
       },
     ],
