@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 import { FileSearch, Users } from "lucide-react";
 
@@ -245,9 +246,12 @@ export default function CustomersTable({
                       className="af-table-row"
                     >
                       <td className="px-6 py-5">
-                        <p className="text-sm font-semibold text-slate-950">
+                        <Link
+                          href={`/dashboard/customers/${customer.id}`}
+                          className="text-sm font-semibold text-slate-950 transition hover:text-blue-700 hover:underline"
+                        >
                           {customer.name}
-                        </p>
+                        </Link>
 
                         <p className="mt-1 text-xs text-slate-500">
                           {customer.phone || customer.email || "Pa kontakt"}
