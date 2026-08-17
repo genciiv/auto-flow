@@ -1,4 +1,4 @@
-import { MessageCircle, MessageSquareText, UsersRound } from "lucide-react";
+import { MessageSquareText, UsersRound } from "lucide-react";
 
 import { createBusinessConversationAction } from "@/actions/chat-actions";
 import ConversationList from "@/components/chat/ConversationList";
@@ -91,40 +91,33 @@ export default async function BusinessMessagesPage() {
   return (
     <DashboardLayout>
       <div className="space-y-7">
-        <section className="relative overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-9">
-          <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl" />
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300">
-                <MessageCircle size={14} />
-                Komunikimi me klientët
+        <div className="af-page-header">
+          <div>
+            <p className="af-page-eyebrow">Komunikimi me klient?t</p>
+            <h1 className="af-page-title">Mesazhet</h1>
+            <p className="af-page-description">
+              Menaxho bisedat e sigurta p?r klient?t, automjetet dhe sh?rbimet e lidhura.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:min-w-[240px]">
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-slate-500">
+                <MessageSquareText size={16} className="text-blue-600" />
+                <span className="text-xs font-semibold">Biseda aktive</span>
               </div>
-              <h1 className="mt-5 text-3xl font-bold tracking-tight sm:text-4xl">
-                Mesazhet
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                Menaxho bisedat e sigurta për klientët, automjetet dhe shërbimet e lidhura.
-              </p>
+              <p className="mt-2 text-2xl font-black text-slate-950">{rows.length}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="flex items-center gap-2 text-slate-300">
-                  <MessageSquareText size={16} />
-                  <span className="text-xs font-semibold">Biseda aktive</span>
-                </div>
-                <p className="mt-2 text-2xl font-black">{rows.length}</p>
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-slate-500">
+                <UsersRound size={16} className="text-blue-600" />
+                <span className="text-xs font-semibold">T? palexuara</span>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="flex items-center gap-2 text-slate-300">
-                  <UsersRound size={16} />
-                  <span className="text-xs font-semibold">Të palexuara</span>
-                </div>
-                <p className="mt-2 text-2xl font-black">{unreadCount}</p>
-              </div>
+              <p className="mt-2 text-2xl font-black text-slate-950">{unreadCount}</p>
             </div>
           </div>
-        </section>
+        </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(340px,0.8fr)]">
           <section className="space-y-3">

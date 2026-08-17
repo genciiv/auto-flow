@@ -34,9 +34,21 @@ export default async function MyWorkPage() {
   return (
     <DashboardLayout>
       <div className="space-y-7">
-        <section className="overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-9">
-          <div className="relative"><div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-blue-500/15 blur-3xl" /><div className="relative"><p className="text-sm font-semibold text-blue-300">Workspace i stafit</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Punët e mia</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{businessRole === "MECHANIC" ? "Shiko dhe përditëso vetëm urdhër-punët që të janë caktuar." : "Monitoro punët aktive dhe ngarkesën e ekipit."}</p></div></div>
-        </section>
+        <div className="af-page-header">
+          <div>
+            <p className="af-page-eyebrow">Workspace i stafit</p>
+            <h1 className="af-page-title">Pun?t e mia</h1>
+            <p className="af-page-description">
+              {businessRole === "MECHANIC"
+                ? "Shiko dhe p?rdit?so vet?m urdh?r-pun?t q? t? jan? caktuar."
+                : "Monitoro pun?t aktive dhe ngarkes?n e ekipit."}
+            </p>
+          </div>
+
+          <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 sm:flex">
+            <Wrench size={22} />
+          </div>
+        </div>
 
         <section className="grid gap-4 sm:grid-cols-3">{stats.map(([label, value, Icon]) => <div key={label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><Icon size={21} /></div><p className="mt-4 text-sm font-medium text-slate-500">{label}</p><p className="mt-1 text-3xl font-black text-slate-950">{value}</p></div>)}</section>
 
