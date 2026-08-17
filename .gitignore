@@ -51,3 +51,7 @@ backups/
 
 # committed environment template
 !.env.example
+
+# playwright artifacts
+/playwright-report/
+/test-results/
