@@ -110,12 +110,14 @@ async function createOrUpdateOwner(businessId) {
       passwordHash: hashedPassword,
       globalRole: null,
       isActive: true,
+      emailVerified: new Date(),
     },
     create: {
       name: "Auto Service Owner",
       email: "owner@autoflow.al",
       passwordHash: hashedPassword,
       isActive: true,
+      emailVerified: new Date(),
     },
   });
 
