@@ -16,6 +16,22 @@ function forbiddenResponse(requestId) {
   return apiFailure({ code: ERROR_CODES.FORBIDDEN, message: "Nuk ke akses në kërkimin e biznesit.", data: { results: [] }, status: 403, requestId });
 }
 
+function buildContainsFilter(field, value) {
+  return {
+    [field]: {
+      contains: value,
+      mode: "insensitive",
+    },
+  };
+}
+
+function buildTokenOr(field, query, tokens) {
+  return [
+    buildContainsFilter(field, query),
+    ...tokens.map((token) => buildContainsFilter(field, token)),
+  ];
+}
+
 export async function GET(request) {
   const requestId = getRequestId(request);
 
@@ -61,8 +77,10 @@ export async function GET(request) {
     }
 
     const { query } = validationResult.data;
+    const normalizedQuery = query.trim();
+    const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
 
-    if (query.length < 2) {
+    if (normalizedQuery.length < 2) {
       return apiSuccess({ data: { results: [] }, requestId });
     }
 
@@ -79,54 +97,19 @@ export async function GET(request) {
           businessId,
 
           OR: [
-            {
-              name: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
-            {
-              phone: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
-            {
-              email: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
-            {
-              city: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
+            ...buildTokenOr("name", normalizedQuery, queryTokens),
+            ...buildTokenOr("phone", normalizedQuery, queryTokens),
+            ...buildTokenOr("email", normalizedQuery, queryTokens),
+            ...buildTokenOr("city", normalizedQuery, queryTokens),
             {
               vehicles: {
                 some: {
                   businessId,
 
                   OR: [
-                    {
-                      plate: {
-                        contains: query,
-                        mode: "insensitive",
-                      },
-                    },
-                    {
-                      brand: {
-                        contains: query,
-                        mode: "insensitive",
-                      },
-                    },
-                    {
-                      model: {
-                        contains: query,
-                        mode: "insensitive",
-                      },
-                    },
+                    ...buildTokenOr("plate", normalizedQuery, queryTokens),
+                    ...buildTokenOr("brand", normalizedQuery, queryTokens),
+                    ...buildTokenOr("model", normalizedQuery, queryTokens),
                   ],
                 },
               },
@@ -162,39 +145,16 @@ export async function GET(request) {
           businessId,
 
           OR: [
-            {
-              plate: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
-            {
-              brand: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
-            {
-              model: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
-            {
-              vin: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
+            ...buildTokenOr("plate", normalizedQuery, queryTokens),
+            ...buildTokenOr("brand", normalizedQuery, queryTokens),
+            ...buildTokenOr("model", normalizedQuery, queryTokens),
+            ...buildTokenOr("vin", normalizedQuery, queryTokens),
             {
               customer: {
                 is: {
                   businessId,
 
-                  name: {
-                    contains: query,
-                    mode: "insensitive",
-                  },
+                  OR: buildTokenOr("name", normalizedQuery, queryTokens),
                 },
               },
             },
@@ -221,7 +181,7 @@ export async function GET(request) {
           OR: [
             {
               number: {
-                contains: query,
+                contains: normalizedQuery,
                 mode: "insensitive",
               },
             },
@@ -230,10 +190,7 @@ export async function GET(request) {
                 is: {
                   businessId,
 
-                  name: {
-                    contains: query,
-                    mode: "insensitive",
-                  },
+                  OR: buildTokenOr("name", normalizedQuery, queryTokens),
                 },
               },
             },
@@ -245,19 +202,19 @@ export async function GET(request) {
                   OR: [
                     {
                       plate: {
-                        contains: query,
+                        contains: normalizedQuery,
                         mode: "insensitive",
                       },
                     },
                     {
                       brand: {
-                        contains: query,
+                        contains: normalizedQuery,
                         mode: "insensitive",
                       },
                     },
                     {
                       model: {
-                        contains: query,
+                        contains: normalizedQuery,
                         mode: "insensitive",
                       },
                     },
@@ -271,7 +228,7 @@ export async function GET(request) {
                   businessId,
 
                   title: {
-                    contains: query,
+                    contains: normalizedQuery,
                     mode: "insensitive",
                   },
                 },
@@ -303,13 +260,13 @@ export async function GET(request) {
           OR: [
             {
               title: {
-                contains: query,
+                contains: normalizedQuery,
                 mode: "insensitive",
               },
             },
             {
               description: {
-                contains: query,
+                contains: normalizedQuery,
                 mode: "insensitive",
               },
             },
@@ -321,19 +278,19 @@ export async function GET(request) {
                   OR: [
                     {
                       plate: {
-                        contains: query,
+                        contains: normalizedQuery,
                         mode: "insensitive",
                       },
                     },
                     {
                       brand: {
-                        contains: query,
+                        contains: normalizedQuery,
                         mode: "insensitive",
                       },
                     },
                     {
                       model: {
-                        contains: query,
+                        contains: normalizedQuery,
                         mode: "insensitive",
                       },
                     },
@@ -351,13 +308,13 @@ export async function GET(request) {
                       OR: [
                         {
                           name: {
-                            contains: query,
+                            contains: normalizedQuery,
                             mode: "insensitive",
                           },
                         },
                         {
                           code: {
-                            contains: query,
+                            contains: normalizedQuery,
                             mode: "insensitive",
                           },
                         },
@@ -390,25 +347,25 @@ export async function GET(request) {
           OR: [
             {
               name: {
-                contains: query,
+                contains: normalizedQuery,
                 mode: "insensitive",
               },
             },
             {
               code: {
-                contains: query,
+                contains: normalizedQuery,
                 mode: "insensitive",
               },
             },
             {
               category: {
-                contains: query,
+                contains: normalizedQuery,
                 mode: "insensitive",
               },
             },
             {
               supplier: {
-                contains: query,
+                contains: normalizedQuery,
                 mode: "insensitive",
               },
             },

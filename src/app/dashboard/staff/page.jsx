@@ -46,21 +46,19 @@ export default async function StaffPage() {
   return (
     <DashboardLayout>
       <div className="space-y-7">
-        <section className="relative overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-9">
-          <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl" />
-          <div className="relative">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300">
-              <Users size={14} />
-              Menaxhimi i ekipit
-            </div>
-            <h1 className="mt-5 text-3xl font-bold tracking-tight sm:text-4xl">
-              Stafi dhe rolet
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-              Fto punonjës, cakto role dhe kontrollo aksesin e ekipit në një vend.
+        <div className="af-page-header">
+          <div>
+            <p className="af-page-eyebrow">Menaxhimi i ekipit</p>
+            <h1 className="af-page-title">Stafi dhe rolet</h1>
+            <p className="af-page-description">
+              Fto punonj?s, cakto role dhe kontrollo aksesin e ekipit n? nj? vend.
             </p>
           </div>
-        </section>
+
+          <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 sm:flex">
+            <Users size={22} />
+          </div>
+        </div>
 
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat) => {
