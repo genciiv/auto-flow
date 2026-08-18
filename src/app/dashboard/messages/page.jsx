@@ -112,7 +112,7 @@ export default async function BusinessMessagesPage() {
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
               <div className="flex items-center gap-2 text-slate-500">
                 <UsersRound size={16} className="text-blue-600" />
-                <span className="text-xs font-semibold">T? palexuara</span>
+                <span className="text-xs font-semibold">Të palexuara</span>
               </div>
               <p className="mt-2 text-2xl font-black text-slate-950">{unreadCount}</p>
             </div>
