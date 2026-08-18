@@ -37,11 +37,11 @@ export default async function MyWorkPage() {
         <div className="af-page-header">
           <div>
             <p className="af-page-eyebrow">Workspace i stafit</p>
-            <h1 className="af-page-title">Pun?t e mia</h1>
+            <h1 className="af-page-title">Punët e mia</h1>
             <p className="af-page-description">
               {businessRole === "MECHANIC"
-                ? "Shiko dhe p?rdit?so vet?m urdh?r-pun?t q? t? jan? caktuar."
-                : "Monitoro pun?t aktive dhe ngarkes?n e ekipit."}
+                ? "Shiko dhe përditëso vetëm urdhër-punët që të janë caktuar."
+                : "Monitoro punët aktive dhe ngarkesën e ekipit."}
             </p>
           </div>
 

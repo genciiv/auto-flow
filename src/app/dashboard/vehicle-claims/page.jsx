@@ -183,10 +183,10 @@ export default async function VehicleClaimsPage({ searchParams }) {
         <div className="af-page-header">
           <div>
             <p className="af-page-eyebrow">Lidhja e automjeteve</p>
-            <h1 className="af-page-title">K?rkesat e klient?ve</h1>
+            <h1 className="af-page-title">Kërkesat e klientëve</h1>
             <p className="af-page-description">
-              Aprovo vet?m k?rkesat e klient?ve q? zot?rojn? ose p?rdorin
-              automjetet e regjistruara n? servisin tuaj.
+              Aprovo vetëm kërkesat e klientëve që zotërojnë ose përdorin
+              automjetet e regjistruara në servisin tuaj.
             </p>
           </div>
 
