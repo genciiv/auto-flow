@@ -1,4 +1,4 @@
-﻿-- Add invoice subtotal, discount and VAT snapshot fields while preserving existing totals.
+-- Add invoice subtotal, discount and VAT snapshot fields while preserving existing totals.
 
 ALTER TABLE "Invoice"
   ADD COLUMN "subtotal" DECIMAL(18,2) NOT NULL DEFAULT 0,
