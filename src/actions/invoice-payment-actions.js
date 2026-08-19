@@ -201,6 +201,11 @@ export async function createInvoiceFromServiceAction(
           status: serviceTotal.gt(0)
             ? "UNPAID"
             : "DRAFT",
+          subtotal: serviceTotal,
+          discountAmount: 0,
+          vatEnabled: false,
+          vatRate: 0,
+          vatAmount: 0,
           total: serviceTotal,
           items: {
             create: [

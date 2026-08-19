@@ -6,6 +6,7 @@ import {
   requireBusinessActionPermission,
 } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { calculateInvoiceTotals } from "@/lib/invoice-totals";
 import {
   addMoney,
   isMoneyLessThan,
@@ -267,7 +268,9 @@ export async function createInvoice(formData) {
       vehicleId: selectedVehicleId,
       serviceId,
       number: requestedNumber,
-      total: validatedManualTotal,
+      subtotal: validatedManualSubtotal,
+      discountAmount,
+      vatEnabled,
       status,
     } = validationResult.data;
 
@@ -279,7 +282,7 @@ export async function createInvoice(formData) {
 
     let customerId = selectedCustomerId;
     let vehicleId = selectedVehicleId;
-    let total;
+    let subtotal;
 
     if (serviceId) {
       const existingInvoice = await db.invoice.findFirst({
@@ -308,10 +311,18 @@ export async function createInvoice(formData) {
 
       vehicleId = service.vehicleId || vehicleId;
 
-      total = validateServiceTotal(service.total || 0);
+      subtotal = validateServiceTotal(service.total || 0);
     } else {
-      total = validatedManualTotal;
+      subtotal = validatedManualSubtotal;
     }
+
+    const invoiceTotals = calculateInvoiceTotals({
+      subtotal,
+      discountAmount,
+      vatEnabled,
+      vatRate: context.business.vat,
+    });
+    const total = invoiceTotals.total;
 
     const validatedVehicle = await validateVehicle(vehicleId, businessId);
 
@@ -352,6 +363,11 @@ export async function createInvoice(formData) {
           serviceId,
           number,
           status,
+          subtotal: invoiceTotals.subtotal,
+          discountAmount: invoiceTotals.discountAmount,
+          vatEnabled: invoiceTotals.vatEnabled,
+          vatRate: invoiceTotals.vatRate,
+          vatAmount: invoiceTotals.vatAmount,
           total,
         },
 
@@ -484,7 +500,9 @@ export async function updateInvoice(invoiceId, formData) {
       vehicleId: selectedVehicleId,
       serviceId,
       number,
-      total: validatedManualTotal,
+      subtotal: validatedManualSubtotal,
+      discountAmount,
+      vatEnabled,
       status,
     } = validationResult.data;
 
@@ -507,6 +525,8 @@ export async function updateInvoice(invoiceId, formData) {
         serviceId: true,
         number: true,
         status: true,
+        vatEnabled: true,
+        vatRate: true,
         total: true,
         customerPayments: {
           select: {
@@ -549,7 +569,7 @@ export async function updateInvoice(invoiceId, formData) {
 
     let customerId = selectedCustomerId;
     let vehicleId = selectedVehicleId;
-    let total;
+    let subtotal;
 
     if (serviceId) {
       const serviceInvoice = await db.invoice.findFirst({
@@ -582,10 +602,18 @@ export async function updateInvoice(invoiceId, formData) {
 
       vehicleId = service.vehicleId || vehicleId;
 
-      total = validateServiceTotal(service.total || 0);
+      subtotal = validateServiceTotal(service.total || 0);
     } else {
-      total = validatedManualTotal;
+      subtotal = validatedManualSubtotal;
     }
+
+    const invoiceTotals = calculateInvoiceTotals({
+      subtotal,
+      discountAmount,
+      vatEnabled,
+      vatRate: vatEnabled && existingInvoice.vatEnabled ? existingInvoice.vatRate : context.business.vat,
+    });
+    const total = invoiceTotals.total;
 
     const validatedVehicle = await validateVehicle(vehicleId, businessId);
 
@@ -637,6 +665,11 @@ export async function updateInvoice(invoiceId, formData) {
           serviceId,
           number,
           status: financiallyConsistentStatus,
+          subtotal: invoiceTotals.subtotal,
+          discountAmount: invoiceTotals.discountAmount,
+          vatEnabled: invoiceTotals.vatEnabled,
+          vatRate: invoiceTotals.vatRate,
+          vatAmount: invoiceTotals.vatAmount,
           total,
         },
 
@@ -789,6 +822,8 @@ export async function updateInvoiceStatus(invoiceId, status) {
         serviceId: true,
         number: true,
         status: true,
+        vatEnabled: true,
+        vatRate: true,
         total: true,
         customerPayments: {
           select: {

@@ -15,3 +15,4 @@ import "./plans/plan-access.test.mjs";
 import "./observability/logger.test.mjs";
 
 import "./service-financial-summary.test.mjs";
+import "./invoice-totals.test.mjs";

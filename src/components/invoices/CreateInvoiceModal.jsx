@@ -11,6 +11,8 @@ const INITIAL_FORM = {
   serviceId: "",
   number: "",
   total: "",
+  discountAmount: "0",
+  vatEnabled: false,
   status: "DRAFT",
 };
 
@@ -58,13 +60,13 @@ export default function CreateInvoiceModal({
   }
 
   function handleChange(event) {
-    const { name, value } = event.target;
+    const { name, value, type, checked } = event.target;
 
     setError("");
 
     setForm((currentForm) => ({
       ...currentForm,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   }
 
@@ -137,14 +139,14 @@ export default function CreateInvoiceModal({
       setError("");
 
       if (!form.serviceId && form.total === "") {
-        setError("Vendos totalin e faturës ose zgjidh një shërbim.");
+        setError("Vendos subtotalin e faturës ose zgjidh një shërbim.");
         return;
       }
 
       const total = Number(form.total);
 
       if (!form.serviceId && (Number.isNaN(total) || total < 0)) {
-        setError("Totali i faturës nuk është i vlefshëm.");
+        setError("Subtotali i faturës nuk është i vlefshëm.");
         return;
       }
 
@@ -155,6 +157,8 @@ export default function CreateInvoiceModal({
       formData.set("serviceId", form.serviceId);
       formData.set("number", form.number.trim());
       formData.set("total", form.total);
+      formData.set("discountAmount", form.discountAmount);
+      formData.set("vatEnabled", String(form.vatEnabled));
       formData.set("status", form.status);
 
       const result = await createInvoice(formData);
@@ -350,7 +354,7 @@ export default function CreateInvoiceModal({
                   htmlFor="invoice-total"
                   className="mb-2 block text-sm font-semibold text-slate-700"
                 >
-                  Totali *
+                  Subtotali *
                 </label>
 
                 <div className="relative">
@@ -375,10 +379,20 @@ export default function CreateInvoiceModal({
 
                 {form.serviceId && (
                   <p className="mt-2 text-xs text-slate-500">
-                    Totali merret automatikisht nga shërbimi.
+                    Subtotali merret automatikisht nga shërbimi.
                   </p>
                 )}
               </div>
+
+              <div>
+                <label htmlFor="invoice-discount" className="mb-2 block text-sm font-semibold text-slate-700">Zbritja</label>
+                <input id="invoice-discount" name="discountAmount" type="number" min="0" step="0.01" value={form.discountAmount} onChange={handleChange} disabled={isSubmitting} placeholder="0.00" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50" />
+              </div>
+
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700">
+                <input name="vatEnabled" type="checkbox" checked={form.vatEnabled} onChange={handleChange} disabled={isSubmitting} className="h-4 w-4" />
+                <span>Apliko TVSH sipas konfigurimit të biznesit</span>
+              </label>
 
               <div className="md:col-span-2">
                 <label
