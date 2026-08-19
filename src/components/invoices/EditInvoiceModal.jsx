@@ -18,7 +18,9 @@ function createInitialForm(invoice) {
     customerId: invoice?.customerId || "",
     vehicleId: invoice?.vehicleId || "",
     serviceId: invoice?.serviceId || "",
-    total: String(Number(invoice?.total || 0)),
+    total: String(Number(invoice?.subtotal ?? invoice?.total ?? 0)),
+    discountAmount: String(Number(invoice?.discountAmount ?? 0)),
+    vatEnabled: Boolean(invoice?.vatEnabled),
     status: invoice?.status || "DRAFT",
   };
 }
@@ -65,7 +67,7 @@ export default function EditInvoiceModal({
   }, [services, invoice.serviceId]);
 
   function handleChange(event) {
-    const { name, value } = event.target;
+    const { name, value, type, checked } = event.target;
 
     setMessage(null);
 
@@ -121,7 +123,7 @@ export default function EditInvoiceModal({
 
     setForm((current) => ({
       ...current,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   }
 
@@ -158,7 +160,7 @@ export default function EditInvoiceModal({
     if (!form.serviceId && String(form.total).trim() === "") {
       setMessage({
         type: "error",
-        text: "Vendos totalin e faturës.",
+        text: "Vendos subtotalin e faturës.",
       });
 
       return;
@@ -169,7 +171,7 @@ export default function EditInvoiceModal({
     if (!Number.isFinite(total)) {
       setMessage({
         type: "error",
-        text: "Totali i faturës nuk është i vlefshëm.",
+        text: "Subtotali i faturës nuk është i vlefshëm.",
       });
 
       return;
@@ -178,7 +180,7 @@ export default function EditInvoiceModal({
     if (total < 0) {
       setMessage({
         type: "error",
-        text: "Totali nuk mund të jetë negativ.",
+        text: "Subtotali nuk mund të jetë negativ.",
       });
 
       return;
@@ -190,7 +192,9 @@ export default function EditInvoiceModal({
     formData.set("customerId", form.customerId);
     formData.set("vehicleId", form.vehicleId);
     formData.set("serviceId", form.serviceId);
-    formData.set("total", form.total);
+    formData.set("subtotal", form.total);
+    formData.set("discountAmount", form.discountAmount);
+    formData.set("vatEnabled", String(form.vatEnabled));
     formData.set("status", form.status);
 
     setMessage(null);
@@ -358,14 +362,14 @@ export default function EditInvoiceModal({
                 </select>
 
                 <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Kur zgjidhet një shërbim, klienti, automjeti dhe totali
+                  Kur zgjidhet një shërbim, klienti, automjeti dhe subtotali
                   plotësohen automatikisht.
                 </p>
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Totali
+                  Subtotali
                 </label>
 
                 <div className="relative">
@@ -386,6 +390,16 @@ export default function EditInvoiceModal({
                   </span>
                 </div>
               </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Zbritja</label>
+                <input type="number" name="discountAmount" min="0" step="0.01" value={form.discountAmount} onChange={handleChange} disabled={isPending} placeholder="0" className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50" />
+              </div>
+
+              <label className="flex h-11 items-center gap-3 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700">
+                <input type="checkbox" name="vatEnabled" checked={form.vatEnabled} onChange={handleChange} disabled={isPending} className="h-4 w-4" />
+                <span>Apliko TVSH</span>
+              </label>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">

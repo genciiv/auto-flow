@@ -156,6 +156,10 @@ export default function InvoiceDetails({
     ? Math.max(serviceTotal - partsTotal, 0)
     : 0;
 
+  const invoiceSubtotal = Number(invoice.subtotal ?? invoice.total ?? 0);
+  const discountAmount = Number(invoice.discountAmount || 0);
+  const vatAmount = Number(invoice.vatAmount || 0);
+  const vatRate = Number(invoice.vatRate || 0);
   const invoiceTotal = Number(invoice.total || 0);
 
   return (
@@ -416,7 +420,10 @@ export default function InvoiceDetails({
               </>
             )}
 
-            <div className="border-t border-slate-200 pt-5">
+            <div className="space-y-3 border-t border-slate-200 pt-5">
+              <div className="flex items-center justify-between gap-4"><span className="text-sm text-slate-500">Subtotali</span><span className="text-sm font-semibold text-slate-900">{formatCurrency(invoiceSubtotal)}</span></div>
+              <div className="flex items-center justify-between gap-4"><span className="text-sm text-slate-500">Zbritja</span><span className="text-sm font-semibold text-slate-900">-{formatCurrency(discountAmount)}</span></div>
+              <div className="flex items-center justify-between gap-4"><span className="text-sm text-slate-500">TVSH{invoice.vatEnabled ? ` (${vatRate.toFixed(2)}%)` : ""}</span><span className="text-sm font-semibold text-slate-900">{formatCurrency(vatAmount)}</span></div>
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <p className="text-sm text-slate-500">Totali për pagesë</p>
