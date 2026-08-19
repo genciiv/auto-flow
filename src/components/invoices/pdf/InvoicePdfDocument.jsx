@@ -359,6 +359,10 @@ export default function InvoicePdfDocument({ invoice }) {
     ? Math.max(serviceTotal - partsTotal, 0)
     : 0;
 
+  const invoiceSubtotal = Number(invoice?.subtotal ?? invoice?.total ?? 0);
+  const discountAmount = Number(invoice?.discountAmount || 0);
+  const vatAmount = Number(invoice?.vatAmount || 0);
+  const vatRate = Number(invoice?.vatRate || 0);
   const invoiceTotal = Number(invoice?.total || 0);
 
   const businessAddress = [invoice?.business?.address, invoice?.business?.city]
@@ -598,6 +602,23 @@ export default function InvoicePdfDocument({ invoice }) {
                 </View>
               </>
             ) : null}
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotali</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(invoiceSubtotal)}</Text>
+            </View>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Zbritja</Text>
+              <Text style={styles.summaryValue}>-{formatCurrency(discountAmount)}</Text>
+            </View>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>
+                TVSH{invoice?.vatEnabled ? ` (${vatRate.toFixed(2)}%)` : ""}
+              </Text>
+              <Text style={styles.summaryValue}>{formatCurrency(vatAmount)}</Text>
+            </View>
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total per pagese</Text>

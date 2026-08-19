@@ -59,6 +59,19 @@ a {
     margin: 12mm;
   }
 
+  body.invoice-print-mode *:not(:has(.invoice-print-root)):not(.invoice-print-root):not(.invoice-print-root *) {
+    display: none !important;
+  }
+
+  body.invoice-print-mode .af-app-shell,
+  body.invoice-print-mode .min-h-screen,
+  body.invoice-print-mode main,
+  body.invoice-print-mode .af-content-container {
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   body.invoice-print-mode {
     background: #ffffff !important;
   }
@@ -74,10 +87,10 @@ a {
 
   body.invoice-print-mode .invoice-print-root {
     display: block !important;
-    position: absolute !important;
-    inset: 0 !important;
+    position: static !important;
+
     width: 100% !important;
-    min-height: 100% !important;
+
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
@@ -98,7 +111,7 @@ a {
   }
 
   body.invoice-print-mode .invoice-print-root footer {
-    page-break-inside: avoid;
+    display: none !important;
   }
 
   body.invoice-print-mode .invoice-print-root * {

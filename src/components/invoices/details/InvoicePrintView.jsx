@@ -53,6 +53,10 @@ export default function InvoicePrintView({ invoice }) {
     ? Math.max(serviceTotal - partsTotal, 0)
     : 0;
 
+  const invoiceSubtotal = Number(invoice?.subtotal ?? invoice?.total ?? 0);
+  const discountAmount = Number(invoice?.discountAmount || 0);
+  const vatAmount = Number(invoice?.vatAmount || 0);
+  const vatRate = Number(invoice?.vatRate || 0);
   const invoiceTotal = Number(invoice?.total || 0);
 
   const businessAddress = [invoice?.business?.address, invoice?.business?.city]
@@ -250,6 +254,23 @@ export default function InvoicePrintView({ invoice }) {
               </>
             )}
 
+            <div className="mt-2 border-t border-slate-300 pt-3">
+              <div className="flex justify-between gap-5 py-2 text-sm">
+                <span className="text-slate-600">Subtotali</span>
+                <span className="font-semibold">{formatCurrency(invoiceSubtotal)}</span>
+              </div>
+
+              <div className="flex justify-between gap-5 py-2 text-sm">
+                <span className="text-slate-600">Zbritja</span>
+                <span className="font-semibold">-{formatCurrency(discountAmount)}</span>
+              </div>
+
+              <div className="flex justify-between gap-5 py-2 text-sm">
+                <span className="text-slate-600">TVSH{invoice?.vatEnabled ? ` (${vatRate.toFixed(2)}%)` : ""}</span>
+                <span className="font-semibold">{formatCurrency(vatAmount)}</span>
+              </div>
+            </div>
+
             <div className="mt-2 flex items-end justify-between gap-5 border-t border-slate-300 pt-4">
               <span className="font-bold">Total për pagesë</span>
 
@@ -260,7 +281,7 @@ export default function InvoicePrintView({ invoice }) {
           </div>
         </section>
 
-        <footer className="mt-12 border-t border-slate-300 pt-5 text-center text-xs text-slate-500">
+        <footer className="mt-5 border-t border-slate-300 pt-4 text-center text-xs text-slate-500">
           Faleminderit që zgjodhët {invoice?.business?.name || "AutoFlow"}.
         </footer>
       </div>
