@@ -2,7 +2,7 @@ const isProduction = process.env.NODE_ENV === "production";
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'" + (isProduction ? "" : " 'unsafe-eval'"),
+  "script-src 'self' 'unsafe-inline'" + (isProduction ? " 'wasm-unsafe-eval'" : " 'unsafe-eval'"),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data: https://abjxeaxqieythvaomavm.supabase.co",
   "font-src 'self' data:",
@@ -57,3 +57,4 @@ export const SECURITY_HEADERS = [
       ]
     : []),
 ];
+
