@@ -3,6 +3,14 @@
 import { apiError } from "@/lib/api-response";
 import { requireBusinessApiPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import {
+  calculateFinanceResults,
+  getInvoiceCogs,
+  getInvoiceNetRevenue,
+  sumInvoiceCogs,
+  sumInvoiceNetRevenue,
+  sumInvoiceTotals,
+} from "@/lib/finance-metrics";
 import { parseFinancePeriod } from "@/lib/finance-period";
 import {
   addMoney,
@@ -23,21 +31,26 @@ function formatDate(value) {
 function nonNegativeMoney(value) {
   const decimalValue = toMoney(value);
 
-  return decimalValue.lt(0) ? toMoney(0) : decimalValue;
+  return decimalValue.lt(0)
+    ? toMoney(0)
+    : decimalValue;
 }
 
 export async function GET(request) {
   const requestId = getRequestId(request);
 
   try {
-    const context = await requireBusinessApiPermission(
-      PERMISSIONS.FINANCE_EXPORT,
-    );
+    const context =
+      await requireBusinessApiPermission(
+        PERMISSIONS.FINANCE_EXPORT,
+      );
 
     const url = new URL(request.url);
 
     const period = parseFinancePeriod(
-      Object.fromEntries(url.searchParams),
+      Object.fromEntries(
+        url.searchParams,
+      ),
     );
 
     const [
@@ -47,31 +60,29 @@ export async function GET(request) {
       parts,
       purchases,
       movements,
+      outstandingInvoices,
     ] = await Promise.all([
       db.customerPayment.findMany({
         where: {
-          businessId: context.businessId,
-
+          businessId:
+            context.businessId,
           paidAt: {
             gte: period.start,
-            lte: period.end,
+            lt: period.endExclusive,
           },
         },
-
         include: {
           invoice: {
             select: {
               number: true,
             },
           },
-
           recordedBy: {
             select: {
               name: true,
             },
           },
         },
-
         orderBy: {
           paidAt: "asc",
         },
@@ -79,19 +90,17 @@ export async function GET(request) {
 
       db.businessExpense.findMany({
         where: {
-          businessId: context.businessId,
+          businessId:
+            context.businessId,
           status: "POSTED",
-
           expenseDate: {
             gte: period.start,
-            lte: period.end,
+            lt: period.endExclusive,
           },
         },
-
         include: {
           category: true,
         },
-
         orderBy: {
           expenseDate: "asc",
         },
@@ -99,20 +108,27 @@ export async function GET(request) {
 
       db.invoice.findMany({
         where: {
-          businessId: context.businessId,
-
+          businessId:
+            context.businessId,
           createdAt: {
             gte: period.start,
-            lte: period.end,
+            lt: period.endExclusive,
           },
         },
-
         include: {
           customer: true,
           vehicle: true,
           customerPayments: true,
+          service: {
+            select: {
+              partsUsed: {
+                select: {
+                  costTotal: true,
+                },
+              },
+            },
+          },
         },
-
         orderBy: {
           createdAt: "asc",
         },
@@ -120,9 +136,9 @@ export async function GET(request) {
 
       db.part.findMany({
         where: {
-          businessId: context.businessId,
+          businessId:
+            context.businessId,
         },
-
         orderBy: {
           name: "asc",
         },
@@ -130,118 +146,282 @@ export async function GET(request) {
 
       db.purchaseOrder.findMany({
         where: {
-          businessId: context.businessId,
-
-          createdAt: {
+          businessId:
+            context.businessId,
+          status: "RECEIVED",
+          updatedAt: {
             gte: period.start,
-            lte: period.end,
+            lt: period.endExclusive,
           },
         },
-
         orderBy: {
-          createdAt: "asc",
+          updatedAt: "asc",
         },
       }),
 
       db.inventoryMovement.findMany({
         where: {
-          businessId: context.businessId,
-
+          businessId:
+            context.businessId,
           createdAt: {
             gte: period.start,
-            lte: period.end,
+            lt: period.endExclusive,
           },
         },
-
         include: {
           part: true,
-
           user: {
             select: {
               name: true,
             },
           },
         },
-
         orderBy: {
           createdAt: "asc",
         },
       }),
+
+      db.invoice.findMany({
+        where: {
+          businessId:
+            context.businessId,
+          status: {
+            in: [
+              "UNPAID",
+              "OVERDUE",
+            ],
+          },
+        },
+        select: {
+          total: true,
+          customerPayments: {
+            select: {
+              amount: true,
+            },
+          },
+        },
+      }),
     ]);
 
-    const income = payments.reduce(
-      (sum, payment) => addMoney(sum, payment.amount),
-      toMoney(0),
-    );
-
-    const expenseTotal = expenses.reduce(
-      (sum, expense) => addMoney(sum, expense.amount),
-      toMoney(0),
-    );
-
-    const purchaseTotal = purchases
-      .filter((purchase) => purchase.status === "RECEIVED")
-      .reduce(
-        (sum, purchase) => addMoney(sum, purchase.total),
-        toMoney(0),
+    const issuedInvoices =
+      invoices.filter(
+        (invoice) =>
+          invoice.status !== "DRAFT",
       );
 
-    const inventoryValue = parts.reduce(
-      (sum, part) =>
+    const income = payments.reduce(
+      (sum, payment) =>
         addMoney(
           sum,
-          multiplyMoney(part.buyPrice, part.stock),
+          payment.amount,
         ),
       toMoney(0),
     );
 
-    const receivables = invoices.reduce((sum, invoice) => {
-      const paid = invoice.customerPayments.reduce(
-        (paymentSum, payment) =>
-          addMoney(paymentSum, payment.amount),
+    const invoicedRevenue =
+      sumInvoiceTotals(
+        issuedInvoices,
+      );
+
+    const netRevenue =
+      sumInvoiceNetRevenue(
+        issuedInvoices,
+      );
+
+    const cogs =
+      sumInvoiceCogs(
+        issuedInvoices,
+      );
+
+    const expenseTotal =
+      expenses.reduce(
+        (sum, expense) =>
+          addMoney(
+            sum,
+            expense.amount,
+          ),
         toMoney(0),
       );
 
-      const remaining = nonNegativeMoney(
-        subtractMoney(invoice.total, paid),
+    const purchaseTotal =
+      purchases.reduce(
+        (sum, purchase) =>
+          addMoney(
+            sum,
+            purchase.total,
+          ),
+        toMoney(0),
       );
 
-      return addMoney(sum, remaining);
-    }, toMoney(0));
+    const {
+      cashOutflows,
+      cashResult,
+      grossProfit,
+      operatingProfit,
+    } = calculateFinanceResults({
+      cashIncome: income,
+      operatingExpenses:
+        expenseTotal,
+      purchases: purchaseTotal,
+      netRevenue,
+      cogs,
+    });
 
-    const operatingResult = subtractMoney(
-      subtractMoney(income, expenseTotal),
-      purchaseTotal,
-    );
+    const inventoryValue =
+      parts.reduce(
+        (sum, part) =>
+          addMoney(
+            sum,
+            multiplyMoney(
+              part.buyPrice,
+              part.stock,
+            ),
+          ),
+        toMoney(0),
+      );
+
+    const receivables =
+      outstandingInvoices.reduce(
+        (sum, invoice) => {
+          const paid =
+            invoice.customerPayments.reduce(
+              (
+                paymentSum,
+                payment,
+              ) =>
+                addMoney(
+                  paymentSum,
+                  payment.amount,
+                ),
+              toMoney(0),
+            );
+
+          const remaining =
+            nonNegativeMoney(
+              subtractMoney(
+                invoice.total,
+                paid,
+              ),
+            );
+
+          return addMoney(
+            sum,
+            remaining,
+          );
+        },
+        toMoney(0),
+      );
 
     const sheets = [
       {
         name: "Përmbledhje",
 
         rows: [
-          ["AutoFlow - Raport financiar", context.business.name],
+          [
+            "AutoFlow - Raport financiar",
+            context.business.name,
+          ],
 
           [
             "Periudha",
-            `${formatDate(period.start)} - ${formatDate(period.end)}`,
+            `${formatDate(
+              period.start,
+            )} - ${formatDate(
+              period.end,
+            )}`,
           ],
 
-          ["Të ardhura", moneyToNumber(income)],
-          ["Shpenzime operative", moneyToNumber(expenseTotal)],
-          ["Blerje të pranuara", moneyToNumber(purchaseTotal)],
-          ["Rezultati", moneyToNumber(operatingResult)],
+          [
+            "Të faturuara",
+            moneyToNumber(
+              invoicedRevenue,
+            ),
+          ],
+
+          [
+            "Të ardhura neto",
+            moneyToNumber(
+              netRevenue,
+            ),
+          ],
+
+          [
+            "Të arkëtuara",
+            moneyToNumber(income),
+          ],
+
+          [
+            "Kosto e pjesëve (COGS)",
+            moneyToNumber(cogs),
+          ],
+
+          [
+            "Fitimi bruto",
+            moneyToNumber(
+              grossProfit,
+            ),
+          ],
+
+          [
+            "Shpenzime operative",
+            moneyToNumber(
+              expenseTotal,
+            ),
+          ],
+
+          [
+            "Fitimi operativ",
+            moneyToNumber(
+              operatingProfit,
+            ),
+          ],
+
+          [
+            "Blerje të pranuara",
+            moneyToNumber(
+              purchaseTotal,
+            ),
+          ],
+
+          [
+            "Dalje të arkës",
+            moneyToNumber(
+              cashOutflows,
+            ),
+          ],
+
+          [
+            "Rezultati i arkës",
+            moneyToNumber(
+              cashResult,
+            ),
+          ],
+
           [
             "Vlera aktuale e inventarit",
-            moneyToNumber(inventoryValue),
+            moneyToNumber(
+              inventoryValue,
+            ),
           ],
-          ["Detyrime klientësh", moneyToNumber(receivables)],
+
+          [
+            "Detyrime klientësh",
+            moneyToNumber(
+              receivables,
+            ),
+          ],
+
           [
             "Eksportuar nga",
-            context.user.name || context.user.email,
+            context.user.name ||
+              context.user.email,
           ],
+
           [
             "Data e eksportit",
-            new Date().toLocaleString("sq-AL"),
+            new Date().toLocaleString(
+              "sq-AL",
+            ),
           ],
         ],
       },
@@ -259,16 +439,30 @@ export async function GET(request) {
             "Shuma",
           ],
 
-          ...payments.map((payment) => [
-            formatDate(payment.paidAt),
-            payment.invoice.number,
-            payment.method,
-            payment.reference || "",
-            payment.recordedBy?.name || "",
-            moneyToNumber(payment.amount),
-          ]),
+          ...payments.map(
+            (payment) => [
+              formatDate(
+                payment.paidAt,
+              ),
+              payment.invoice.number,
+              payment.method,
+              payment.reference || "",
+              payment.recordedBy
+                ?.name || "",
+              moneyToNumber(
+                payment.amount,
+              ),
+            ],
+          ),
 
-          ["TOTAL", "", "", "", "", moneyToNumber(income)],
+          [
+            "TOTAL",
+            "",
+            "",
+            "",
+            "",
+            moneyToNumber(income),
+          ],
         ],
       },
 
@@ -286,15 +480,23 @@ export async function GET(request) {
             "Shuma",
           ],
 
-          ...expenses.map((expense) => [
-            formatDate(expense.expenseDate),
-            expense.category?.name || "",
-            expense.description,
-            expense.supplier || "",
-            expense.documentNumber || "",
-            expense.paymentMethod,
-            moneyToNumber(expense.amount),
-          ]),
+          ...expenses.map(
+            (expense) => [
+              formatDate(
+                expense.expenseDate,
+              ),
+              expense.category
+                ?.name || "",
+              expense.description,
+              expense.supplier || "",
+              expense.documentNumber ||
+                "",
+              expense.paymentMethod,
+              moneyToNumber(
+                expense.amount,
+              ),
+            ],
+          ),
 
           [
             "TOTAL",
@@ -303,7 +505,9 @@ export async function GET(request) {
             "",
             "",
             "",
-            moneyToNumber(expenseTotal),
+            moneyToNumber(
+              expenseTotal,
+            ),
           ],
         ],
       },
@@ -319,36 +523,86 @@ export async function GET(request) {
             "Automjeti",
             "Statusi",
             "Totali",
+            "TVSH",
+            "Të ardhura neto",
+            "COGS",
+            "Marzhi bruto",
             "Paguar",
             "Mbetur",
           ],
 
-          ...invoices.map((invoice) => {
-            const paid = invoice.customerPayments.reduce(
-              (sum, payment) =>
-                addMoney(sum, payment.amount),
-              toMoney(0),
-            );
+          ...invoices.map(
+            (invoice) => {
+              const paid =
+                invoice.customerPayments.reduce(
+                  (
+                    sum,
+                    payment,
+                  ) =>
+                    addMoney(
+                      sum,
+                      payment.amount,
+                    ),
+                  toMoney(0),
+                );
 
-            const remaining = nonNegativeMoney(
-              subtractMoney(invoice.total, paid),
-            );
+              const remaining =
+                nonNegativeMoney(
+                  subtractMoney(
+                    invoice.total,
+                    paid,
+                  ),
+                );
 
-            return [
-              formatDate(invoice.createdAt),
-              invoice.number,
-              invoice.customer?.name || "",
+              const invoiceNetRevenue =
+                getInvoiceNetRevenue(
+                  invoice,
+                );
 
-              invoice.vehicle
-                ? `${invoice.vehicle.brand} ${invoice.vehicle.plate}`
-                : "",
+              const invoiceCogs =
+                getInvoiceCogs(
+                  invoice,
+                );
 
-              invoice.status,
-              moneyToNumber(invoice.total),
-              moneyToNumber(paid),
-              moneyToNumber(remaining),
-            ];
-          }),
+              const invoiceGrossProfit =
+                subtractMoney(
+                  invoiceNetRevenue,
+                  invoiceCogs,
+                );
+
+              return [
+                formatDate(
+                  invoice.createdAt,
+                ),
+                invoice.number,
+                invoice.customer
+                  ?.name || "",
+                invoice.vehicle
+                  ? `${invoice.vehicle.brand} ${invoice.vehicle.plate}`
+                  : "",
+                invoice.status,
+                moneyToNumber(
+                  invoice.total,
+                ),
+                moneyToNumber(
+                  invoice.vatAmount,
+                ),
+                moneyToNumber(
+                  invoiceNetRevenue,
+                ),
+                moneyToNumber(
+                  invoiceCogs,
+                ),
+                moneyToNumber(
+                  invoiceGrossProfit,
+                ),
+                moneyToNumber(paid),
+                moneyToNumber(
+                  remaining,
+                ),
+              ];
+            },
+          ),
         ],
       },
 
@@ -368,10 +622,11 @@ export async function GET(request) {
           ],
 
           ...parts.map((part) => {
-            const partValue = multiplyMoney(
-              part.buyPrice,
-              part.stock,
-            );
+            const partValue =
+              multiplyMoney(
+                part.buyPrice,
+                part.stock,
+              );
 
             return [
               part.code || "",
@@ -379,8 +634,12 @@ export async function GET(request) {
               part.category || "",
               part.supplier || "",
               part.stock,
-              moneyToNumber(part.buyPrice),
-              moneyToNumber(partValue),
+              moneyToNumber(
+                part.buyPrice,
+              ),
+              moneyToNumber(
+                partValue,
+              ),
               part.minStock,
             ];
           }),
@@ -392,7 +651,9 @@ export async function GET(request) {
             "",
             "",
             "",
-            moneyToNumber(inventoryValue),
+            moneyToNumber(
+              inventoryValue,
+            ),
             "",
           ],
         ],
@@ -403,26 +664,34 @@ export async function GET(request) {
 
         rows: [
           [
-            "Data",
+            "Data e pranimit",
             "Furnitori",
             "Statusi",
             "Totali",
             "Shënime",
           ],
 
-          ...purchases.map((purchase) => [
-            formatDate(purchase.createdAt),
-            purchase.supplier,
-            purchase.status,
-            moneyToNumber(purchase.total),
-            purchase.notes || "",
-          ]),
+          ...purchases.map(
+            (purchase) => [
+              formatDate(
+                purchase.updatedAt,
+              ),
+              purchase.supplier,
+              purchase.status,
+              moneyToNumber(
+                purchase.total,
+              ),
+              purchase.notes || "",
+            ],
+          ),
 
           [
             "TOTAL",
             "",
             "",
-            moneyToNumber(purchaseTotal),
+            moneyToNumber(
+              purchaseTotal,
+            ),
             "",
           ],
         ],
@@ -443,21 +712,28 @@ export async function GET(request) {
             "Shënim",
           ],
 
-          ...movements.map((movement) => [
-            formatDate(movement.createdAt),
-            movement.part.name,
-            movement.type,
-            movement.quantity,
-            movement.stockBefore,
-            movement.stockAfter,
-            movement.user?.name || "",
-            movement.note || "",
-          ]),
+          ...movements.map(
+            (movement) => [
+              formatDate(
+                movement.createdAt,
+              ),
+              movement.part.name,
+              movement.type,
+              movement.quantity,
+              movement.stockBefore,
+              movement.stockAfter,
+              movement.user?.name ||
+                "",
+              movement.note || "",
+            ],
+          ),
         ],
       },
     ];
 
-    const bytes = buildXlsx(sheets);
+    const bytes = buildXlsx(
+      sheets,
+    );
 
     const fileName =
       `autoflow-raport-` +
@@ -466,7 +742,8 @@ export async function GET(request) {
 
     await db.financialReportExport.create({
       data: {
-        businessId: context.businessId,
+        businessId:
+          context.businessId,
         userId: context.userId,
         reportType: "FULL",
         periodStart: period.start,
@@ -476,33 +753,37 @@ export async function GET(request) {
     });
 
     await createAuditLog({
-      businessId: context.businessId,
+      businessId:
+        context.businessId,
       userId: context.userId,
       action: "EXPORT",
-      entityType: "FinancialReport",
-      title: "U eksportua raporti financiar",
+      entityType:
+        "FinancialReport",
+      title:
+        "U eksportua raporti financiar",
       description: fileName,
-
       metadata: {
         periodStart: period.start,
         periodEnd: period.end,
       },
     });
 
-    return new NextResponse(bytes, {
-      status: 200,
-
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-
-        "Content-Disposition":
-          `attachment; filename="${fileName}"`,
-
-        "Cache-Control": "no-store",
-        "x-request-id": requestId,
+    return new NextResponse(
+      bytes,
+      {
+        status: 200,
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition":
+            `attachment; filename="${fileName}"`,
+          "Cache-Control":
+            "no-store",
+          "x-request-id":
+            requestId,
+        },
       },
-    });
+    );
   } catch (error) {
     return apiError(error, {
       request,

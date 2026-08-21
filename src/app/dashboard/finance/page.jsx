@@ -12,6 +12,12 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import PeriodFilter from "@/components/finance/PeriodFilter";
 import { requireBusinessPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import {
+  calculateFinanceResults,
+  sumInvoiceCogs,
+  sumInvoiceNetRevenue,
+  sumInvoiceTotals,
+} from "@/lib/finance-metrics";
 import { parseFinancePeriod } from "@/lib/finance-period";
 import {
   addMoney,
@@ -27,12 +33,10 @@ export default async function FinancePage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
   const period = parseFinancePeriod(resolvedSearchParams);
 
-  const {
-    businessId,
-    business,
-  } = await requireBusinessPermission(
-    PERMISSIONS.FINANCE_VIEW,
-  );
+  const { businessId, business } =
+    await requireBusinessPermission(
+      PERMISSIONS.FINANCE_VIEW,
+    );
 
   const [
     payments,
@@ -57,7 +61,7 @@ export default async function FinancePage({ searchParams }) {
       _count: true,
     }),
 
-    db.invoice.aggregate({
+    db.invoice.findMany({
       where: {
         businessId,
         status: {
@@ -68,10 +72,19 @@ export default async function FinancePage({ searchParams }) {
           lt: period.endExclusive,
         },
       },
-      _sum: {
+      select: {
         total: true,
+        vatAmount: true,
+        service: {
+          select: {
+            partsUsed: {
+              select: {
+                costTotal: true,
+              },
+            },
+          },
+        },
       },
-      _count: true,
     }),
 
     db.businessExpense.aggregate({
@@ -93,7 +106,7 @@ export default async function FinancePage({ searchParams }) {
       where: {
         businessId,
         status: "RECEIVED",
-        createdAt: {
+        updatedAt: {
           gte: period.start,
           lt: period.endExclusive,
         },
@@ -141,25 +154,35 @@ export default async function FinancePage({ searchParams }) {
   ]);
 
   const income = toMoney(payments._sum.amount ?? 0);
-  const invoicedRevenue = toMoney(
-    issuedInvoices._sum.total ?? 0,
-  );
+
+  const invoicedRevenue =
+    sumInvoiceTotals(issuedInvoices);
+
+  const netRevenue =
+    sumInvoiceNetRevenue(issuedInvoices);
+
+  const cogs =
+    sumInvoiceCogs(issuedInvoices);
+
   const operatingExpenses = toMoney(
     expenses._sum.amount ?? 0,
   );
+
   const purchaseExpenses = toMoney(
     purchases._sum.total ?? 0,
   );
 
-  const totalExpenses = addMoney(
+  const {
+    cashResult,
+    grossProfit,
+    operatingProfit,
+  } = calculateFinanceResults({
+    cashIncome: income,
     operatingExpenses,
-    purchaseExpenses,
-  );
-
-  const profit = subtractMoney(
-    income,
-    totalExpenses,
-  );
+    purchases: purchaseExpenses,
+    netRevenue,
+    cogs,
+  });
 
   const inventoryValue = parts.reduce(
     (total, part) =>
@@ -175,23 +198,25 @@ export default async function FinancePage({ searchParams }) {
 
   const receivables = unpaidInvoices.reduce(
     (totalReceivables, invoice) => {
-      const paidAmount = invoice.customerPayments.reduce(
-        (totalPaid, payment) =>
-          addMoney(totalPaid, payment.amount),
-        toMoney(0),
-      );
+      const paidAmount =
+        invoice.customerPayments.reduce(
+          (totalPaid, payment) =>
+            addMoney(
+              totalPaid,
+              payment.amount,
+            ),
+          toMoney(0),
+        );
 
       const remaining = subtractMoney(
         invoice.total,
         paidAmount,
       );
 
-      const normalizedRemaining = isMoneyLessThan(
-        remaining,
-        0,
-      )
-        ? toMoney(0)
-        : remaining;
+      const normalizedRemaining =
+        isMoneyLessThan(remaining, 0)
+          ? toMoney(0)
+          : remaining;
 
       return addMoney(
         totalReceivables,
@@ -208,19 +233,44 @@ export default async function FinancePage({ searchParams }) {
       icon: FileSpreadsheet,
     },
     {
-      label: "Të arkëtuara",
-      value: income,
+      label: "Të ardhura neto",
+      value: netRevenue,
       icon: TrendingUp,
     },
     {
-      label: "Shpenzime",
-      value: totalExpenses,
+      label: "Të arkëtuara",
+      value: income,
+      icon: Banknote,
+    },
+    {
+      label: "Kosto e pjesëve (COGS)",
+      value: cogs,
+      icon: PackageCheck,
+    },
+    {
+      label: "Shpenzime operative",
+      value: operatingExpenses,
       icon: ReceiptText,
     },
     {
-      label: "Rezultati",
-      value: profit,
+      label: "Blerje të pranuara",
+      value: purchaseExpenses,
+      icon: PackageCheck,
+    },
+    {
+      label: "Rezultati i arkës",
+      value: cashResult,
       icon: Banknote,
+    },
+    {
+      label: "Fitimi bruto",
+      value: grossProfit,
+      icon: TrendingUp,
+    },
+    {
+      label: "Fitimi operativ",
+      value: operatingProfit,
+      icon: TrendingUp,
     },
     {
       label: "Vlera e stokut",
@@ -267,14 +317,14 @@ export default async function FinancePage({ searchParams }) {
           </h1>
 
           <p className="mt-2 text-slate-500">
-            Raporte mujore, tremujore, vjetore,
-            inventarizime dhe eksporte Excel.
+            Faturim, arkëtime, COGS, shpenzime,
+            fitim, inventar dhe raporte financiare.
           </p>
         </div>
 
         <PeriodFilter period={period} />
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {cards.map((card) => {
             const Icon = card.icon;
 

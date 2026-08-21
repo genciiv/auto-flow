@@ -16,3 +16,4 @@ import "./observability/logger.test.mjs";
 
 import "./service-financial-summary.test.mjs";
 import "./invoice-totals.test.mjs";
+import "./finance-metrics.test.mjs";
