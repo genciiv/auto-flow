@@ -6,6 +6,8 @@ import { requireBusinessActionPermission } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { createActionError } from "@/lib/errors";
 import {
+  addMoney,
+  divideMoney,
   multiplyMoney,
   toMoney,
   toQuantity,
@@ -280,6 +282,7 @@ export async function receivePurchaseOrder(purchaseOrderId) {
           select: {
             id: true,
             stock: true,
+            buyPrice: true,
           },
         });
 
@@ -287,10 +290,31 @@ export async function receivePurchaseOrder(purchaseOrderId) {
           const stockBefore = existingPart.stock;
           const stockAfter = stockBefore + movementQuantity;
 
+          const existingStockValue = multiplyMoney(
+            existingPart.buyPrice ?? 0,
+            stockBefore,
+          );
+
+          const receivedStockValue = multiplyMoney(
+            unitPrice,
+            movementQuantity,
+          );
+
+          const combinedStockValue = addMoney(
+            existingStockValue,
+            receivedStockValue,
+          );
+
+          const weightedBuyPrice = divideMoney(
+            combinedStockValue,
+            stockAfter,
+          );
+
           const stockUpdate = await transaction.part.updateMany({
             where: {
               id: existingPart.id,
               businessId,
+              stock: stockBefore,
             },
 
             data: {
@@ -298,14 +322,14 @@ export async function receivePurchaseOrder(purchaseOrderId) {
                 increment: movementQuantity,
               },
 
-              buyPrice: unitPrice,
+              buyPrice: weightedBuyPrice,
               supplier: purchase.supplier,
             },
           });
 
           if (stockUpdate.count !== 1) {
             throw createActionError(
-              `Stoku i artikullit "${itemName}" nuk u përditësua.`,
+              `Stoku i artikullit "${itemName}" ka ndryshuar. Provo përsëri.`,
             );
           }
 

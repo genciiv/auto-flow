@@ -37,3 +37,52 @@ test("automjetet e dorëzuara numërohen aktive dhe porositë krijojnë hyrje st
     /stockAfter/,
   );
 });
+
+test("pranimi i porosisë përdor mesatare të ponderuar për buyPrice", async () => {
+  const purchaseActions = await readProjectFile(
+    "src/actions/purchase-item-actions.js",
+  );
+
+  const receiveSection = purchaseActions.slice(
+    purchaseActions.indexOf(
+      "export async function receivePurchaseOrder",
+    ),
+  );
+
+  assert.match(receiveSection, /buyPrice: true/);
+
+  assert.match(
+    receiveSection,
+    /const existingStockValue = multiplyMoney\(\s*existingPart\.buyPrice \?\? 0,\s*stockBefore,\s*\)/,
+  );
+
+  assert.match(
+    receiveSection,
+    /const receivedStockValue = multiplyMoney\(\s*unitPrice,\s*movementQuantity,\s*\)/,
+  );
+
+  assert.match(
+    receiveSection,
+    /const combinedStockValue = addMoney\(\s*existingStockValue,\s*receivedStockValue,\s*\)/,
+  );
+
+  assert.match(
+    receiveSection,
+    /const weightedBuyPrice = divideMoney\(\s*combinedStockValue,\s*stockAfter,\s*\)/,
+  );
+
+  assert.match(
+    receiveSection,
+    /buyPrice: weightedBuyPrice/,
+  );
+
+  assert.match(
+    receiveSection,
+    /stock: stockBefore/,
+  );
+
+  assert.doesNotMatch(
+    receiveSection,
+    /buyPrice:\s*unitPrice,\s*supplier:\s*purchase\.supplier/,
+  );
+});
