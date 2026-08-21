@@ -964,6 +964,8 @@ model ServicePartUsage {
   quantity  Int      @default(1)
   unitPrice Decimal  @default(0) @db.Decimal(18, 2)
   total     Decimal  @default(0) @db.Decimal(18, 2)
+  costUnitPrice Decimal @default(0) @db.Decimal(18, 2)
+  costTotal     Decimal @default(0) @db.Decimal(18, 2)
   createdAt DateTime @default(now())
 
   service ServiceRecord @relation(fields: [serviceId], references: [id], onDelete: Cascade)

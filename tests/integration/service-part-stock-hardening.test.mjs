@@ -34,6 +34,36 @@ test("dalja e stokut bllokon stokun negativ dhe regjistron stokun real", async (
   assert.match(addSection, /stockAfter/);
 });
 
+test("përdorimi i pjesës ruan cost snapshot dhe mesataren e ponderuar", async () => {
+  const action = await readProjectFile("src/actions/service-part-actions.js");
+  const addSection = action.slice(
+    action.indexOf("export async function addPartToService"),
+    action.indexOf("export async function removePartFromServiceAction"),
+  );
+
+  assert.match(addSection, /buyPrice: true/);
+  assert.match(
+    addSection,
+    /const costUnitPrice = toMoney\(part\.buyPrice \?\? 0\)/,
+  );
+  assert.match(
+    addSection,
+    /const costTotal = multiplyMoney\(\s*costUnitPrice,\s*requestedQuantity,\s*\)/,
+  );
+  assert.match(addSection, /costUnitPrice,\s*costTotal,/);
+  assert.match(addSection, /costTotal: true/);
+  assert.match(
+    addSection,
+    /const combinedCostTotal = existingUsage[\s\S]*addMoney\(existingUsage\.costTotal, costTotal\)/,
+  );
+  assert.match(
+    addSection,
+    /const combinedCostUnitPrice = divideMoney\(\s*combinedCostTotal,\s*combinedQuantity,\s*\)/,
+  );
+  assert.match(addSection, /costUnitPrice: combinedCostUnitPrice/);
+  assert.match(addSection, /costTotal: combinedCostTotal/);
+});
+
 test("heqja e pjesës e pretendon usage-in para kthimit dhe nuk e kthen dy herë", async () => {
   const action = await readProjectFile("src/actions/service-part-actions.js");
   const removeSection = action.slice(
